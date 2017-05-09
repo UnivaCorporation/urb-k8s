@@ -41,7 +41,7 @@ def readme():
 
 setup(name = 'urb',
       version = __version__,
-      description = 'Univa Resource Broker',
+      description = 'Universal Resource Broker',
       long_description = readme(),
       author = 'Univa',
       author_email = 'info@univa.com',

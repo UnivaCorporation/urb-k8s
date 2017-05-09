@@ -24,7 +24,7 @@ export GIT_REV          := git$(shell git rev-parse --verify head)
 #
 # ie:
 #
-# $ URB_REL="Univa Resource Broker v1.0" make
+# $ URB_REL="Universal Resource Broker v1.0" make
 #
 # By default the library will contain the string prepended with "GIT:"
 # with URB_REL_STR variable content bellow.
