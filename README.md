@@ -30,5 +30,5 @@ Please read [vagrant/README.md](vagrant/README.md) file in urb-core/vagrant dire
 
 This project includes Universal Resource Broker core components. For the Universal Resource Broker to be fully functioning the scheduler back end adapter has to be implemented in Python, based on interface located in source/python/urb/adapters/adapter_interface.py
 
-Structurally it is recommended to create a separate project with adapter interface implementation and use urb-core as an external dependency (similarly to urb-k8s project).
+Structurally it is recommended to create a separate project with adapter interface implementation and use urb-core as an external dependency (similarly to [urb-k8s](urb-k8s) project).
 

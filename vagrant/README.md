@@ -1,31 +1,45 @@
-Build base docker image:
+# Build base docker image:
 
-  make
+  `make`
 
-Provision and start build environment:
+# Provision and start build environment:
 
-  vagrant up
+  `vagrant up`
 
-Access build environment
+# Access build environment:
 
-  vagrant ssh
+  `vagrant ssh`
 
-Build project (from inside the guest, after vagrant ssh):
+# Build project (from inside the guest, after vagrant ssh):
 
-  cd /scratch/urb   # change directory to the project root
-  make              # run build
-  make test         # run unit tests
-  make dist         # create distrubution archive in dist direcotry
-  exit              # exit from the build environment
+- change directory to the project root:
 
-Shutdown the build environment:
+  `cd /scratch/urb`
 
-  vagrant halt
+- run build:
 
-Completely destroy build environment:
+  `make`
 
-  vagrant destroy
+- run unit tests:
 
-Clean docker image:
+  `make test`
 
-  make clean
+- create distrubution archive in `dist` direcotry:
+
+  `make dist`
+
+- exit from the build environment:
+
+  `exit`
+
+# Shutdown the build environment:
+
+  `vagrant halt`
+
+# Completely destroy build environment:
+
+  `vagrant destroy`
+
+# Clean docker image:
+
+  `make clean`
