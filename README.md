@@ -83,7 +83,7 @@ Universal Resource Broker and Apache Mesos have different strategies for mapping
 # Architecture
 The Universal Resource Broker system is made of several core architectural components.  These components are depicted in the following figure and described in detail in the following sections.
 
-[URBArch.png](URBArch.png)
+![URBArch](URBArch.png)
 
 ## URB Service
 The URB Service is the core of the Universal Resource Broker system.  All other URB components communicate with the URB service through the URB API with the URB service managing the communication channels.  The URB service is implemented as a general purpose message handling driver with the ability to support multiple distributed Framework interfaces and resource backends.  In current version of URB only the Apache Mesos Framework interface is supported.
