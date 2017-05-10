@@ -5,7 +5,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.ssh.insert_key = false
   config.vm.define "build-machine", autostart: true do |app|
     app.vm.hostname = "head.private"
-    app.vm.synced_folder "..", "/scratch/urb"
+    if ENV['URB_K8S']
+      app.vm.synced_folder "../..", "/scratch/urb"
+    else
+      app.vm.synced_folder "..", "/scratch/urb"
+    end
     app.vm.provision "puppet" do |puppet|
       puppet.options = "--verbose"
       puppet.hiera_config_path = "puppet/hiera.yaml"
