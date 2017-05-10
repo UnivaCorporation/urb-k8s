@@ -93,6 +93,7 @@ class UGEExecutorRunner:
         self.slave_id = {
             "value":NamingUtility.create_slave_id(os.environ["JOB_ID"], os.environ["SGE_TASK_ID"], self.notify_channel_name)
         }
+        self.logger.debug('slave id: %s' % self.slave_id)
         self.slave_info = {
             'hostname' : self.host,
             'port' : self.port,
