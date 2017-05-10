@@ -1,3 +1,7 @@
+Following are the instructions for building urb-core project as a separate component.
+External projects implementing scheduler adapter interface can use urb-core as a subproject
+in which case build instructions from those projects might be used instead.
+
 # Build base docker image:
 
   `make`
