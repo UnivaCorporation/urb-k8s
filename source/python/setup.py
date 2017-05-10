@@ -49,7 +49,7 @@ setup(name = 'urb',
         'console_scripts': [
             'urb-service=urb.service.urb_service:run',
             'urb-service-controller=urb.service.urb_service_controller:run',
-            'uge-executor-runner=urb.executor.uge_executor_runner:run'
+            'urb-executor-runner=urb.executor.executor_runner:run'
         ],
       },
       url = 'https://www.univa.com',

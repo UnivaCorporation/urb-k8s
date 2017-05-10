@@ -34,12 +34,12 @@ from urb.utility.naming_utility import NamingUtility
 from urb.messaging.channel_factory import ChannelFactory
 from urb.messaging.messaging_utility import MessagingUtility
 from urb.log.log_manager import LogManager
-from uge_executor_handler import UGEExecutorHandler
+from executor_handler import ExecutorHandler
 from urb.messaging.mesos.register_executor_runner_message import RegisterExecutorRunnerMessage
 from urb.messaging.heartbeat_message import HeartbeatMessage
 
-class UGEExecutorRunner:
-    """ UGE executor runner class. """
+class ExecutorRunner:
+    """ executor runner class. """
 
     SECONDS_TO_WAIT_FOR_GREENLETS = 3
     HEARTBEAT_PERIOD_IN_SECONDS = 60
@@ -56,11 +56,11 @@ class UGEExecutorRunner:
 
     def configure(self):
         cm = ConfigManager.get_instance()
-        self.service_monitor_endpoint = cm.get_config_option('UGEExecutorRunner',
+        self.service_monitor_endpoint = cm.get_config_option('ExecutorRunner',
             'service_monitor_endpoint')
-        mesos_master_endpoint = cm.get_config_option('UGEExecutorRunner',
+        mesos_master_endpoint = cm.get_config_option('ExecutorRunner',
             'mesos_master_endpoint')
-        self.mesos_work_dir = cm.get_config_option('UGEExecutorRunner',
+        self.mesos_work_dir = cm.get_config_option('ExecutorRunner',
             'mesos_work_dir')  % { 'tmp' : os.environ.get('TMP','') }
 
         # Create our working directory before we start logging
@@ -81,7 +81,7 @@ class UGEExecutorRunner:
         # The service will send messages to our notify channel
         channel_id = MessagingUtility.get_endpoint_id(self.channel_name)
         self.notify_channel_name = MessagingUtility.get_notify_channel_name(None,channel_id)
-        self.handler_list = [UGEExecutorHandler(self.notify_channel_name,self)]
+        self.handler_list = [ExecutorHandler(self.notify_channel_name,self)]
     
         # Get various id objects
         self.framework_id = {
@@ -158,7 +158,7 @@ class UGEExecutorRunner:
         self.logger.info('Waiting for requests')
         # Lets wait a a bit before sending our first heartbeat so 
         # the server has a chance to process or registration messages first
-        last_heartbeat_time = time.time() - UGEExecutorRunner.HEARTBEAT_PERIOD_IN_SECONDS / 3
+        last_heartbeat_time = time.time() - ExecutorRunner.HEARTBEAT_PERIOD_IN_SECONDS / 3
         while not self.done:
             now = time.time()
             if end_time is not None:
@@ -166,12 +166,12 @@ class UGEExecutorRunner:
                     self.logger.info('Done serving requests')
                     break
             # Send heartbeat
-            if now > last_heartbeat_time + UGEExecutorRunner.HEARTBEAT_PERIOD_IN_SECONDS:
+            if now > last_heartbeat_time + ExecutorRunner.HEARTBEAT_PERIOD_IN_SECONDS:
                 last_heartbeat_time = now
                 self.send_heartbeat()
             gevent.sleep(0.001)
             gevent.joinall(handler_listeners, 
-                timeout=UGEExecutorRunner.SECONDS_TO_WAIT_FOR_GREENLETS)
+                timeout=ExecutorRunner.SECONDS_TO_WAIT_FOR_GREENLETS)
         self.logger.info('Executor done')
 
     def run_forever(self):
@@ -181,7 +181,7 @@ class UGEExecutorRunner:
 def run():
     from gevent import monkey; monkey.patch_socket()
     try:
-        executor = UGEExecutorRunner()
+        executor = ExecutorRunner()
         executor.run()
     except KeyboardInterrupt, ex:
         self.logger.info('KeyboardInterrupt: %s' % ex)

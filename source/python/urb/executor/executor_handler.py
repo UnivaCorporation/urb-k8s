@@ -36,19 +36,19 @@ from urb.utility.executor_tracker import ExecutorTracker
 from urb.messaging.service_disconnected_message import ServiceDisconnectedMessage
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
 
-class UGEExecutorHandler(MessageHandler):
+class ExecutorHandler(MessageHandler):
 
     def __init__(self, channelName,executor_runner):
         MessageHandler.__init__(self, channelName)
         cm = ConfigManager.get_instance()
         self.urb_lib_path = cm.get_config_option(
-            'UGEExecutorHandler', 'urb_lib_path')
+            'ExecutorHandler', 'urb_lib_path')
         self.fetcher_path = cm.get_config_option(
-            'UGEExecutorHandler', 'fetcher_path')
+            'ExecutorHandler', 'fetcher_path')
         self.command_executor_path = cm.get_config_option(
-            'UGEExecutorHandler', 'command_executor_path')
+            'ExecutorHandler', 'command_executor_path')
 
-        self.ld_library_path = cm.get_config_option('UGEExecutorHandler', 'ld_library_path')
+        self.ld_library_path = cm.get_config_option('ExecutorHandler', 'ld_library_path')
         self.logger.debug("LD_LIBRARY_PATH from config: %s" % self.ld_library_path)
         # Add platform specific path
         ld_library_path_platform = os.path.join(self.ld_library_path, distutils.util.get_platform())
@@ -277,7 +277,7 @@ class UGEExecutorHandler(MessageHandler):
                                          (v['name'], exec_env[v['name']], v['value']))
                     exec_env[v['name']] = v['value']
 
-# disabled to source executor profile on upper level (in bin/uge-executor-runner) to support "environment modules" mechanism
+# disabled to source executor profile on upper level (in bin/urb-executor-runner) to support "environment modules" mechanism
 #            self.logger.trace("Current executor env: %s" % exec_env)
 #
 #            # source user environment file

@@ -150,4 +150,6 @@ The build process produces a distribution archive which includes following compo
 - an architecture specific and architecture independent archives with Python eggs for Mesos and all required dependencies
 - Universal Resource Broker Service Python egg
 - Python example framework
+- URB Service example configuration files
+
 
