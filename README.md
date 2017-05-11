@@ -98,8 +98,8 @@ The Universal Resource Broker Service is responsible for implementing the Apache
 - The registration and lifecylce management of Apache Mesos Executors
 - Sending tasks to Apache Mesos Executors
 
-### Shdeduler Adapter Interface
-A Shdeduler Adapter interface is responsible for connecting URB Service to the Cluster Resource Scheduler backends. Only interface API is provided by the project. It has to be implemented separately for a Cluster Resource Scheduler of your choice.
+### Scheduler Adapter Interface
+A Scheduler Adapter interface is responsible for connecting URB Service to the Cluster Resource Scheduler backends. Only interface API is provided by the project. It has to be implemented separately for a Cluster Resource Scheduler of your choice.
 
 ## liburb.so - Universal Resource Broker API
 The URB API manages all network communication between Framework components in the Universal Resource Broker system.  It is implemented both in the shared C++ library (liburb.so) linked by _Schedulers_ and _Executors_ (instead of stock Mesos libmesos.so library) and inside of the URB Service.  The API is responsible for translating the native handler interfaces to JSON encapsulated messages.  The messages are sent to and received from a Redis powered message queue.  No Universal Resource Broker components talk directly to other URB components as all communication passes through the URB API and Redis.
@@ -152,4 +152,29 @@ The build process produces a distribution archive which includes following compo
 - Python example framework
 - URB Service example configuration files
 
+# Run URB in the development environment
 
+URB project includes dummy implementation of the Scheduler Adapter Interface in source/python/urb/adapters/dummy_adapter.py which can be used as a basis for a custom scheduler implementation.
+
+Assuming that URB build (`make && make build`) succeeded following commands will start redis server and URB service:
+
+`cd /scratch/urb-core`
+`source/cpp/3rdparty/redis/build/redis-2.8.18/src/redis-server&` - start redis server in background
+`cd source/python`
+`. ../../etc/urb.sh` - source URB development environment to set environment variables for URB configuration files (etc/urb.conf and etc/urb.executor_runner.conf) and Python path required by URB service
+`python urb/service/urb_service.py` - run URB service
+
+In order to be able to start Mesos example frameworks Python virtual environment has to be set up:
+
+`tools/venv.sh`
+
+Following command will start Mesos C++ example framework:
+
+`URB_MASTER=urb://$(hostname) LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/build/example_framework.test`
+
+Following command will start Mesos Python example framework:
+
+`. venv/bin/activate`
+`LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/python-bindings/test/test_framework.py urb://$(hostname)`
+
+Please note that with dummy implementation of the Scheduler Adapter Interface 
