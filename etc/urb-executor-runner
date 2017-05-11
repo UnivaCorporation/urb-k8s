@@ -1,0 +1,21 @@
+#!/bin/bash
+
+URB_ROOT=/scratch/urb
+
+. $URB_ROOT/etc/urb.sh
+
+if [ ! -f $URB_ROOT/venv/bin/activate ]; then
+  echo "Python virtualenv not found in $URB_ROOT/venv"
+  exit 1
+fi
+
+. $URB_ROOT/venv/bin/activate
+
+VENV_PYTHON=$(command -v python)
+export LD_LIBRARY_PATH=$URB_ROOT/source/cpp/liburb/build:$LD_LIBRARY_PATH
+
+if [ -f $HOME/.urb.executor_profile ]; then
+  . $HOME/.urb.executor_profile
+fi
+
+exec $VENV_PYTHON $venv/bin/urb-executor-runner "$@" 
