@@ -126,8 +126,10 @@ class Adapter(object):
         self.logger.debug('Deleting job: %s', job_id)
 
     @abc.abstractmethod
-    def submit_job(self, job_command):
-        self.logger.debug('Submitting job: %s', job_command)
+    def get_job_id_tuple(self, job_id):
+        # Try to get job status and extract task array info
+        # If things do not work, assume no task array
+        self.logger.debug('get_job_id_tuple job: %s', job_id)
 
     @abc.abstractmethod
     def unregister_slave(self, request):

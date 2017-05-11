@@ -58,25 +58,34 @@ class AdapterManager(object):
         cm = ConfigManager.get_instance()
         adapter_path = cm.get_config_option('AdapterManager', adapter_path_option_name)
         adapter_config = cm.get_config_option('AdapterManager', adapter_option_name)
+        self.logger.debug('adapter_path=%s, adapter_config=%s' % (adapter_path, adapter_config))
         if adapter_config is None:
             raise ConfigurationError(
                 'Adapter parameter %s missing from config file: %s' 
                 % (adapter_option_name, cm.get_config_file()))
         self.adapter_module = adapter_config.split('.')[0]
         self.adapter_constructor = adapter_config.split('.')[1]
+        self.logger.trace('adapter_module=%s, adapter_constructor=%s' % (self.adapter_module, self.adapter_constructor))
         try:
             self.adapter_class = self.adapter_constructor.split('(')[0]
+            self.logger.trace('adapter_class=%s' % self.adapter_class)
             if adapter_path is not None:
                 if adapter_path[0] == ".":
+                    self.logger.trace('adapter_path is relative')
                     # relative path
                     adapter_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), adapter_path)
+                self.logger.trace('adapter_path=%s' % adapter_path)
+                sys.path.append(adapter_path)
+                self.logger.trace('Executing: from %s import %s' % (self.adapter_module, self.adapter_class))
+                exec 'from %s import %s' % (self.adapter_module, self.adapter_class)
+                exec 'adapter = %s' % self.adapter_constructor
             else:
                 adapter_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..", self.adapter_module)
-            sys.path.append(adapter_path)
-
-#            exec 'from %s import %s' % (self.adapter_module, self.adapter_class)
-            exec 'from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class)
-            exec 'adapter = %s' % self.adapter_constructor
+                self.logger.trace('adapter_path=%s' % adapter_path)
+                sys.path.append(adapter_path)
+                self.logger.trace('Executing: from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class))
+                exec 'from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class)
+                exec 'adapter = %s' % self.adapter_constructor
         except Exception, ex:
             self.logger.error('AdapterManager configuration error: %s' % ex)
             raise ConfigurationError(exception=ex)

@@ -89,9 +89,8 @@ class MesosHandler(MessageHandler):
 
     def __init__(self, channel_name, initial_retry_interval, max_retry_count):
         MessageHandler.__init__(self, channel_name)
-        print "Before AdapterManager: name=%s, channel_name=%s" % (self.name, channel_name)
+        self.logger.debug("Getting AdapterManager: name=%s, channel_name=%s" % (self.name, channel_name))
         self.adapter = AdapterManager.get_instance().get_adapter(self.name, channel_name)
-        print "After AdapterManager"
         self.__master_broker = False
         self.retry_manager = RetryManager(self.channel, initial_retry_interval, max_retry_count)
         self.__scheduled_shutdowns = {}
