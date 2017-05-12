@@ -814,102 +814,11 @@ class MesosHandler(MessageHandler):
                 existing_job_id = placeholder_to_jobid.get(slave_id['value'])
                 if not existing_job_id:
                     # We need to submit our actual runner...
-                    docker_args = None
-                    if 'container' in t:
-                        if 'type' in t['container']['type'] and t['container']['type'] != 'DOCKER':
-                            self.logger.error("Only DOCKER container type is supported")
-                            continue
-                        if 'image' not in t['container']['docker']:
-                            self.logger.error("Container image is not specified")
-                            continue
-                        else:
-                            # -soft enables downloading remote images but requires tag
-                            # make sure that not -q or -l options appended after it so they
-                            # do not become soft requirements
-                            image = t['container']['docker']['image']
-                            pos = image.rfind('/')
-                            if pos != -1:
-                                pos = image.rfind(':', pos)
-                            else:
-                                pos = image.rfind(':')
-                            if pos == -1:
-                                image += ':latest'
-
-                            docker_args = '-l docker -soft -l docker_images=*%s*' % image
-
-                            if 'network' in t['container']['docker']:
-                                network = t['container']['docker']['network']
-                                docker_args += ' -xd --net=%s' % network.lower()
-
-                            if 'port_mappings' in t['container']['docker']:
-                                for port_mapping in t['container']['docker']['port_mappings']:
-                                    host_port = port_mapping['host_port']
-                                    container_port = port_mapping['container_port']
-                                    docker_args += ' -xd --publish=%s:%s' % (host_port, container_port)
-                                    if 'protocol' in port_mapping:
-                                        protocol = port_mapping['protocol']
-                                        docker_args += '/%s' % protocol
-
-                            if 'privileged' in t['container']['docker']:
-                                privileged = t['container']['docker']['privileged']
-                                if privileged == True:
-                                    docker_args += ' -xd --privileged'
-
-                            parameters = t['container']['docker'].get('parameters', [])
-                            for parameter in parameters:
-                                key = parameter['key']
-                                value = parameter['value']
-                                docker_args += ' -xd --%s=%s' % (key, value)
-
-                            force_pull_image = True if 'force_pull_image' in t['container']['docker'] else False
-
-                            #volume_driver = t['container']['docker'].get('volume_driver', '')
-
-                            cf = ChannelFactory.get_instance()
-                            redis_host = cf.get_message_broker_connection_host()
-                            redis_ip = socket.gethostbyname(redis_host)
-                            uge_root = self.adapter.get_uge_root()
-                            # mount user home directory
-                            user_home = os.path.expanduser('~' + framework['user'])
-                            docker_args += ' -xd --volume=%s:%s:rw' % (user_home, user_home)
-                            # mount URB root directory
-                            docker_args += ' -xd --volume=%s:%s:rw' % (self.urb_root, self.urb_root)
-                            # mount UGE root directory
-                            docker_args += ' -xd --volume=%s:%s:rw' % (uge_root, uge_root)
-
-                            if 'volumes' in t['container']:
-                                for volume in t['container']['volumes']:
-                                    container_path = volume.get('container_path', '')
-                                    host_path = volume.get('host_path', container_path)
-                                    mode = volume.get('mode', 'rw').lower()
-                                    docker_args += ' -xd --volume=%s:%s:%s' % (host_path, container_path, mode)
-
-                            if 'hostname' in t['container']:
-                                docker_args += ' -xd --hostname=%s' % t['container']['hostname']
-
-                            network_infos = t['container'].get('network_infos', [])
-                            for network_info in network_infos:
-                                for ip_address in network_info.get('ip_addresses', []):
-                                    if 'ip_address' in ip_address:
-                                        ip_addr = ip_address['ip_address']
-                                        docker_args += ' -xd --ip=%s' % ip_addr
-
-                            # put UGE output files to home directory
-                            docker_args += " -o %s -e %s" % (user_home, user_home)
-
-                            # add redis host
-                            docker_args += ' -xd --add-host=%s:%s' % (redis_host, redis_ip)
-
-                            # allocate pseudo tty to be able to run sudo in container (use UGE option instead of docker -t)
-                            docker_args += ' -pty y'
-                            self.logger.debug("Docker args: %s" % docker_args)
-
                     concurrent_tasks = int(framework_config.get('concurrent_tasks',1))
-
                     self.logger.debug("Scaling up for slave: %s" % slave_id['value'])
-                    # This is our 'big scale' based on a known need.  Step up
-                    # in concurrent tasks.
-                    job_id = self.scale_up(framework, scale_count=concurrent_tasks, docker_params=docker_args, resources = t['resources'])
+                    # This is our 'big scale' based on a known need.  Step up in concurrent tasks.
+                    job_id = self.scale_up(framework, scale_count=concurrent_tasks, task=t)
+#                                           docker_params=docker_args, resources = t['resources'])
                     if len(job_id) > 0:
                         task_record['job_id'] = int(sorted(job_id)[0][0])
                     else:
@@ -1075,7 +984,7 @@ class MesosHandler(MessageHandler):
                     # We don' have a record...
                     if slave_id:
                         # We do not know about the tasks yet
-                        # Lets try and query uge
+                        # Lets try and query back end scheduler
                         job_id = NamingUtility.get_job_id_from_slave_id(slave_id['value'])
                         if job_id is not None:
                             try:
@@ -1092,7 +1001,7 @@ class MesosHandler(MessageHandler):
                                               (slave_id['value'],job_status))
 
                     else:
-                        # ... And we don't have a slave to use to query grid engine
+                        # ... And we don't have a slave to use to query backend scheduler
                         # If our framework has been up for a while we can assume the task is gone
                         if time.time() - framework['init_time'] > MesosHandler.SLAVE_GRACE_PERIOD:
                             self.logger.debug("Reconcile: slave grace period exceeded, set task status to TASK_LOST")
@@ -2332,7 +2241,8 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Sending executor registered message via channel %s: %s' % (executor_channel.name, message))
         executor_channel.write(message.to_json())
 
-    def scale_up(self,framework, scale_count=None, docker_params = None, resources = None):
+#    def scale_up(self,framework, scale_count=None, docker_params = None, resources = None):
+    def scale_up(self, framework, scale_count = None, task = None):
         framework_config = framework['config']
         if not scale_count:
             scale_count = int(framework_config.get('scale_count', 1))
@@ -2349,7 +2259,8 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Only launching %d tasks since there is less headroom than scale level %d" %
                     (job_headroom, scale_count))
             scale_count = job_headroom
-        job_ids = self.submit_executor_runner(framework, scale_count, docker_params, resources)
+#        job_ids = self.submit_executor_runner(framework, scale_count, docker_params, resources)
+        job_ids = self.submit_executor_runner(framework, scale_count, task)
 
         # Add the new ids to the job monitor...
         for j in job_ids:
@@ -2369,7 +2280,8 @@ class MesosHandler(MessageHandler):
         scale_count = scale_count * -1
         self.adapter.scale(framework,scale_count)
 
-    def submit_executor_runner(self, framework, concurrent_tasks, docker_params = None, resources = None):
+#    def submit_executor_runner(self, framework, concurrent_tasks, docker_params = None, resources = None):
+    def submit_executor_runner(self, framework, concurrent_tasks, task = None):
         framework_name = framework['name']
         framework_config = framework['config']
         framework_id = framework['id']
@@ -2389,55 +2301,13 @@ class MesosHandler(MessageHandler):
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
         job_submit_options = framework_config.get('job_submit_options', '')
-
-        # remove spaces if any from the beginning and end
-        job_submit_options = job_submit_options.strip()
-        if '-cwd' in job_submit_options:
-            self.logger.info('UGE option -cwd filtered out form job_submit_options of framework %s' % framework_name)
-            job_submit_options = job_submit_options.replace('-cwd', '')
-        if '-wd' in job_submit_options:
-            self.logger.info('UGE option -wd filtered out form job_submit_options of framework %s' % framework_name)
-            job_submit_options = re.sub('-wd\s+(.+?)(\.[^.]*\s|\s)', '', job_submit_options)
-
-        resource_mapping = framework_config.get('resource_mapping', '')
-        if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none':
-            mem = None
-            slots = None
-            for resource in resources:
-                if resource['name'] == 'mem':
-                    mem = int(resource['scalar']['value'])
-                elif resource['name'] == 'cpus':
-                    cpus = float(resource['scalar']['value'])
-                    if cpus >= 1.5:
-                        slots = int(round(cpus))
-
-            if slots is not None:
-                if resource_mapping == 'soft':
-                    self.logger.debug("For soft resource mapping parallel environment will not be used")
-                elif resource_mapping == 'hard':
-                    job_submit_options += " -pe URBDefaultPE %s" % str(slots)
-                else:
-                    self.logger.warn('Incorrect resource_mapping specifier: %s' % resource_mapping)
-            if mem is not None:
-                if resource_mapping == 'soft':
-                    job_submit_options += " -soft -l m_mem_free=%sM" % mem
-                elif resource_mapping == 'hard':
-                    # scale down to number of slots
-                    if slots is not None:
-                        mem = int(round(mem/slots))
-                    job_submit_options += " -hard -l m_mem_free=%sM" % mem
-                else:
-                    self.logger.warn('Incorrect resource_mapping specifier: %s' % resource_mapping)
-
-        # job_submit_options are prepended since docker_params contains -soft option
-        if docker_params is not None:
-            if len(job_submit_options) != 0:
-                job_submit_options += " "
-            job_submit_options += docker_params
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
+        resource_mapping = framework_config.get('resource_mapping', '')
         try:
             kwargs = {"job_class":job_class,
-                      "job_submit_options":job_submit_options}
+                      "job_submit_options":job_submit_options,
+                      "resource_mapping":resource_mapping,
+                      "task": task}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
         except Exception, ex:
