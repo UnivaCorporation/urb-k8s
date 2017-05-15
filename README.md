@@ -177,4 +177,4 @@ Following command will start Mesos Python example framework:
 `. venv/bin/activate`
 `LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/python-bindings/test/test_framework.py urb://$(hostname)`
 
-Please note that with dummy implementation of the Scheduler Adapter Interface 
+Please note that with dummy implementation of the Scheduler Adapter Interface above example frameworks will repetedly schedule the tasks but all of them will be lost.

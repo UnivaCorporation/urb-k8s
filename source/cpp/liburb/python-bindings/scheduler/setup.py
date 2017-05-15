@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 import ext_modules
 import os
@@ -38,7 +38,6 @@ config = {
     'license': 'Apache 2.0',
     'keywords': 'mesos',
     'classifiers': [ ],
-#    'ext_modules': [ ext_modules.scheduler_module ]
     'ext_modules': [ ext_modules._create_module('scheduler') ]
 }
 

@@ -1,28 +1,27 @@
 #!/usr/bin/env python
-# ___INFO__MARK_BEGIN__
-# ############################################################################
+
+# Copyright 2017 Univa Corporation
 #
-# This code is the Property, a Trade Secret and the Confidential Information
-#  of Univa Corporation.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#  Copyright Univa Corporation. All Rights Reserved. Access is Restricted.
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
-#  It is provided to you under the terms of the
-#  Univa Term Software License Agreement.
-#
-#  If you have any questions, please contact our Support Department.
-#
-#  www.univa.com
-#
-###########################################################################
-#___INFO__MARK_END__
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 from urb.adapters.adapter_interface import Adapter
 from urb.log.log_manager import LogManager
 import gevent
+import subprocess
 
 class DummyAdapter(Adapter):
-    """ UGE Adapter class. """
+    """ Dummy Adapter class. """
 
     DELETE_WAIT_PERIOD_IN_SECONDS = 2.0
 
@@ -30,6 +29,8 @@ class DummyAdapter(Adapter):
         self.logger = LogManager.get_instance().get_logger(
             self.__class__.__name__)
         self.channel_name = None
+        self.pids = []
+        self.processes = []
         self.configure()
 
     def configure(self):
@@ -66,13 +67,15 @@ class DummyAdapter(Adapter):
     def register_framework(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.info("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
-        cmd="dummy command"
+        cmd="/scratch/urb/etc/urb-executor-runner"
         job_ids = set([])
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
             self.logger.info('Submit job: user=%s, command: %s' % (user, cmd))
-            job_ids.add(i)
+            p = subprocess.Popen([cmd])
+            pid = p.pid
+            job_ids.add(pid)
         return job_ids
 
     def register_slave(self, request):
@@ -114,8 +117,6 @@ class DummyAdapter(Adapter):
             gevent.spawn(self.delete_jobs, job_ids)
 
     def delete_jobs(self, job_ids):
-        jobs_id_list = [str(j[0]) for j in job_ids]
-        jobs_str = ",".join(jobs_id_list)
         for job_id in job_ids:
             try:
                 self.delete_job(job_id)
@@ -126,11 +127,13 @@ class DummyAdapter(Adapter):
         if len(str(job_id)) != 0:
             try:
                 self.logger.debug('Request deleting job: %s', job_id)
+                subprocess.Popen(["kill", str(job_id)])
             except Exception, ex:
                 self.logger.warn("Error requesting deleting job: %s" % ex)
             gevent.sleep(DummyAdapter.DELETE_WAIT_PERIOD_IN_SECONDS)
             try:
                 self.logger.debug('Deleting job: %s', job_id)
+                subprocess.call(["kill", "-9", str(job_id)])
             except Exception, ex:
                 self.logger.warn("Error deleting job: %s" % ex)
         else:

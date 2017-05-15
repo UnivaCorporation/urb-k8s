@@ -1,23 +1,18 @@
 #!/usr/bin/env python
-# ___INFO__MARK_BEGIN__
-# ############################################################################
-#
-# This code is the Property, a Trade Secret and the Confidential Information
-#  of Univa Corporation.
-#
-#  Copyright Univa Corporation. All Rights Reserved. Access is Restricted.
-#
-#  It is provided to you under the terms of the
-#  Univa Term Software License Agreement.
-#
-#  If you have any questions, please contact our Support Department.
-#
-#  www.univa.com
-#
-###########################################################################
-#___INFO__MARK_END__
 
-#!/usr/bin/python
+# Copyright 2017 Univa Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 
 import functools
@@ -25,15 +20,6 @@ import cProfile as profile
 import pstats
 import re
 import StringIO
-
-
-##################
-# Replace original exception with URBException
-#
-# import gridengine
-#class ShortJobException(gridengine.UGEException):
-#    pass
-#################
 from urb.exceptions.urb_exception import URBException
 
 def get_score(lo, hi):

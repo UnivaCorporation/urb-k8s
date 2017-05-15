@@ -27,7 +27,6 @@ config = {
     'author': 'Apache Mesos',
     'author_email': 'dev@mesos.apache.com',
     'url': 'http://pypi.python.org/pypi/mesos',
-#    'namespace_packages': [ 'mesos' ],
     'packages': [ 'mesos' ],
     'package_dir': { '': 'src' },
     'install_requires': [
