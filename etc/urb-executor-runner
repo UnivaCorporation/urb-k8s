@@ -32,4 +32,4 @@ if [ -f $HOME/.urb.executor_profile ]; then
   . $HOME/.urb.executor_profile
 fi
 
-exec $VENV_PYTHON $venv/bin/urb-executor-runner "$@" 
+exec $VENV_PYTHON $URB_ROOT/venv/bin/urb-executor-runner "$@" 

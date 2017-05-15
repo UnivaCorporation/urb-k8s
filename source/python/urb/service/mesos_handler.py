@@ -2277,7 +2277,6 @@ class MesosHandler(MessageHandler):
         scale_count = scale_count * -1
         self.adapter.scale(framework,scale_count)
 
-#    def submit_executor_runner(self, framework, concurrent_tasks, docker_params = None, resources = None):
     def submit_executor_runner(self, framework, concurrent_tasks, task = None):
         framework_name = framework['name']
         framework_config = framework['config']
@@ -2289,12 +2288,12 @@ class MesosHandler(MessageHandler):
 
         cm = ConfigManager.get_instance()
         cf = ChannelFactory.get_instance()
-        framework_env = [
-            'URB_CONFIG_FILE=%s' % self.executor_runner_config_file,
-            'URB_FRAMEWORK_ID=' + framework_id['value'],
-            'URB_MASTER=' + cf.get_message_broker_connection_url(),
-            'URB_FRAMEWORK_NAME=' + scrubbed_framework_name,
-        ]
+        framework_env = {
+            "URB_CONFIG_FILE" : self.executor_runner_config_file,
+            "URB_FRAMEWORK_ID" : framework_id['value'],
+            "URB_MASTER" : cf.get_message_broker_connection_url(),
+            "URB_FRAMEWORK_NAME" : scrubbed_framework_name,
+        }
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
         job_submit_options = framework_config.get('job_submit_options', '')

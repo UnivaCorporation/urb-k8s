@@ -68,13 +68,16 @@ class DummyAdapter(Adapter):
         self.logger.info("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
         cmd="/scratch/urb/etc/urb-executor-runner"
+        env = framework_env
+        env["TMP"] = "/tmp"
         job_ids = set([])
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
-            self.logger.info('Submit job: user=%s, command: %s' % (user, cmd))
-            p = subprocess.Popen([cmd])
+            self.logger.info('Submit job: command: %s' % cmd)
+            p = subprocess.Popen([cmd], shell = True, executable = "/bin/bash", env = env)
             pid = p.pid
+            self.logger.info('Submitted pid: %s' % pid)
             job_ids.add(pid)
         return job_ids
 
