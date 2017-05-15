@@ -24,6 +24,7 @@ import time
 import gevent
 import json
 import socket
+import uuid
 
 from urb.exceptions.configuration_error import ConfigurationError
 from urb.config.config_manager import ConfigManager
@@ -85,10 +86,17 @@ class ExecutorRunner:
             'value' : os.environ['URB_FRAMEWORK_ID']
         }
 
-        self.job_id = os.environ['JOB_ID']
-        self.task_id = os.environ['SGE_TASK_ID']
+        if "JOB_ID" in os.environ:
+            self.job_id = os.environ["JOB_ID"]
+            self.task_id = os.environ['SGE_TASK_ID']
+            slave_id = NamingUtility.create_slave_id(self.job_id, "uge", self.task_id, self.notify_channel_name)
+        else:
+            self.job_id = uuid.uuid1().hex
+            self.task_id = "1"
+            slave_id = NamingUtility.create_slave_id(self.job_id, "", self.task_id , self.notify_channel_name)
+
         self.slave_id = {
-            "value":NamingUtility.create_slave_id(os.environ["JOB_ID"], os.environ["SGE_TASK_ID"], self.notify_channel_name)
+            "value" : slave_id
         }
         self.logger.debug('slave id: %s' % self.slave_id)
         self.slave_info = {

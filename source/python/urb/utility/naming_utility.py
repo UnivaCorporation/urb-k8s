@@ -18,21 +18,32 @@
 class NamingUtility:
 
     @classmethod
-    def create_slave_id(cls, job_id, task_id="undefined", channel_name='urb.endpoint.x.notify'):
-        return "slave-"+str(job_id)+"."+str(task_id)+":"+str(channel_name)
+    def create_slave_id(cls, job_id, str_id = "", task_id="undefined", channel_name='urb.endpoint.x.notify'):
+        if len(str_id) > 0:
+            str_id = str_id + "-"
+        return "slave-" + str_id + str(job_id)+"."+str(task_id)+":"+str(channel_name)
 
     @classmethod
     def get_job_id_from_slave_id(cls, slave_id_value):
+        digital_job_id = False
         beg = slave_id_value.find('-')
         if beg == -1:
             return None
+        beg1 = slave_id_value.find('-', beg)
+        if beg1 != -1:
+            digital_job_id = True
+            beg = beg1
         end = slave_id_value.find('.', beg)
         if end == -1:
             return None
         job_id = slave_id_value[beg+1:end]
-        if job_id.isdigit():
+        if digital_job_id:
+            if job_id.isdigit():
+                return job_id
+            else:
+                return None
+        else:
             return job_id
-        return None
 
 #    @classmethod
 #    def get_job_id_from_slave_id(cls, slave_id_value):
