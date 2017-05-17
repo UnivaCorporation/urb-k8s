@@ -591,7 +591,7 @@ void UrbSchedulerProcess::statusUpdateAcknowledgement(const mesos::internal::Sta
 
     mesos::internal::StatusUpdateAcknowledgementMessage message;
     message.mutable_framework_id()->MergeFrom(framework_.id());
-    message.mutable_slave_id()->MergeFrom(update.slave_id());
+    message.mutable_slave_id()->MergeFrom(update.has_slave_id() ? update.slave_id() : update.status().slave_id());
     message.mutable_task_id()->MergeFrom(update.status().task_id());
     message.set_uuid(update.uuid());
     sendMessage(message);
@@ -978,7 +978,7 @@ void UrbSchedulerProcess::sendFrameworkMessage(const ExecutorID& executorId,
       send(slave, message);
     } else {
     */
-    VLOG(1) << "Cannot send directly to slave " << slaveId.value()
+    VLOG(2) << "Cannot send directly to slave " << slaveId.value()
               << "; sending through master";
 
     mesos::internal::FrameworkToExecutorMessage message;
