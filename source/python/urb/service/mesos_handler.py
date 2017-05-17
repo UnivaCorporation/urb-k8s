@@ -815,9 +815,8 @@ class MesosHandler(MessageHandler):
                     self.logger.debug("Scaling up for slave: %s" % slave_id['value'])
                     # This is our 'big scale' based on a known need.  Step up in concurrent tasks.
                     job_id = self.scale_up(framework, scale_count=concurrent_tasks, task=t)
-#                                           docker_params=docker_args, resources = t['resources'])
                     if len(job_id) > 0:
-                        task_record['job_id'] = int(sorted(job_id)[0][0])
+                        task_record['job_id'] = sorted(job_id)[0][0]
                     else:
                         # We can't start a job for this... probably never should have
                         # offered it. Need to send a lost task
@@ -853,7 +852,7 @@ class MesosHandler(MessageHandler):
             if slave_job_id is None:
                 self.logger.error("Cannot extract job id from: %s" % slave["id"]["value"])
                 return
-            job_id = int(slave_job_id)
+            job_id = slave_job_id
 
             # Mark this offer as 'used'
             current_offer = slave.get('offer')
@@ -929,7 +928,7 @@ class MesosHandler(MessageHandler):
 
     def reconcile_tasks(self, request):
         self.logger.info('Reconcile request: %s' % request)
-        self.adapter.reconcile_tasks(request)
+        dumb_adapter = self.adapter.reconcile_tasks(request)
         source_id = request.get('source_id')
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         reply_to = request.get('payload').get('reply_to')
@@ -972,8 +971,9 @@ class MesosHandler(MessageHandler):
                 if job_status == "TASK_STAGING":
                     self.logger.debug("Reconcile STAGING task")
                     # Kinda a catch all... if we have a reconcile on a staging task with a job we don't know about
-                    # This will catch it
-                    job_status = None
+                    # This will catch it, for dumb adapter leave staging status
+                    if not dumb_adapter:
+                        job_status = None
                     if not slave_id:
                         slave_id = t.get('task_info',{}).get('slave_id')
 
@@ -1116,11 +1116,18 @@ class MesosHandler(MessageHandler):
         job_ids = framework.get('job_id',set())
         framework_config = framework['config']
         #Set job id... this is likely a registration after a failover
-        self.logger.debug("Register executor runner: updating job id in framework: %s" % framework_id["value"])
-        job_id = int(payload['job_id'])
+        self.logger.debug("Register executor runner: updating job id in framework: %s, job_ids: %s" %
+                          (framework_id["value"], job_ids))
+        job_id = payload['job_id']
         job_id_tuple = self.adapter.get_job_id_tuple(job_id)
-        job_ids.add(job_id_tuple)
-        self.logger.debug('Register executor runner: current job ids: %s' % job_ids)
+        job_found = False
+        for j in job_ids:
+            if j[0] == job_id:
+                job_found = True
+                break
+        if not job_found:
+            job_ids.add(job_id_tuple)
+        self.logger.debug('Register executor runner: job ids after update: %s' % job_ids)
         framework['job_id'] = job_ids
         # Fix up the concurrent tasks value
         #concurrent_tasks = int(framework_config.get('concurrent_tasks', 1))
@@ -1174,7 +1181,7 @@ class MesosHandler(MessageHandler):
                     self.logger.debug("Register executor runner: task does not have job id. Skipping... :%s" % task)
                     continue
                 self.logger.debug("Register executor runner: found task %s with job id %s" % (task_id, task['job_id']))
-                if task['job_id'] == int(payload['job_id']):
+                if task['job_id'] == payload['job_id']:
                     if task['task_info']['slave_id']['value'].startswith('place-holder'):
                         # We need to record the mapping of this slave to place-holder
                         placeholder_to_slave = framework.get('placeholder_to_slave',{})
@@ -1290,7 +1297,7 @@ class MesosHandler(MessageHandler):
         if slave_job_id is None:
             self.logger.error("Cannot reregister executor: incorrect slave job id: %s" % slave["id"]["value"])
             return
-        job_id = int(slave_job_id)
+        job_id = slave_job_id
 
         # Check to see if we have uncompleted tasks...
         for t in message.get('tasks',[]):
@@ -1414,13 +1421,14 @@ class MesosHandler(MessageHandler):
         del request["reply_to"]
 
         # Now we get to run some tasks...
+        slave_job_id = NamingUtility.get_job_id_from_slave_id(slave_id['value'])
+        self.logger.debug("Register Executor: slave_job_id=%s " % slave_job_id)
         for t in framework.get('task_dict').values():
-            slave_job_id = NamingUtility.get_job_id_from_slave_id(slave['id']['value'])
             if slave_job_id is None:
                 self.logger.error("Cannot register executor: incorrect job id: %s" % slave['id']['value'])
                 continue
-            job_id = int(slave_job_id)
-            if t['state'] == 'TASK_STAGING' and t.get('job_id',0) == job_id:
+            jid = t.get('job_id', '0')
+            if t['state'] == 'TASK_STAGING' and jid == slave_job_id:
                 task_name = t['task_info']['task_id']['value']
                 cet = is_command_executor and executor_id_val == task_name
                 if cet:
@@ -1434,7 +1442,8 @@ class MesosHandler(MessageHandler):
                 else:
                     self.logger.debug("Skip command executor task: %s" % t)
             else:
-                self.logger.debug("Skip task due to different job id or not staging status: %s" % t)
+                self.logger.debug("Skip task due to different job id or not staging status: %s, slave_job_id=%s, jid=%s" %
+                                  (t, slave_job_id, jid))
 
         # look for docker signature in executor info or task info, do not scale up if found
         executor_in_docker = False
@@ -2238,7 +2247,6 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Sending executor registered message via channel %s: %s' % (executor_channel.name, message))
         executor_channel.write(message.to_json())
 
-#    def scale_up(self,framework, scale_count=None, docker_params = None, resources = None):
     def scale_up(self, framework, scale_count = None, task = None):
         framework_config = framework['config']
         if not scale_count:
@@ -2256,7 +2264,6 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Only launching %d tasks since there is less headroom than scale level %d" %
                     (job_headroom, scale_count))
             scale_count = job_headroom
-#        job_ids = self.submit_executor_runner(framework, scale_count, docker_params, resources)
         job_ids = self.submit_executor_runner(framework, scale_count, task)
 
         # Add the new ids to the job monitor...

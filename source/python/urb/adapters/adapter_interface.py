@@ -33,10 +33,6 @@ class Adapter(object):
         return cls.__instance
 
     @abc.abstractmethod
-    def configure(self):
-        self.logger.debug('Configure')
-
-    @abc.abstractmethod
     def authenticate(self, request):
         self.logger.trace('Authenticate: %s' % request)
 
@@ -90,10 +86,6 @@ class Adapter(object):
     def revive_offers(self, request):
         self.logger.trace('Revive offers: %s' % request)
 
-#    @abc.abstractmethod
-#    def submit_scheduler_request(self, request):
-#        self.logger.trace('Submit scheduler request: %s' % request)
-
     @abc.abstractmethod
     def status_update_acknowledgement(self, request):
         self.logger.trace('Status update acknowledgement: %s' % request)
@@ -125,9 +117,15 @@ class Adapter(object):
 
     @abc.abstractmethod
     def get_job_id_tuple(self, job_id):
-        # Try to get job status and extract task array info
-        # If things do not work, assume no task array
+        # Get job status and extract task array info (job_id, first_array_id, step)
+        # If job is not task array return tuple (job_id, None, None)
+        # In addition to job_id in two other fields a tuple can contain
+        # different useful information about the job
         self.logger.debug('get_job_id_tuple job: %s', job_id)
+
+    @abc.abstractmethod
+    def get_job_accounting(self, job_id):
+        self.logger.debug('Getting accounting for job: %s', job_id)
 
     @abc.abstractmethod
     def unregister_slave(self, request):

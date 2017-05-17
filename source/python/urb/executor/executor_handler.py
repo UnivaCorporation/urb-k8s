@@ -260,7 +260,7 @@ class ExecutorHandler(MessageHandler):
             else:
                 exec_env["LD_LIBRARY_PATH"] = self.ld_library_path
 
-            if "USER" in exec_env["USER"] != user:
+            if "USER" in exec_env and exec_env["USER"] != user:
                 self.logger.warn("Executor environment: mismatch in USER environment variable and actual user: %s %s" % \
                                  (exec_env["USER"], user))
             exec_env["USER"] = user

@@ -63,7 +63,7 @@ class ExecutorRunner:
 
         # Create our working directory before we start logging
         if not os.path.exists(self.mesos_work_dir):
-            os.mkdir(self.mesos_work_dir)
+            os.makedirs(self.mesos_work_dir)
         os.chdir(self.mesos_work_dir)
 
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
@@ -86,18 +86,20 @@ class ExecutorRunner:
             'value' : os.environ['URB_FRAMEWORK_ID']
         }
 
-        if "JOB_ID" in os.environ:
-            self.job_id = os.environ["JOB_ID"]
-            self.task_id = os.environ['SGE_TASK_ID']
-            slave_id = NamingUtility.create_slave_id(self.job_id, "uge", self.task_id, self.notify_channel_name)
+        if 'JOB_ID' in os.environ:
+            self.job_id = os.environ['JOB_ID']
+            self.task_id = os.environ.get('SGE_TASK_ID', '1')
+            slave_id = NamingUtility.create_slave_id(self.job_id, self.task_id, self.notify_channel_name)
         else:
             self.job_id = uuid.uuid1().hex
+            self.logger.warn('Environment variable JOB_ID is not defined, autogenerating job id: ' % self.job_id)
             self.task_id = "1"
-            slave_id = NamingUtility.create_slave_id(self.job_id, "", self.task_id , self.notify_channel_name)
+            slave_id = NamingUtility.create_slave_id(self.job_id, self.task_id , self.notify_channel_name)
 
         self.slave_id = {
             "value" : slave_id
         }
+
         self.logger.debug('slave id: %s' % self.slave_id)
         self.slave_info = {
             'hostname' : self.host,
@@ -185,13 +187,14 @@ class ExecutorRunner:
 # Run server.
 def run():
     from gevent import monkey; monkey.patch_socket()
+    logger = LogManager.get_instance().get_logger(__name__)
     try:
         executor = ExecutorRunner()
         executor.run()
     except KeyboardInterrupt, ex:
-        self.logger.info('KeyboardInterrupt: %s' % ex)
+        logger.info('KeyboardInterrupt: %s' % ex)
         pass
-    self.logger.info('Executor runner exit')
+    logger.info('Executor runner exit')
             
 # Testing
 if __name__ == '__main__':

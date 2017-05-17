@@ -17,10 +17,13 @@
 
 from urb.adapters.adapter_interface import Adapter
 from urb.log.log_manager import LogManager
+from urb.exceptions.unknown_job import UnknownJob
 import gevent
 import subprocess
+import uuid
+import os
 
-class DummyAdapter(Adapter):
+class LocalhostAdapter(Adapter):
     """ Dummy Adapter class. """
 
     DELETE_WAIT_PERIOD_IN_SECONDS = 2.0
@@ -29,8 +32,6 @@ class DummyAdapter(Adapter):
         self.logger = LogManager.get_instance().get_logger(
             self.__class__.__name__)
         self.channel_name = None
-        self.pids = []
-        self.processes = []
         self.configure()
 
     def configure(self):
@@ -57,6 +58,7 @@ class DummyAdapter(Adapter):
 
     def reconcile_tasks(self, request):
         self.logger.debug('Reconcile tasks: %s' % request)
+        return True
 
     def register_executor_runner(self, framework_id, slave_id, *args,
             **kwargs):
@@ -69,16 +71,20 @@ class DummyAdapter(Adapter):
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
         cmd="/scratch/urb/etc/urb-executor-runner"
         env = framework_env
-        env["TMP"] = "/tmp"
         job_ids = set([])
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
+            job_id = str(uuid.uuid1().time_low)
+            # TMP environment variable is working directory for executor runner
+            env["TMP"] = os.path.join("/tmp", job_id)
+            env["JOB_ID"] = job_id
             self.logger.info('Submit job: command: %s' % cmd)
             p = subprocess.Popen([cmd], shell = True, executable = "/bin/bash", env = env)
             pid = p.pid
-            self.logger.info('Submitted pid: %s' % pid)
-            job_ids.add(pid)
+            self.logger.info('Submitted job_id: %s, pid: %s' % (job_id, pid))
+            jid_tuple = (job_id,pid,None)
+            job_ids.add(jid_tuple)
         return job_ids
 
     def register_slave(self, request):
@@ -127,28 +133,33 @@ class DummyAdapter(Adapter):
                 self.logger.warn("Error deleteing job: %s" % ex)
 
     def delete_job(self, job_id):
-        if len(str(job_id)) != 0:
-            try:
-                self.logger.debug('Request deleting job: %s', job_id)
-                subprocess.Popen(["kill", str(job_id)])
-            except Exception, ex:
-                self.logger.warn("Error requesting deleting job: %s" % ex)
-            gevent.sleep(DummyAdapter.DELETE_WAIT_PERIOD_IN_SECONDS)
-            try:
-                self.logger.debug('Deleting job: %s', job_id)
-                subprocess.call(["kill", "-9", str(job_id)])
-            except Exception, ex:
-                self.logger.warn("Error deleting job: %s" % ex)
+        if len(str(job_id[0])) != 0:
+            pid = str(job_id[1])
+            self.logger.debug('Request deleting job: %s', job_id)
+            subprocess.Popen(["kill", pid])
+            gevent.sleep(LocalhostAdapter.DELETE_WAIT_PERIOD_IN_SECONDS)
+            ret = subprocess.call(["ps", pid])
+            if ret == 0:
+                self.logger.debug('Still running, deleting job %s with pid %s with -9 signal', (job_id[0], pid))
+                subprocess.call(["kill", "-9", pid])
         else:
-            self.logger.warn("Deleting job: '%s' - empty job id string", job_id)
+            self.logger.error("Deleting job: '%s' - empty job id", job_id)
 
     def get_job_id_tuple(self, job_id):
-        # Try to get job status and extract task array info
-        # If things do not work, assume no task array
+        # Try to get job status
+        self.logger.debug('get_job_id_tuple for job_id %s', job_id)
         return (job_id,None,None)
 
     def get_job_status(self, job_id):
         self.logger.debug('Getting status for job: %s', job_id)
+        ret = subprocess.call(["ps", pid])
+        if ret != 0:
+            raise UnknownJob('Unknown job id: %s' % job_id)
+
+    def get_job_accounting(self, job_id):
+        self.logger.debug('Getting accounting for job: %s', job_id)
+        acct = {}
+        return acct
 
     def unregister_slave(self, request):
         self.logger.debug('Unregister slave: %s' % request)
@@ -156,7 +167,7 @@ class DummyAdapter(Adapter):
 
 # Testing
 if __name__ == '__main__':
-    adapter = DummyAdapter()
+    adapter = LocalhostAdapter()
     print 'Done'
 
 
