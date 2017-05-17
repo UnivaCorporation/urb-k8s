@@ -928,7 +928,7 @@ class MesosHandler(MessageHandler):
 
     def reconcile_tasks(self, request):
         self.logger.info('Reconcile request: %s' % request)
-        dumb_adapter = self.adapter.reconcile_tasks(request)
+        smart_adapter = self.adapter.reconcile_tasks(request)
         source_id = request.get('source_id')
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         reply_to = request.get('payload').get('reply_to')
@@ -972,7 +972,7 @@ class MesosHandler(MessageHandler):
                     self.logger.debug("Reconcile STAGING task")
                     # Kinda a catch all... if we have a reconcile on a staging task with a job we don't know about
                     # This will catch it, for dumb adapter leave staging status
-                    if not dumb_adapter:
+                    if smart_adapter:
                         job_status = None
                     if not slave_id:
                         slave_id = t.get('task_info',{}).get('slave_id')
