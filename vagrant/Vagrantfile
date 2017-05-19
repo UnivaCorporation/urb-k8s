@@ -34,6 +34,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     app.vm.provider "docker" do |d|
       d.image = "urb-build"
       d.name = "urb-build"
+      if ENV['DOCKER_SUFFIX']
+          d.name += ENV['DOCKER_SUFFIX']
+      end
       d.has_ssh = true
       d.create_args = [ "--privileged", "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro" ]
     end
