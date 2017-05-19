@@ -39,12 +39,9 @@ class ExecutorHandler(MessageHandler):
     def __init__(self, channelName,executor_runner):
         MessageHandler.__init__(self, channelName)
         cm = ConfigManager.get_instance()
-        self.urb_lib_path = cm.get_config_option(
-            'ExecutorHandler', 'urb_lib_path')
-        self.fetcher_path = cm.get_config_option(
-            'ExecutorHandler', 'fetcher_path')
-        self.command_executor_path = cm.get_config_option(
-            'ExecutorHandler', 'command_executor_path')
+        self.urb_lib_path = cm.get_config_option('ExecutorHandler', 'urb_lib_path')
+        self.fetcher_path = cm.get_config_option('ExecutorHandler', 'fetcher_path')
+        self.command_executor_path = cm.get_config_option('ExecutorHandler', 'command_executor_path')
 
         self.ld_library_path = cm.get_config_option('ExecutorHandler', 'ld_library_path')
         self.logger.debug("LD_LIBRARY_PATH from config: %s" % self.ld_library_path)

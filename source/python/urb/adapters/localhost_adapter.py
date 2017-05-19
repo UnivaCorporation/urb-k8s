@@ -16,6 +16,7 @@
 
 
 from urb.adapters.adapter_interface import Adapter
+from urb.config.config_manager import ConfigManager
 from urb.log.log_manager import LogManager
 from urb.exceptions.unknown_job import UnknownJob
 import gevent
@@ -36,6 +37,7 @@ class LocalhostAdapter(Adapter):
 
     def configure(self):
         self.logger.debug('configure')
+        self.executor_runner_path = cm.get_config_option('ExecutorHandler', 'executor_runner_path', 'executor-runner')
 
     def set_channel_name(self, channel_name):
         self.logger.debug('set_channel_name')
@@ -70,14 +72,14 @@ class LocalhostAdapter(Adapter):
     def register_framework(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.info("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
-        cmd="/scratch/urb/etc/urb-executor-runner"
+        cmd = self.executor_runner_path
         env = framework_env
         job_ids = set([])
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
             job_id = str(uuid.uuid1().time_low)
-            # TMP environment variable is working directory for executor runner
+            # TMP environment variable is executor runner working directory
             env["TMP"] = os.path.join("/tmp", job_id)
             env["JOB_ID"] = job_id
             self.logger.info('Submit job: command: %s' % cmd)
