@@ -115,7 +115,6 @@ class MesosHandler(MessageHandler):
             self.logger.warn('Could not find executor runner config file %s, falling back to default %s' % (self.executor_runner_config_file, default_config_file))
             self.executor_runner_config_file = default_config_file
         self.logger.debug('Executor runner config file is set to %s' % (self.executor_runner_config_file))
-        self.urb_root = cm.get_root()
 
     def get_target_preprocessor(self, target):
         if self.event_db_interface is not None:
