@@ -37,6 +37,7 @@ class LocalhostAdapter(Adapter):
 
     def configure(self):
         self.logger.debug('configure')
+        cm = ConfigManager.get_instance()
         self.executor_runner_path = cm.get_config_option('ExecutorHandler', 'executor_runner_path', 'executor-runner')
 
     def set_channel_name(self, channel_name):
