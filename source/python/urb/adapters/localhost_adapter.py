@@ -25,7 +25,7 @@ import uuid
 import os
 
 class LocalhostAdapter(Adapter):
-    """ Dummy Adapter class. """
+    """ Local host Adapter class. """
 
     DELETE_WAIT_PERIOD_IN_SECONDS = 2.0
 
@@ -134,7 +134,7 @@ class LocalhostAdapter(Adapter):
             try:
                 self.delete_job(job_id)
             except Exception, ex:
-                self.logger.warn("Error deleteing job: %s" % ex)
+                self.logger.warn("Error deleting job: %s" % ex)
 
     def delete_job(self, job_id):
         if len(str(job_id[0])) != 0:
@@ -156,6 +156,7 @@ class LocalhostAdapter(Adapter):
 
     def get_job_status(self, job_id):
         self.logger.debug('Getting status for job: %s', job_id)
+        pid = job_id[1]
         ret = subprocess.call(["ps", pid])
         if ret != 0:
             raise UnknownJob('Unknown job id: %s' % job_id)

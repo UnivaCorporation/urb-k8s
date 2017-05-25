@@ -423,7 +423,7 @@ start_redis:
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
 
 stop_redis:
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" = "PONG" ]; then echo -e "shutdown\nquit\n" | $(REDIS_BIN)/redis-cli fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" = "PONG" ]; then $(REDIS_BIN)/redis-cli shutdown fi
 
 # Run our test programs.  Always remove the outputs so we allways will rerun
 test: $(BUILDDIR) $(FETCHER) $(LIB_TARGET) start_redis rmtest $(TEST_OUTPUTS)

@@ -1799,7 +1799,7 @@ class MesosHandler(MessageHandler):
         gevent.sleep(MesosHandler.MISSING_FRAMEWORK_WAIT_PERIOD_IN_SECONDS)
         framework = FrameworkTracker.get_instance().get(framework_id_value)
         if not framework:
-            self.logger.debug('Shutdown if no framework: %s, about to shutdown channel: %s',
+            self.logger.debug('Shutdown if no framework: %s, about to shutdown channel: %s' %
                               (framework_id_value, channel_id))
             self.send_slave_shutdown_message(channel_id)
             # if framework terminated without sending unregister message it is left in active status in db

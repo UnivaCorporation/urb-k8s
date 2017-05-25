@@ -92,7 +92,7 @@ class ExecutorRunner:
             slave_id = NamingUtility.create_slave_id(self.job_id, self.task_id, self.notify_channel_name)
         else:
             self.job_id = uuid.uuid1().hex
-            self.logger.warn('Environment variable JOB_ID is not defined, autogenerating job id: ' % self.job_id)
+            self.logger.error('Environment variable JOB_ID is not defined, autogenerating job id: ' % self.job_id)
             self.task_id = "1"
             slave_id = NamingUtility.create_slave_id(self.job_id, self.task_id , self.notify_channel_name)
 

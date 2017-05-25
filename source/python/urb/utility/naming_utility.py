@@ -15,13 +15,13 @@
 # limitations under the License.
 
 
-import re
+#import re
 
 class NamingUtility:
 
     @classmethod
     def create_slave_id(cls, job_id, task_id="undefined", channel_name='urb.endpoint.x.notify'):
-        jid= re.sub('[-.]', '', str(job_id))
+#        jid= re.sub('[-.]', '', str(job_id))
         return "slave-" + jid + "." + str(task_id) + ":" + str(channel_name)
 
     @classmethod
