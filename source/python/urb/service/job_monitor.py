@@ -71,8 +71,7 @@ class JobMonitor(object):
             self.job_delete_callback(job_id, framework_id)
         except Exception, ex:
             self.logger.error(
-                'Error invoking delete callback for job id %s: %s' % (
-                        job_id, ex))
+                'Error invoking delete callback for job id %s: %s' % (job_id, ex))
 
     def __retrieve_job_accounting_and_remove_job_from_tracker(self, job_id, job_info):
         cnt = job_info.get('accounting_retrieval_count', 0)
