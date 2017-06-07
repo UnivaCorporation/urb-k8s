@@ -75,7 +75,7 @@ class LocalhostAdapter(Adapter):
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
         cmd = self.executor_runner_path
         env = framework_env
-        job_ids = set([])
+        job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
@@ -88,7 +88,7 @@ class LocalhostAdapter(Adapter):
             pid = p.pid
             self.logger.info('Submitted job_id: %s, pid: %s' % (job_id, pid))
             jid_tuple = (job_id,pid,None)
-            job_ids.add(jid_tuple)
+            job_ids.append(jid_tuple)
         return job_ids
 
     def register_slave(self, request):

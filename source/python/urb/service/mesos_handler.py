@@ -1114,7 +1114,7 @@ class MesosHandler(MessageHandler):
         framework['slave_dict'] = slave_dict
 
         # Make sure that this jobid is in our framework
-        job_ids = framework.get('job_ids',set())
+        job_ids = framework.get('job_ids', [])
         framework_config = framework['config']
         #Set job id... this is likely a registration after a failover
         self.logger.debug("Register executor runner: updating job id in framework: %s, job_ids: %s" %
@@ -1127,7 +1127,7 @@ class MesosHandler(MessageHandler):
                 job_found = True
                 break
         if not job_found:
-            job_ids.add(job_id_tuple)
+            job_ids.append(job_id_tuple)
         self.logger.debug('Register executor runner: job ids after update: %s' % job_ids)
         framework['job_ids'] = job_ids
         # Fix up the concurrent tasks value
@@ -2271,8 +2271,8 @@ class MesosHandler(MessageHandler):
         for j in job_ids:
             # We need actual job id for monitoring, not full tuple
             self.job_monitor.start_job_monitoring(j[0], framework['id']['value'])
-        framework_job_ids = framework.get('job_ids',set())
-        framework_job_ids.update(job_ids)
+        framework_job_ids = framework.get('job_ids', [])
+        framework_job_ids = list(set(framework_job_ids).union(job_ids))
         framework['job_ids'] = framework_job_ids
         self.logger.debug("Framework has (%d/%d) jobs pending/running" % (len(framework_job_ids),max_tasks))
         return job_ids
