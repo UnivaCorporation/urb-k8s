@@ -321,19 +321,21 @@ class MesosHandler(MessageHandler):
                 self.__delete_slave(framework, v)
         self.logger.debug("Done looking for slaves that start with: %s" % slave_prefix)
         try:
-            if framework is not None and framework.has_key('job_id'):
-                self.logger.debug('Removing job id %s from framework jobs: %s' % (job_id, framework.get('job_id')))
+            if framework is not None and framework.has_key('job_ids'):
+                self.logger.debug('Removing job id %s from framework jobs: %s' %
+                                  (job_id, framework.get('job_ids')))
                 # Job may have tasks, in which case the line below will fail
                 # with a key error
-                #framework['job_id'].remove((job_id,None,None))
+                #framework['job_ids'].remove((job_id,None,None))
                 job_id_tuple = None
-                for jid in framework.get('job_id'):
+                for jid in framework.get('job_ids'):
                    if jid[0] == job_id:
                        job_id_tuple = jid
                 if job_id_tuple is not None:
-                    framework['job_id'].remove(job_id_tuple)
+                    framework['job_ids'].remove(job_id_tuple)
                 else:
-                    self.logger.error('Could not remove job id %s from framework jobs: %s' % (job_id, framework.get('job_id')))
+                    self.logger.error('Could not remove job id %s from framework jobs: %s' %
+                                      (job_id, framework.get('job_ids')))
                 
                        
                 self.logger.debug('Looking for tasks with job id: %s to mark lost' % job_id)
@@ -452,9 +454,9 @@ class MesosHandler(MessageHandler):
         # and we don't have any pending jobs
         if built_offer_count == 0 and len(slaves) < max_tasks:
             # Pending job count can be determined by the difference between the len job_id and slave_dict
-            pending_jobs = len(framework.get('job_id',[])) - len(slaves)
+            pending_jobs = len(framework.get('job_ids',[])) - len(slaves)
             self.logger.debug("Framework %s has %s pending job(s) (active jobs: %s)" % \
-                              (framework["name"], pending_jobs, framework.get('job_id',[])))
+                              (framework["name"], pending_jobs, framework.get('job_ids',[])))
 #            if pending_jobs <= 0 and framework.get('__placeholder_offerable_after',0) < now:
             if pending_jobs <= 0:
                 self.logger.trace("Framework placeholder_offerable_after=%s, offerable_after_for_placeholder=%s" %
@@ -1112,7 +1114,7 @@ class MesosHandler(MessageHandler):
         framework['slave_dict'] = slave_dict
 
         # Make sure that this jobid is in our framework
-        job_ids = framework.get('job_id',set())
+        job_ids = framework.get('job_ids',set())
         framework_config = framework['config']
         #Set job id... this is likely a registration after a failover
         self.logger.debug("Register executor runner: updating job id in framework: %s, job_ids: %s" %
@@ -1127,7 +1129,7 @@ class MesosHandler(MessageHandler):
         if not job_found:
             job_ids.add(job_id_tuple)
         self.logger.debug('Register executor runner: job ids after update: %s' % job_ids)
-        framework['job_id'] = job_ids
+        framework['job_ids'] = job_ids
         # Fix up the concurrent tasks value
         #concurrent_tasks = int(framework_config.get('concurrent_tasks', 1))
         #concurrent_tasks+=1
@@ -1842,7 +1844,7 @@ class MesosHandler(MessageHandler):
             # Print out the remaining tasks...normally we shouldn't have any
             self.logger.debug("Remaining tasks (normally shouldn't have any unless framework didn't take care of them): %s" %
                               framework.get('task_dict',{}))
-            self.logger.debug("Framework jobs: %s" % framework.get('job_id',[]))
+            self.logger.debug("Framework jobs: %s" % framework.get('job_ids',[]))
             now = time.time()
             framework['delete_time'] = now
 
@@ -1874,7 +1876,7 @@ class MesosHandler(MessageHandler):
                     del self.__scheduled_shutdowns[slave_id]
 
             # Stop monitoring all of the frameworks jobs
-            job_ids = framework.get('job_id')
+            job_ids = framework.get('job_ids')
             self.logger.debug('Jobs to stop monotiring for: %s' % job_ids)
             if job_ids is not None:
                 for job_id in job_ids:
@@ -2269,9 +2271,9 @@ class MesosHandler(MessageHandler):
         for j in job_ids:
             # We need actual job id for monitoring, not full tuple
             self.job_monitor.start_job_monitoring(j[0], framework['id']['value'])
-        framework_job_ids = framework.get('job_id',set())
+        framework_job_ids = framework.get('job_ids',set())
         framework_job_ids.update(job_ids)
-        framework['job_id'] = framework_job_ids
+        framework['job_ids'] = framework_job_ids
         self.logger.debug("Framework has (%d/%d) jobs pending/running" % (len(framework_job_ids),max_tasks))
         return job_ids
         #self.adapter.scale(framework,scale_count)

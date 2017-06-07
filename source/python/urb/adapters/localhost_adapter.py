@@ -124,7 +124,7 @@ class LocalhostAdapter(Adapter):
 
     def delete_jobs_delay(self, framework):
         # Delete all jobs
-        job_ids = framework.get('job_id')
+        job_ids = framework.get('job_ids')
         if job_ids is not None:
             # Spawn job to make sure the actual executors exit...
             gevent.spawn(self.delete_jobs, job_ids)
