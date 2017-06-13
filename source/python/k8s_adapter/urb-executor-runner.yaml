@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: urb-executor-runner
+spec:
+  template:
+    metadata:
+      name: urb-executor-runner
+    spec:
+      volumes:
+        - name: urb-pv-storage
+          persistentVolumeClaim:
+            claimName: urb-pvc
+      containers:
+      - name: urb-executor-runner
+        image: local/urb-executor-runner
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: JOB_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        envFrom:
+        - configMapRef:
+            name: urb-executor-runner-config
+#        command: ["/bin/sh", "-c", "env; sleep 10000"]
+        volumeMounts:
+        - mountPath: "/urb"
+          name: urb-pv-storage
+      restartPolicy: Never 

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: urb
+spec:
+  type: NodePort
+  ports:
+    - port: 6379
+      nodePort: 30379
+#  ports:
+#    - port: 6379
+  selector:
+    app: urb
+#  clusterIP: None
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: urb
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: urb
+    spec:
+      containers:
+      - image: local/urb-redis
+        name: urb-redis
+        imagePullPolicy: IfNotPresent
+      - image: local/urb-service
+        name: urb-service
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 6379
+          name: urb-service
+        

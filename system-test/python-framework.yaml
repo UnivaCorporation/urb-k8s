@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: python-framework
+spec:
+  template:
+    metadata:
+      name: python-framework
+    spec:
+      volumes:
+        - name: urb-pv-storage
+          persistentVolumeClaim:
+            claimName: urb-pvc
+      containers:
+      - name: urb-python-framework
+        image: local/urb-python-framework
+        imagePullPolicy: IfNotPresent
+#        command: [/opt/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
+        volumeMounts:
+        - mountPath: "/urb"
+          name: urb-pv-storage
+      restartPolicy: Never
