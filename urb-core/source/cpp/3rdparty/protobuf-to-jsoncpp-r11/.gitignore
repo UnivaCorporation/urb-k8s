@@ -1,0 +1,6 @@
+check_json_protobuf
+check_protobuf_types.*
+check_protobuf_types.*
+*.o
+*.a
+*.so

@@ -1,0 +1,8 @@
+base64/base64
+examples/c-example1
+examples/c-example2
+examples/decoded.txt
+examples/encoded.txt
+src/cdecode.o
+src/cencode.o
+src/libb64.a
