@@ -1,0 +1,11 @@
+gui/tests/jasmine/server
+.directory
+gui/.idea
+.idea
+dist/
+build/
+**/*~
+**/*.egg-info/
+**/*.pyc
+**/*.rdb
+venv

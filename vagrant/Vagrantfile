@@ -1,0 +1,44 @@
+# Copyright 2017 Univa Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.boot_timeout = 10
+  config.ssh.insert_key = false
+  config.vm.define "build-machine", autostart: true do |app|
+    app.vm.hostname = "head.private"
+    if ENV['SYNCED_FOLDER']
+      app.vm.synced_folder ENV['SYNCED_FOLDER'], "/scratch/urb"
+    else
+      app.vm.synced_folder "..", "/scratch/urb"
+    end
+    app.vm.provision "puppet" do |puppet|
+      puppet.options = "--verbose"
+      puppet.hiera_config_path = "puppet/hiera.yaml"
+      puppet.manifests_path = "puppet"
+      puppet.manifest_file  = "default.pp"
+    end
+    app.vm.provider "docker" do |d|
+      d.image = "urb-build"
+      d.name = "urb-build"
+      if ENV['DOCKER_SUFFIX']
+          d.name += ENV['DOCKER_SUFFIX']
+      end
+      d.has_ssh = true
+      d.create_args = [ "--privileged", "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro" ]
+    end
+  end
+end
