@@ -37,9 +37,10 @@ class K8SAdapter(object):
 
     DEL_WAIT_PERIOD_IN_SECONDS = 2.0
 
-    def __init__(self):
+    def __init__(self, k8s_registry_path = ""):
         self.logger = LogManager.get_instance().get_logger(
             self.__class__.__name__)
+        self.logger.info("K8s registry path: %s" % k8s_registry_path)
         self.configure()
         self.channel_name = None
         with open(os.path.join(os.path.dirname(__file__), "urb-executor-runner-config.yaml")) as fc:
@@ -47,6 +48,8 @@ class K8SAdapter(object):
             self.logger.debug("Loaded config map yaml: %s" % self.config_map)
         with open(os.path.join(os.path.dirname(__file__), "urb-executor-runner.yaml")) as fj:
             self.job = yaml.load(fj)
+            if len(k8s_registry_path) != 0:
+                self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/urb-executor-runner"
             self.logger.debug("Loaded job yaml: %s" % self.job)
             self.job_name_template = self.job['metadata']['name']
         self.core_v1 = client.CoreV1Api()
@@ -111,8 +114,10 @@ class K8SAdapter(object):
 
         self.config_map['data']['URB_FRAMEWORK_ID'] = framework_env['URB_FRAMEWORK_ID']
         try:
+            self.logger.trace("Creating config map")
             config_map_resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                         namespace = self.namespace)
+            self.logger.trace("Config map created")
         except ApiException as e:
             self.logger.warn("ApiException creating config map: %s" % e)
             if e.reason == "Conflict":
@@ -126,14 +131,16 @@ class K8SAdapter(object):
                 except ApiException as ee:
                     self.logger.warn("ApiException deleting config map: %s" % ee)
                 try:
+                    self.logger.debug("Creating new config map")
                     resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                      namespace = self.namespace)     
                 except ApiException as ee:
                     self.logger.error("ApiException creating config map again: %s" % ee)
                     raise ee
             else:
-                self.logger.debug("Other than Conflict")
+                self.logger.debug("With reason other than Conflict")
                 raise e
+#        except TIMEO
         except Exception as ge:
             self.logger.warn("Exception creating config map: %s" % ge)
             raise ge
