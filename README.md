@@ -105,7 +105,7 @@ A Scheduler Adapter interface is responsible for connecting URB Service to the C
 The URB API manages all network communication between Framework components in the Universal Resource Broker system.  It is implemented both in the shared C++ library (liburb.so) linked by _Schedulers_ and _Executors_ (instead of stock Mesos libmesos.so library) and inside of the URB Service.  The API is responsible for translating the native handler interfaces to JSON encapsulated messages.  The messages are sent to and received from a Redis powered message queue.  No Universal Resource Broker components talk directly to other URB components as all communication passes through the URB API and Redis.
 
 ## Redis Message Queue
-The Redis key value store server ([website](http://redis.io/)) is used to implement and operate the message queue used by the URB API.  All components communicating on the message bus first create _endpoints_.  The _endpoints_ manage message queue topics that are represented as Redis lists.  The flow of messages is arranged in a star pattern with the Universal Resource Broker read topics in the center.
+The Redis key value store server ([redis.io](http://redis.io/)) is used to implement and operate the message queue used by the URB API.  All components communicating on the message bus first create _endpoints_.  The _endpoints_ manage message queue topics that are represented as Redis lists.  The flow of messages is arranged in a star pattern with the Universal Resource Broker read topics in the center.
 
 ## URB Executor Runner
 The Executor Runner is responsible for creating a _Executor_ compatible runtime environment performing the following tasks to achieve its goal:
@@ -172,7 +172,7 @@ Following command will start Mesos C++ example framework with 50 tasks that ping
 
 `URB_MASTER=urb://$(hostname) LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/build/example_framework.test`
 
-In order to be able to start Mesos Python example frameworks Python virtual environment has to be set up:
+In order to be able to start Mesos Python example framework Python virtual environment has to be set up:
 
 `cd /scratch/urb`
 
@@ -184,5 +184,5 @@ Following command will start Mesos Python example framework with 50 tasks that p
 
 `LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/python-bindings/test/test_framework.py urb://$(hostname)`
 
-Please note that _Localhost_ implementation of the Scheduler Adapter Interface is limited to running example frameworks and doesn't guarantee correct behaviour when running actual Mesos frameworks.
+Please note that _Localhost_ implementation of the Scheduler Adapter Interface is a simple example limited to running C++ and Python example frameworks and doesn't guarantee correct behaviour with actual Mesos frameworks.
 
