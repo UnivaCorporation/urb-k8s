@@ -14,6 +14,9 @@
 
 
 SUBDIRS=urb-core source/python
+PROJECT_ID=$(shell gcloud config get-value project 2> /dev/null)
+#REGISTRY=gcr.io
+#REPOSITORY=${PROJECT_ID}
 
 include urb-core/util/include.mk 
 
@@ -28,4 +31,13 @@ images:
 	docker build --rm -t local/urb-redis -f redis.dockerfile .
 	docker build --rm -t local/urb-cpp-framework -f cpp-framework.dockerfile .
 	docker build --rm -t local/urb-python-framework -f python-framework.dockerfile .
-#	cd source/docker && make images
+	docker build --rm -t local/urb-pv -f urb-pv.dockerfile .
+
+
+gimages:
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-service -f urb-service.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-service
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-executor-runner -f urb-executor-runner.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-executor-runner
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-redis -f redis.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-redis
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-cpp-framework -f cpp-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-cpp-framework
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-python-framework -f python-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-python-framework
+	docker build --rm -t gcr.io/${PROJECT_ID}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-pv
