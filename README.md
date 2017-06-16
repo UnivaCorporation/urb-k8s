@@ -159,9 +159,13 @@ URB project includes _Localhost_ implementation of the Scheduler Adapter Interfa
 Assuming that URB build (`make && make build`) succeeded following commands will start redis server and URB service:
 
 `cd /scratch/urb`
+
 `source/cpp/3rdparty/redis/build/redis-2.8.18/src/redis-server&` - start redis server in background
+
 `cd source/python`
+
 `. ../../etc/urb.sh` - source URB development environment to set environment variables for URB configuration files (etc/urb.conf and etc/urb.executor_runner.conf) and Python path required by URB service
+
 `python urb/service/urb_service.py` - run URB service
 
 Following command will start Mesos C++ example framework with 50 tasks that ping-pong a message with the framework:
@@ -171,11 +175,14 @@ Following command will start Mesos C++ example framework with 50 tasks that ping
 In order to be able to start Mesos Python example frameworks Python virtual environment has to be set up:
 
 `cd /scratch/urb`
+
 `tools/venv.sh`
 
 Following command will start Mesos Python example framework with 50 tasks that ping-pong a message with the framework:
 
 `. venv/bin/activate`
+
 `LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/python-bindings/test/test_framework.py urb://$(hostname)`
 
 Please note that _Localhost_ implementation of the Scheduler Adapter Interface is limited to running example frameworks and doesn't guarantee correct behaviour when running actual Mesos frameworks.
+

@@ -1,6 +1,4 @@
-gui/tests/jasmine/server
 .directory
-gui/.idea
 .idea
 dist/
 build/
