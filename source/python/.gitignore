@@ -1,0 +1,7 @@
+build
+dist
+urb.egg-info
+*.pyc
+redis-*.egg
+.coverage
+urb/__init__.py
