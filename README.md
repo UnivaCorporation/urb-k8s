@@ -49,17 +49,13 @@ Inside the build container:
 
 `make test`
 
-### Create distribution and exit
+### Create distribution
 
 `make dist`
 
-`exit`
-
-## Create docker images for URB services (reusing minikube's docker daemon):
+## Open new shell, (in a root of the project) create docker images for URB services (reusing minikube's docker daemon):
 
 `eval $(minikube docker-env)`
-
-`cd ../..`
 
 `make images`
 
