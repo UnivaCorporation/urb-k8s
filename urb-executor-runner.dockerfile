@@ -46,10 +46,11 @@ RUN easy_install kubernetes
 # set environment variables required by URB service and copy configuration files
 ENV URB_ROOT=/opt/urb
 RUN mkdir -p $URB_ROOT
-ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
+#ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
+ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
 RUN mkdir -p $URB_ROOT/etc
-#RUN sed "s///" 
-COPY etc/urb.conf $URB_CONFIG_FILE
+#COPY etc/urb.conf $URB_CONFIG_FILE
+#RUN sed -i "s/host='localhost'/host='urb.default'/" $URB_CONFIG_FILE
 COPY etc/urb.executor_runner.conf $URB_ROOT/etc
 RUN mkdir -p $URB_ROOT/lib
 COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* $URB_ROOT/lib/
@@ -58,5 +59,9 @@ RUN mkdir $URB_ROOT/bin
 COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
      urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/command-executor \
      $URB_ROOT/bin/
+
+# for testing purposes
+COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/urb/bin/
+
 
 ENTRYPOINT ["/usr/bin/urb-executor-runner"]
