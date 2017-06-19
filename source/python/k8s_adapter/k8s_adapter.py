@@ -54,6 +54,10 @@ class K8SAdapter(object):
             self.job_name_template = self.job['metadata']['name']
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
+        try:
+            self.__create_config_map()
+        except:
+            pass
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -66,8 +70,10 @@ class K8SAdapter(object):
             client.Configuration().host = "http://127.0.0.1:8001"
 #            config.load_kube_config()
         else:
-            # to workaround of:
+            # to workaround for:
             # SSLError hostname '10.0.0.1' doesn't match either of 'kubernetes.default.svc.cluster.local', 'kubernetes.default.svc', 'kubernetes.default', 'kubernetes'
+            # https://github.com/kubernetes-incubator/client-python/issues/254
+            # has to set environment variable:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes'
             config.load_incluster_config()
 
@@ -108,11 +114,9 @@ class K8SAdapter(object):
         job_ids = self.submit_jobs(max_tasks, concurrent_tasks, framework_env, user, args, kwargs)
         return job_ids
 
-    def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
-        self.logger.debug("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
-                         (max_tasks, concurrent_tasks, framework_env, user, kwargs))
-
-        self.config_map['data']['URB_FRAMEWORK_ID'] = framework_env['URB_FRAMEWORK_ID']
+    def __create_config_map(self, framework_id = None):
+        if framework_id:
+            self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
         try:
             self.logger.trace("Creating config map")
             config_map_resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
@@ -129,7 +133,7 @@ class K8SAdapter(object):
                                                                 body = body,
                                                                 grace_period_seconds = 0)
                 except ApiException as ee:
-                    self.logger.warn("ApiException deleting config map: %s" % ee)
+                    self.logger.error("ApiException deleting config map: %s" % ee)
                 try:
                     self.logger.debug("Creating new config map")
                     resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
@@ -142,9 +146,28 @@ class K8SAdapter(object):
                 raise e
 #        except TIMEO
         except Exception as ge:
-            self.logger.warn("Exception creating config map: %s" % ge)
+            self.logger.error("Exception creating config map: %s" % ge)
             raise ge
 
+    def __patch_config_map(self, framework_id):
+        if self.config_map['data']['URB_FRAMEWORK_ID'] == framework_id:
+            self.logger.trace("No need to patch config map")
+            return
+        self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
+        try:
+            self.logger.trace("Patching config map")
+            config_map_resp = self.core_v1.patch_namespaced_config_map(body = self.config_map,
+                                                                       namespace = self.namespace)
+            self.logger.trace("Config map patched")
+        except ApiException as e:
+            self.logger.warn("Exception patching config map: %s" % e)
+            raise e
+
+    def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
+        self.logger.debug("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
+                         (max_tasks, concurrent_tasks, framework_env, user, kwargs))
+
+        self.__patch_config_map(framework_env['URB_FRAMEWORK_ID'])
         job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
