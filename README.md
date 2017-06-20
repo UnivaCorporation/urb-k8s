@@ -136,7 +136,7 @@ Optional Web User Interface Service for visualizing historical information avail
 Extrenal job native to the Cluster Resource Scheduler.
 
 # High Availability
-High availability is achieved by making both the Redis Message Queue and the URB Service highly available.  Redis is made highly available by configuring the Redis Sentinel functionality and using Redis Sentinel URI's in both the URB Service and the Frameworks.  The URB service is made highly available by starting multiple concurrent URB_long Services. The URB services will elect a master with the non-master services assuming a cold standby role.  The non-master services leverage Redis to monitor the health of the master and will elect a new master if and when the active master becomes unresponsive.
+High availability is achieved by making both the Redis Message Queue and the URB Service highly available.  Redis is made highly available by configuring the Redis Sentinel functionality and using Redis Sentinel URI's in both the URB Service and the Frameworks.  The URB service is made highly available by starting multiple concurrent URB Services. The URB services will elect a master with the non-master services assuming a cold standby role.  The non-master services leverage Redis to monitor the health of the master and will elect a new master if and when the active master becomes unresponsive.
 
 # Build
 
@@ -190,5 +190,5 @@ Following command will start Mesos Python example framework with 50 tasks that p
 
 `deactivate`
 
-Please note that _Localhost_ implementation of the Scheduler Adapter Interface is limited to running example frameworks and doesn't guarantee correct behaviour when running actual Mesos frameworks.
+Please note that _localhost_ implementation of the Scheduler Adapter Interface is limited to running example frameworks and doesn't guarantee correct behaviour when running actual Mesos frameworks.
 
