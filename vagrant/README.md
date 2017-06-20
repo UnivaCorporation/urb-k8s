@@ -2,19 +2,19 @@ Following are the instructions for building urb-core project as a separate compo
 External projects implementing scheduler adapter interface can use urb-core as a subproject
 in which case build instructions from those projects might be used instead.
 
-# Build base docker image:
+## Build base docker image:
 
   `make`
 
-# Provision and start build environment:
+## Provision and start build environment:
 
   `vagrant up`
 
-# Access build environment:
+## Access build environment:
 
   `vagrant ssh`
 
-# Build project (from inside the guest, after vagrant ssh):
+## Build project (from inside the guest, after `vagrant ssh`):
 
 - change directory to the project root:
 
@@ -36,14 +36,14 @@ in which case build instructions from those projects might be used instead.
 
   `exit`
 
-# Shutdown the build environment:
+## Shutdown the build environment:
 
   `vagrant halt`
 
-# Completely destroy build environment:
+## Completely destroy build environment:
 
   `vagrant destroy`
 
-# Clean docker image:
+## Clean docker image:
 
   `make clean`

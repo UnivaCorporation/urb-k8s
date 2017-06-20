@@ -4,7 +4,7 @@ Universal Resource Broker (URB) provides an API for developing and running distr
 
 This project includes Universal Resource Broker core components only. For the Universal Resource Broker to be fully functioning the scheduler back end adapter has to be implemented in Python, based on interface located in source/python/urb/adapters/adapter_interface.py
 
-Structurally it is recommended to create a separate project with adapter interface implementation and use urb-core as an external dependency (similarly to [urb-k8s](urb-k8s) project).
+Structurally it is recommended to create a separate project with adapter interface implementation and use urb-core as an external dependency (similarly to [urb-uge](https://github.com/UnivaCorporation/urb-uge) project).
 
 # Functionality
 
@@ -105,7 +105,7 @@ A Scheduler Adapter interface is responsible for connecting URB Service to the C
 The URB API manages all network communication between Framework components in the Universal Resource Broker system.  It is implemented both in the shared C++ library (liburb.so) linked by _Schedulers_ and _Executors_ (instead of stock Mesos libmesos.so library) and inside of the URB Service.  The API is responsible for translating the native handler interfaces to JSON encapsulated messages.  The messages are sent to and received from a Redis powered message queue.  No Universal Resource Broker components talk directly to other URB components as all communication passes through the URB API and Redis.
 
 ## Redis Message Queue
-The Redis key value store server ([redis.io](http://redis.io/)) is used to implement and operate the message queue used by the URB API.  All components communicating on the message bus first create _endpoints_.  The _endpoints_ manage message queue topics that are represented as Redis lists.  The flow of messages is arranged in a star pattern with the Universal Resource Broker read topics in the center.
+The Redis key value store server ([website](http://redis.io/)) is used to implement and operate the message queue used by the URB API.  All components communicating on the message bus first create _endpoints_.  The _endpoints_ manage message queue topics that are represented as Redis lists.  The flow of messages is arranged in a star pattern with the Universal Resource Broker read topics in the center.
 
 ## URB Executor Runner
 The Executor Runner is responsible for creating a _Executor_ compatible runtime environment performing the following tasks to achieve its goal:
@@ -156,7 +156,7 @@ The build process produces a distribution archive which includes following compo
 
 URB project includes _Localhost_ implementation of the Scheduler Adapter Interface in source/python/urb/adapters/localhost_adapter.py which runs Mesos tasks on local host as a simple example of custom scheduler implementation.
 
-Assuming that URB build (`make && make build`) succeeded following commands will start redis server and URB service:
+Assuming that URB build (`make`) succeeded following commands will start redis server and URB service:
 
 `cd /scratch/urb`
 
@@ -168,11 +168,15 @@ Assuming that URB build (`make && make build`) succeeded following commands will
 
 `python urb/service/urb_service.py` - run URB service
 
+Open new host shell and login into vagrant development environment (`vagrant ssh`, `cd /scratch/urb`). Create Python virtual environment for URB executor runner:
+
+`tools/venv.sh`
+
 Following command will start Mesos C++ example framework with 50 tasks that ping-pong a message with the framework:
 
 `URB_MASTER=urb://$(hostname) LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/build/example_framework.test`
 
-In order to be able to start Mesos Python example framework Python virtual environment has to be set up:
+In order to be able to start Mesos Python example frameworks Python virtual environment has to be set up:
 
 `cd /scratch/urb`
 
@@ -184,5 +188,7 @@ Following command will start Mesos Python example framework with 50 tasks that p
 
 `LD_LIBRARY_PATH=/scratch/urb/source/cpp/liburb/build /scratch/urb/source/cpp/liburb/python-bindings/test/test_framework.py urb://$(hostname)`
 
-Please note that _Localhost_ implementation of the Scheduler Adapter Interface is a simple example limited to running C++ and Python example frameworks and doesn't guarantee correct behaviour with actual Mesos frameworks.
+`deactivate`
+
+Please note that _Localhost_ implementation of the Scheduler Adapter Interface is limited to running example frameworks and doesn't guarantee correct behaviour when running actual Mesos frameworks.
 
