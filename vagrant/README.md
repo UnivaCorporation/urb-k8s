@@ -8,7 +8,7 @@ in which case build instructions from those projects might be used instead.
 
 ## Provision and start build environment:
 
-  `vagrant up`
+  `vagrant up --provider=docker`
 
 ## Access build environment:
 

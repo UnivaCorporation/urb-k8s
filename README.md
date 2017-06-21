@@ -154,7 +154,7 @@ The build process produces a distribution archive which includes following compo
 
 # Run URB in the development environment
 
-URB project includes _Localhost_ implementation of the Scheduler Adapter Interface in source/python/urb/adapters/localhost_adapter.py which runs Mesos tasks on local host as a simple example of custom scheduler implementation.
+URB project includes _localhost_ implementation of the Scheduler Adapter Interface in source/python/urb/adapters/localhost_adapter.py which runs Mesos tasks on local host as a simple example of custom scheduler implementation.
 
 Assuming that URB build (`make`) succeeded following commands will start redis server and URB service:
 
