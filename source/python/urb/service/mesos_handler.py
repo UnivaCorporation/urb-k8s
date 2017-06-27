@@ -1000,11 +1000,17 @@ class MesosHandler(MessageHandler):
 
                     else:
                         # ... And we don't have a slave to use to query backend scheduler
-                        # If our framework has been up for a while we can assume the task is gone
-                        if time.time() - framework['init_time'] > MesosHandler.SLAVE_GRACE_PERIOD:
-                            self.logger.debug("Reconcile: slave grace period exceeded, set task status to TASK_LOST")
+                        # if our slave has been up for a while we can assume the task is gone
+                        queue_time = t.get('queue_time')
+                        if not queue_time:
+                            self.logger.debug("Reconcile: no queue_time")
+                            continue
+                        if time.time() - queue_time > MesosHandler.SLAVE_GRACE_PERIOD:
+                            self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST" % task_id)
                             task_record = {}
                             # slave_id is None here - set it to NotValid
+                            # this may cause failures on scheduler side for some frameworks (as in Spark with non-existed
+                            # key exception for "NotValid" setting scheduler driver to DRIVER_ABORTED state)
                             slave_id = { 'value' : 'NotValid' }
                             task_record['task_info'] = {'slave_id': slave_id}
                             task_record['state'] = "TASK_LOST"
@@ -1013,7 +1019,7 @@ class MesosHandler(MessageHandler):
                             framework['task_dict'] = t
                             job_status = task_record['state']
                         else:
-                            self.logger.debug("Reconcile: slave grace period not exceeded, skip status update")
+                            self.logger.debug("Reconcile: slave grace period not exceeded, skip status update for task %s" % task_id)
                             continue
 
                 status_update = {}
