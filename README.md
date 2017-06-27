@@ -1,11 +1,11 @@
 # Introduction
 
-Universal Resource Broker (URB) provides an API for developing and running distributed applications.  URB provides
-both a resource requesting and resource providing pluggable interface providing the ability to map multiple
+Universal Resource Broker (URB) provides an API for developing and running distributed applications.  URB exposes
+both a resource requesting and resource providing pluggable interface giving the ability to map multiple
 distrubted resource API's to a single resource provider.  Universal Resource Broker is an enterprise ready application
 engine for your datacenter.
 
-Presently URB supports provides an Apache Mesos API compatible resource requesting plugin as well as a Univa Grid
+Presently URB supports an Apache Mesos API compatible resource requesting plugin as well as a Univa Grid
 Engine and localhost backend.  A Kubernetes backend is actively being developed.
 
 This project includes Universal Resource Broker core components only. For the Universal Resource Broker to be
