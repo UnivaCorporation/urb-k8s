@@ -25,11 +25,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     else
       app.vm.synced_folder "..", "/scratch/urb"
     end
-    app.vm.provision "puppet" do |puppet|
-      puppet.options = "--verbose"
-      puppet.hiera_config_path = "puppet/hiera.yaml"
-      puppet.manifests_path = "puppet"
-      puppet.manifest_file  = "default.pp"
+    app.vm.provision "shell" do |shell|
+      shell.inline = "/opt/puppetlabs/bin/puppet apply /vagrant/puppet/default.pp"
     end
     app.vm.provider "docker" do |d|
       d.image = "urb-build"
