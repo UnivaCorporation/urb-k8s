@@ -156,7 +156,8 @@ class K8SAdapter(object):
         self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
         try:
             self.logger.trace("Patching config map")
-            config_map_resp = self.core_v1.patch_namespaced_config_map(body = self.config_map,
+            config_map_resp = self.core_v1.patch_namespaced_config_map(name = self.config_map['metadata']['name'],
+                                                                       body = self.config_map,
                                                                        namespace = self.namespace)
             self.logger.trace("Config map patched")
         except ApiException as e:
