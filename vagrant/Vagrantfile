@@ -24,20 +24,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     synced_folder = ".."
   end
   vm_name = File.basename(Pathname.new(Dir.pwd + "/" + synced_folder).realpath) + "-build"
-  config.vm.define vm_name, autostart: true do |app|
-    app.vm.hostname = "head.private"
+  config.vm.define "urb-build", autostart: true do |app|
     app.vm.synced_folder synced_folder, "/scratch/urb"
-    app.vm.provision "puppet" do |puppet|
-      puppet.options = "--verbose"
-      puppet.hiera_config_path = "puppet/hiera.yaml"
-      puppet.manifests_path = "puppet"
-      puppet.manifest_file  = "default.pp"
+    app.vm.hostname = "head.private"
+    app.vm.provision "shell" do |shell|
+      shell.inline = "/opt/puppetlabs/bin/puppet apply /vagrant/puppet/default.pp"
     end
     app.vm.provider "docker" do |d|
       d.image = "urb-build"
       d.name = vm_name
       if ENV['DOCKER_SUFFIX']
-          d.name += ENV['DOCKER_SUFFIX']
+        d.name += ENV['DOCKER_SUFFIX']
       end
       d.has_ssh = true
       d.create_args = [ "--privileged", "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro" ]
