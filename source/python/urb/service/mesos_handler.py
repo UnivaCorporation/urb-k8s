@@ -2217,7 +2217,9 @@ class MesosHandler(MessageHandler):
             # Delete executor channel
             #self.__delete_channel_with_delay(executor_channel.name)
         else:
-            self.logger.warn("No executor channels to send message to.")
+            self.logger.warn("No executor channels to send message to. Shutdown executor runner instead.")
+            self.send_slave_shutdown_message(slave['channel'].name)
+            self.update_completed_executor_summary_db(slave)
             return False
 
     def run_task(self, executor_channel, task, framework_info):
