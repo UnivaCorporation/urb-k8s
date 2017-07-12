@@ -7,3 +7,4 @@ build/
 **/*.pyc
 **/*.rdb
 venv
+vagrant/.vagrant
