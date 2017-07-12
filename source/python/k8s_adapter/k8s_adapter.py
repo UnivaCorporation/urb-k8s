@@ -97,7 +97,7 @@ class K8SAdapter(object):
         self.logger.trace("Kill task: %s" % request)
 
     def launch_tasks(self, framework_id, tasks, *args, **kwargs):
-        self.logger.trace("Launch tasks for framework id: %s" % framework_id)
+        self.logger.trace("Launch tasks for framework id: %s" % framework_id['value'])
 
     def reconcile_tasks(self, request):
         self.logger.trace("Reconcile tasks: %s" % request)
@@ -118,7 +118,7 @@ class K8SAdapter(object):
         if framework_id:
             self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
         try:
-            self.logger.trace("Creating config map")
+            self.logger.info("Creating config map")
             config_map_resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                         namespace = self.namespace)
             self.logger.trace("Config map created")
@@ -135,7 +135,7 @@ class K8SAdapter(object):
                 except ApiException as ee:
                     self.logger.error("ApiException deleting config map: %s" % ee)
                 try:
-                    self.logger.debug("Creating new config map")
+                    self.logger.info("Creating new config map")
                     resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                      namespace = self.namespace)     
                 except ApiException as ee:
@@ -151,7 +151,7 @@ class K8SAdapter(object):
 
     def __patch_config_map(self, framework_id):
         if self.config_map['data']['URB_FRAMEWORK_ID'] == framework_id:
-            self.logger.trace("No need to patch config map")
+            self.logger.trace("No need to patch config map for framework id: %s" % framework_id)
             return
         self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
         try:
@@ -159,9 +159,9 @@ class K8SAdapter(object):
             config_map_resp = self.core_v1.patch_namespaced_config_map(name = self.config_map['metadata']['name'],
                                                                        body = self.config_map,
                                                                        namespace = self.namespace)
-            self.logger.trace("Config map patched")
+            self.logger.trace("Config map patched with framework id: %s" % framework_id)
         except ApiException as e:
-            self.logger.warn("Exception patching config map: %s" % e)
+            self.logger.warn("Exception patching config map for framework id %s: %s" % (framework_id, e))
             raise e
 
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
@@ -189,6 +189,8 @@ class K8SAdapter(object):
                 self.logger.error("No elements in pod list for label selector: %s" % label_selector)
                 continue
             pod_name = list_resp.items[0].metadata.name
+            # job id is set as pod name as it can be exposed as JOB_ID environment variable mapped from
+            # metadata.name to executor runner
             job_id = (pod_name,None,None)
             self.logger.info("Submitted job to k8s, got pod id: %s, uid=%s" % (pod_name, uid))
             job_ids.append(job_id)
@@ -241,8 +243,8 @@ class K8SAdapter(object):
                 self.logger.warn("Error deleteing job: %s" % ex)
 
     def delete_job(self, job_id):
-        self.logger.debug("Deleting job: %s", job_id)
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
+        self.logger.debug("Deleting job: %s (%s k8s job)" % (job_id, k8s_job_id))
         body = client.V1DeleteOptions()
         resp = self.batch_v1.delete_namespaced_job(name = k8s_job_id,
                                                   namespace = self.namespace,
@@ -256,8 +258,8 @@ class K8SAdapter(object):
         return id
 
     def get_job_status(self, job_id):
-        self.logger.debug("Getting status for job: %s", job_id)
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
+        self.logger.debug("Getting status for job: %s (%s k8s job)" % (job_id, k8s_job_id))
         status_resp = self.batch_v1.read_namespaced_job_status(name = k8s_job_id,
                                                                namespace = self.namespace)
         active = status_resp.status.active
@@ -265,13 +267,13 @@ class K8SAdapter(object):
         failed = status_resp.status.failed
         self.logger.debug("Job status: active=%s, succeeded=%s, failed=%s" %
                           (active, succeeded, failed))
-        self.logger.trace('Job status: %s' % status_resp.status)
+        self.logger.trace("Job status: %s" % status_resp.status)
         if (active is None or active == 0) and (failed is not None and failed > 0):
             raise UnknownJob("Job %s has no active pods and has failed count of %s" % (job_id, failed))
         return status_resp.status
 
     def get_job_accounting(self, job_id):
-        self.logger.debug('Getting accounting for job: %s', job_id)
+        self.logger.debug("Getting accounting for job: %s" % job_id)
         try:
             # fill with dummy element for now in order not to cause requesting it multiple times
             acct = {"k8s_accounting": "dummy"}
