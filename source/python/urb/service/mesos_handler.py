@@ -1691,10 +1691,6 @@ class MesosHandler(MessageHandler):
 
     def handle_status_update(self, framework, update):
         task_id = update['status']['task_id']
-        # Enable the following code when testing reliable queuing
-        #if task_id['value'] == '50':
-        #    import sys
-        #    sys.exit(0)
         if not framework:
             self.logger.warn('Unable to update status for task: %s from unknown framework: %s'
                 % (task_id, update['framework_id']['value']))
@@ -2260,7 +2256,7 @@ class MesosHandler(MessageHandler):
         framework_config = framework['config']
         if not scale_count:
             scale_count = int(framework_config.get('scale_count', 1))
-        self.logger.debug('Scaling up by: %d' % scale_count)
+        self.logger.debug('Scaling up for framework %s by: %d' % (framework['name'], scale_count))
         # Need to submit another runner
         max_tasks = int(framework_config.get('max_tasks'))
         # Check how much headroom we have
@@ -2282,14 +2278,15 @@ class MesosHandler(MessageHandler):
         framework_job_ids = framework.get('job_ids', [])
         framework_job_ids = list(set(framework_job_ids).union(job_ids))
         framework['job_ids'] = framework_job_ids
-        self.logger.debug("Framework has (%d/%d) jobs pending/running" % (len(framework_job_ids),max_tasks))
+        self.logger.debug("Framework %s has (%d/%d) jobs pending/running" %
+                          (framework['name'], len(framework_job_ids), max_tasks))
         return job_ids
         #self.adapter.scale(framework,scale_count)
 
     def scale_down(self,framework, count=1):
         framework_config = framework['config']
         scale_count = int(framework_config.get('scale_count', count))
-        self.logger.debug('Scaling down by: %d' % scale_count)
+        self.logger.debug('Scaling down for framework %s by: %d' % (framework['name'], scale_count))
         scale_count = scale_count * -1
         self.adapter.scale(framework,scale_count)
 
