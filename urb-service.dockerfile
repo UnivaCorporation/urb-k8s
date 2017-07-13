@@ -18,9 +18,9 @@ FROM centos:7
 RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
 
 # install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+RUN yum update -y; yum install -y libev libuuid zlib libyaml python-setuptools; yum clean all
 
-RUN easy_install kubernetes
+RUN easy_install kubernetes==2.0.0 # temporary indicate stable version
 
 # copy urb-core Python eggs
 COPY urb-core/dist/urb-*-py2.7/*.egg /tmp/
@@ -50,7 +50,7 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/k8s_adapter-*-py2.7.egg
 
 # set environment variables required by URB service and copy configuration files
-ENV URB_ROOT=/opt/urb
+ENV URB_ROOT=/urb
 RUN mkdir -p $URB_ROOT
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 RUN mkdir -p $URB_ROOT/etc

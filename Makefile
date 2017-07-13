@@ -25,13 +25,25 @@ dist:
 	cd urb-core && make dist
 	cd source/python && make dist
 
-images:
+urb-service:
 	docker build --rm -t local/urb-service -f urb-service.dockerfile .
-	docker build --rm -t local/urb-executor-runner -f urb-executor-runner.dockerfile .
+
+urb-redis:
 	docker build --rm -t local/urb-redis -f redis.dockerfile .
+
+urb-executor-runner:
+	docker build --rm -t local/urb-executor-runner -f urb-executor-runner.dockerfile .
+
+urb-cpp-framework:
 	docker build --rm -t local/urb-cpp-framework -f cpp-framework.dockerfile .
+
+urb-python-framework:
 	docker build --rm -t local/urb-python-framework -f python-framework.dockerfile .
+
+urb-pv:
 	docker build --rm -t local/urb-pv -f urb-pv.dockerfile .
+
+images: urb-service urb-redis urb-executor-runner urb-cpp-framework urb-python-framework urb-pv
 
 
 gimages:

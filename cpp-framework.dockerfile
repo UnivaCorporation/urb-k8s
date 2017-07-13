@@ -20,15 +20,19 @@ RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(aw
 # install binary dependencies
 RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
 
-# set environment variables copy binary files
-RUN mkdir -p /opt/urb/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /opt/urb/lib/
-ENV LD_LIBRARY_PATH=/opt/urb/lib:$LD_LIBRARY_PATH
+# rely on persistent volume mapped to /opt containing cpp framework and executor binaries
+# in /opt/bin directory
+
+# set environment variables, copy binary files
+RUN mkdir -p /urb/lib
+COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
+ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
 ENV URB_MASTER=urb://urb.default:6379
-RUN mkdir -p /opt/urb/bin
-COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/urb/bin/
+#RUN mkdir -p /urb/bin
+#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
 
 # for testing purposes add redis command line tool
-COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /opt/urb/bin/
+#COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /urb/bin/
 
-ENTRYPOINT ["/opt/urb/bin/example_framework.test"]
+#ENTRYPOINT ["/urb/bin/example_framework.test"]
+ENTRYPOINT ["/opt/bin/example_framework.test"]

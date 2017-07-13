@@ -11,4 +11,4 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: "/urb"
-    path: "path_template"
+#    path: "path_template"

@@ -15,8 +15,8 @@ spec:
       - name: urb-python-framework
         image: local/urb-python-framework
         imagePullPolicy: IfNotPresent
-#        command: [/opt/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
+#        command: [/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
         volumeMounts:
-        - mountPath: "/urb"
+        - mountPath: "/opt"
           name: urb-pv-storage
       restartPolicy: Never

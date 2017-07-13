@@ -25,6 +25,6 @@ spec:
             name: urb-executor-runner-config
 #        command: ["/bin/sh", "-c", "env; sleep 10000"]
         volumeMounts:
-        - mountPath: "/urb"
+        - mountPath: "/opt"
           name: urb-pv-storage
       restartPolicy: Never 

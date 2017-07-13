@@ -1,6 +1,12 @@
-# urb-k8s project 
+# Kubernetes adapter for Universal Resource Broker (URB)
 
-Following steps need to be done to perform a full project build:
+This project allows one to run [Apache Mesos](http://mesos.apache.org) frameworks with Universal Resource Broker in [Kubernetes](https://kubernetes.io) cluster.
+
+It utilizes [urb-core](https://github.com/UnivaCorporation/urb-core) project and provides Kubernetes adapter for URB.
+
+Please see [Universal Resource Broker core](https://github.com/UnivaCorporation/urb-core) project for more architectual details.
+
+Following steps need to be done to perform a project build:
 
 ## Install `kubectl` and `minikube` (requires `VirtualBox` to be installed)`:
 

@@ -27,6 +27,7 @@ from urb.utility.value_utility import ValueUtility
 import gevent
 import uuid
 import os
+import copy
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 import yaml
@@ -36,6 +37,8 @@ class K8SAdapter(object):
     """ Kubernetes Adapter class. """
 
     DEL_WAIT_PERIOD_IN_SECONDS = 2.0
+    URB_EXECUTOR_RUNNER = "urb-executor-runner"
+    CONFIG_MAP_TEMPLATE = URB_EXECUTOR_RUNNER + "-config"
 
     def __init__(self, k8s_registry_path = ""):
         self.logger = LogManager.get_instance().get_logger(
@@ -43,21 +46,18 @@ class K8SAdapter(object):
         self.logger.info("K8s registry path: %s" % k8s_registry_path)
         self.configure()
         self.channel_name = None
-        with open(os.path.join(os.path.dirname(__file__), "urb-executor-runner-config.yaml")) as fc:
+        with open(os.path.join(os.path.dirname(__file__), K8SAdapter.CONFIG_MAP_TEMPLATE + ".yaml")) as fc:
             self.config_map = yaml.load(fc)
             self.logger.debug("Loaded config map yaml: %s" % self.config_map)
-        with open(os.path.join(os.path.dirname(__file__), "urb-executor-runner.yaml")) as fj:
+        with open(os.path.join(os.path.dirname(__file__), K8SAdapter.URB_EXECUTOR_RUNNER + ".yaml")) as fj:
             self.job = yaml.load(fj)
             if len(k8s_registry_path) != 0:
-                self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/urb-executor-runner"
+                self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/" + K8SAdapter.URB_EXECUTOR_RUNNER
             self.logger.debug("Loaded job yaml: %s" % self.job)
             self.job_name_template = self.job['metadata']['name']
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
-        try:
-            self.__create_config_map()
-        except:
-            pass
+        self.config_map_dict = {}
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -97,7 +97,8 @@ class K8SAdapter(object):
         self.logger.trace("Kill task: %s" % request)
 
     def launch_tasks(self, framework_id, tasks, *args, **kwargs):
-        self.logger.trace("Launch tasks for framework id: %s" % framework_id['value'])
+        self.logger.trace("Launch tasks for framework id: %s" % framework_id)
+#        self.logger.trace("Launch tasks for framework id: %s" % framework_id['value'])
 
     def reconcile_tasks(self, request):
         self.logger.trace("Reconcile tasks: %s" % request)
@@ -114,18 +115,37 @@ class K8SAdapter(object):
         job_ids = self.submit_jobs(max_tasks, concurrent_tasks, framework_env, user, args, kwargs)
         return job_ids
 
+    def __add_config_map(self, framework_id):
+        if framework_id not in self.config_map_dict:
+            self.__create_config_map(framework_id)
+            self.config_map_dict[framework_id] = copy.deepcopy(self.config_map)
+
+    def __delete_config_map(self, framework_id):
+        try:
+            body = client.V1DeleteOptions()
+            name = self.config_map_dict[framework_id]['metadata']['name']
+            resp = self.core_v1.delete_namespaced_config_map(name = name,
+                                                             namespace = self.namespace,
+                                                             body = body,
+                                                             grace_period_seconds = 0)
+        except ApiException as e:
+            self.logger.error("ApiException deleting config map %s: %s" % (name, e))
+
+        del self.config_map_dict[framework_id]
+
     def __create_config_map(self, framework_id = None):
         if framework_id:
+            self.config_map['metadata']['name'] = K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_id
             self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
         try:
-            self.logger.info("Creating config map")
+            self.logger.info("Creating config map: %s" % self.config_map['metadata']['name'])
             config_map_resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                         namespace = self.namespace)
-            self.logger.trace("Config map created")
+            self.logger.trace("Config map created: %s" % self.config_map['metadata']['name'])
         except ApiException as e:
-            self.logger.warn("ApiException creating config map: %s" % e)
+            self.logger.debug("ApiException creating config map: %s" % e)
             if e.reason == "Conflict":
-                self.logger.info("Delete existing config map")
+                self.logger.info("Delete existing config map: %s" % self.config_map['metadata']['name'])
                 try:
                     body = client.V1DeleteOptions()
                     resp = self.core_v1.delete_namespaced_config_map(name = self.config_map['metadata']['name'],
@@ -135,46 +155,36 @@ class K8SAdapter(object):
                 except ApiException as ee:
                     self.logger.error("ApiException deleting config map: %s" % ee)
                 try:
-                    self.logger.info("Creating new config map")
+                    self.logger.info("Creating new config map: %s" % self.config_map['metadata']['name'])
                     resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
                                                                      namespace = self.namespace)     
+                    self.logger.trace("New config map created: %s" % self.config_map['metadata']['name'])
                 except ApiException as ee:
                     self.logger.error("ApiException creating config map again: %s" % ee)
                     raise ee
             else:
-                self.logger.debug("With reason other than Conflict")
+                self.logger.error("ApiException creating config map with reason other than Conflict: %s" % e)
                 raise e
 #        except TIMEO
         except Exception as ge:
             self.logger.error("Exception creating config map: %s" % ge)
             raise ge
 
-    def __patch_config_map(self, framework_id):
-        if self.config_map['data']['URB_FRAMEWORK_ID'] == framework_id:
-            self.logger.trace("No need to patch config map for framework id: %s" % framework_id)
-            return
-        self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
-        try:
-            self.logger.trace("Patching config map")
-            config_map_resp = self.core_v1.patch_namespaced_config_map(name = self.config_map['metadata']['name'],
-                                                                       body = self.config_map,
-                                                                       namespace = self.namespace)
-            self.logger.trace("Config map patched with framework id: %s" % framework_id)
-        except ApiException as e:
-            self.logger.warn("Exception patching config map for framework id %s: %s" % (framework_id, e))
-            raise e
-
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.debug("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
 
-        self.__patch_config_map(framework_env['URB_FRAMEWORK_ID'])
+        self.__add_config_map(framework_env['URB_FRAMEWORK_ID'])
+
         job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
             self.job['metadata']['name'] = "%s-%s" % (self.job_name_template, uuid.uuid1().hex)
+            self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'] = \
+                                 K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_env['URB_FRAMEWORK_ID']
             self.logger.info("Submit k8s job: %s" % self.job['metadata']['name'])
+            self.logger.debug("With config map ref: %s" % self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'])
             job_resp = self.batch_v1.create_namespaced_job(body = self.job, namespace = self.namespace)
             self.logger.trace("job_resp: %s" % job_resp)
             uid = job_resp.metadata.uid
@@ -225,7 +235,8 @@ class K8SAdapter(object):
         self.logger.trace("Scale: framework: %s, count: %s" % (framework, count))
 
     def unregister_framework(self, framework):
-        self.logger.debug("Unregister framework: %s" % framework['name'])
+        self.logger.debug("Unregister framework: %s" % framework['id']['value'])
+        self.__delete_config_map(framework['id']['value'])
         self.delete_jobs_delay(framework)
 
     def delete_jobs_delay(self, framework):

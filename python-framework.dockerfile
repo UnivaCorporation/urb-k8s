@@ -39,12 +39,15 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/mesos.interface-*-py2.7.egg \
                  /tmp/mesos-1.1.0-py2.7.egg
 
-# set environment variables copy files
-RUN mkdir -p /opt/urb/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /opt/urb/lib/
-ENV LD_LIBRARY_PATH=/opt/urb/lib:$LD_LIBRARY_PATH
-RUN mkdir -p /opt/urb/bin
-COPY urb-core/dist/urb-*/share/examples/frameworks/python/*.py /opt/urb/bin/
-ENTRYPOINT ["/opt/urb/bin/test_framework.py", "urb://urb.default:6379"]
+# rely on persistent volume mapped to /opt containing cpp framework and executor binaries
+# in /opt/bin directory
 
- 
+# set environment variables copy files
+RUN mkdir -p /urb/lib
+COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
+ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
+RUN mkdir -p /urb/bin
+#COPY urb-core/dist/urb-*/share/examples/frameworks/python/*.py /urb/bin/
+#ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb.default:6379"]
+ENTRYPOINT ["/opt/bin/test_framework.py", "urb://urb.default:6379"]
+

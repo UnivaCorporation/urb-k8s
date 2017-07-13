@@ -15,8 +15,9 @@ spec:
       - name: urb-cpp-framework
         image: local/urb-cpp-framework
         imagePullPolicy: IfNotPresent
-#        command: ["/opt/urb/bin/example_framework.test",  "1"]
+#        command: ["/urb/bin/example_framework.test",  "50", "1", "1"]
+#        command: ["/bin/sh", "-c", "env; sleep 10000"]
         volumeMounts:
-        - mountPath: "/urb"
+        - mountPath: "/opt"
           name: urb-pv-storage
       restartPolicy: Never

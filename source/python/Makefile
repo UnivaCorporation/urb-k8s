@@ -47,7 +47,7 @@ sdist: $(K8S_ADAPTER_INIT)
 
 test: $(K8S_ADAPTER_INIT)
 #	-qconf -djc TestFramework_`hostname`
-	sudo easy_install kubernetes
+	sudo easy_install kubernetes==2.0.0 # temporary set version (remove or update to latest stable later)
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
 	$(SETUP_ENV) URB_CONFIG_FILE=$$(pwd)/test/urb.conf $(PYTHON) setup.py nosetests
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" == "PONG" ]; then echo -e "flushdb\nshutdown\nquit\n" | $(REDIS_BIN)/redis-cli; fi

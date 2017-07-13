@@ -41,10 +41,10 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/urb-*-py2.7.egg
 
 # install Python kubernetes client
-RUN easy_install kubernetes
+RUN easy_install kubernetes==2.0.0 # temporary indicate stable version
 
 # set environment variables required by URB service and copy configuration files
-ENV URB_ROOT=/opt/urb
+ENV URB_ROOT=/urb
 RUN mkdir -p $URB_ROOT
 #ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
@@ -61,7 +61,8 @@ COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
      $URB_ROOT/bin/
 
 # for testing purposes
-COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/urb/bin/
+#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
+#COPY urb-core/dist/urb-*/share/examples/frameworks/python/test_executor.py /urb/bin/
 
 
 ENTRYPOINT ["/usr/bin/urb-executor-runner"]
