@@ -1,11 +1,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: urb-executor-runner
+  name: urb-exec
 spec:
   template:
     metadata:
-      name: urb-executor-runner
+      name: urb-exec
     spec:
       volumes:
         - name: urb-pv-storage
