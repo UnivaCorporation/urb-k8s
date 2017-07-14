@@ -54,27 +54,20 @@ framework_wait() {
 # create URB and frameworks artifacts to be used in k8s persistent volume
 prepare_pv() {
   rm -rf /tmp/urb-k8s-volume
-  # get URB version path
-  URB_VER=$(basename $(find urb-core/dist -maxdepth 1 -regex "urb-core/dist/urb-[1-9]+\.[0-9]+\.[0-9]$" -print))
-  mkdir -p /tmp/urb-k8s-volume/$URB_VER
-  mkdir -p /tmp/urb-k8s-volume/$URB_VER/bin
-  cp urb-core/dist/${URB_VER}-linux-x86_64/bin/linux-x86_64/fetcher \
-    urb-core/dist/${URB_VER}-linux-x86_64/bin/linux-x86_64/command-executor \
-    urb-core/dist/${URB_VER}-linux-x86_64/bin/linux-x86_64/redis-cli \
-    /tmp/urb-k8s-volume/$URB_VER/bin
-  mkdir -p /tmp/urb-k8s-volume/$URB_VER/lib
-  cp urb-core/dist/${URB_VER}-linux-x86_64/lib/linux-x86_64/liburb.* /tmp/urb-k8s-volume/$URB_VER/lib
-  cp -r urb-core/dist/$URB_VER/share /tmp/urb-k8s-volume/$URB_VER
+  mkdir -p /tmp/urb-k8s-volume/urb/bin
+  cp urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
+    urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/command-executor \
+    urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli \
+    /tmp/urb-k8s-volume/urb/bin
+  mkdir -p /tmp/urb-k8s-volume/urb/lib
+  cp urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /tmp/urb-k8s-volume/urb/lib
+  cp -r urb-core/dist/urb-*/share /tmp/urb-k8s-volume/urb
 
   mkdir -p /tmp/urb-k8s-volume/bin
   # add cpp test framework
   cp urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /tmp/urb-k8s-volume/bin
   # add python test framework
   cp urb-core/dist/urb-*/share/examples/frameworks/python/*.py /tmp/urb-k8s-volume/bin
-  # make symlink
-  pushd /tmp/urb-k8s-volume
-  ln -fs $URB_VER urb
-  popd
 }
 
 clean() {
