@@ -21,9 +21,9 @@ RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(aw
 RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
 
 # copy Python eggs
-COPY urb-core/dist/urb-*-py2.7/*.egg /tmp/
-COPY urb-core/dist/urb-*-py2.7-redhat_7-linux-x86_64/*.egg /tmp/
-COPY urb-core/dist/urb-*/pkg/urb-*-py2.7.egg /tmp/
+COPY urb-core/dist/urb-*-py2.7/*.egg \
+     urb-core/dist/urb-*-py2.7-redhat_7-linux-x86_64/*.egg \
+     urb-core/dist/urb-*/pkg/urb-*-py2.7.egg /tmp/
 
 # install all required Python dependencies, Mesos and URB eggs
 RUN easy_install /tmp/google_common-*-py2.7.egg \
@@ -45,10 +45,9 @@ RUN easy_install kubernetes==2.0.0 # temporary indicate stable version
 
 # set environment variables required by URB service and copy configuration files
 ENV URB_ROOT=/urb
-RUN mkdir -p $URB_ROOT
+RUN mkdir -p $URB_ROOT/etc
 #ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
-RUN mkdir -p $URB_ROOT/etc
 #COPY etc/urb.conf $URB_CONFIG_FILE
 #RUN sed -i "s/host='localhost'/host='urb.default'/" $URB_CONFIG_FILE
 COPY etc/urb.executor_runner.conf $URB_ROOT/etc
