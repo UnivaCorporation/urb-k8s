@@ -39,6 +39,8 @@ class K8SAdapter(object):
     DEL_WAIT_PERIOD_IN_SECONDS = 2.0
     URB_EXECUTOR_RUNNER = "urb-executor-runner"
     CONFIG_MAP_TEMPLATE = URB_EXECUTOR_RUNNER + "-config"
+    JOB_NAME_MAX_SIZE = 63
+    UUID_SIZE = 8
 
     def __init__(self, k8s_registry_path = ""):
         self.logger = LogManager.get_instance().get_logger(
@@ -55,6 +57,11 @@ class K8SAdapter(object):
                 self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/" + K8SAdapter.URB_EXECUTOR_RUNNER
             self.logger.debug("Loaded job yaml: %s" % self.job)
             self.job_name_template = self.job['metadata']['name']
+            # uuid.time_low size is 8, plus 2 dashes ('-')
+            self.job_name_template_size = len(self.job_name_template) + K8SAdapter.UUID_SIZE + 2
+            if self.job_name_template_size >= K8SAdapter.JOB_NAME_MAX_SIZE:
+                self.logger.error("Job name template %s is too long, should be < %s bytes" %
+                                  (self.job_name_template_size, K8SAdapter.JOB_NAME_MAX_SIZE))
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
         self.config_map_dict = {}
@@ -175,12 +182,17 @@ class K8SAdapter(object):
                          (max_tasks, concurrent_tasks, framework_env, user, kwargs))
 
         self.__add_config_map(framework_env['URB_FRAMEWORK_ID'])
-
+        framework_name = framework_env['URB_FRAMEWORK_NAME'].lower()
+        # try not to exceed name limit in 63 bytes
+        left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size
+        if len(framework_name) > left:
+            framework_name = framework_name[:left]
+        job_name = "%s-%s-%s" % (self.job_name_template, framework_name, uuid.uuid1().hex[:K8SAdapter.UUID_SIZE])
         job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
-            self.job['metadata']['name'] = "%s-%s" % (self.job_name_template, uuid.uuid1().hex)
+            self.job['metadata']['name'] = job_name
             self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'] = \
                                  K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_env['URB_FRAMEWORK_ID']
             self.logger.info("Submit k8s job: %s" % self.job['metadata']['name'])
