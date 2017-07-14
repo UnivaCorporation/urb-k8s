@@ -27,7 +27,7 @@ RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clea
 RUN mkdir -p /urb/lib
 COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
 ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
-ENV URB_MASTER=urb://urb.default:6379
+ENV URB_MASTER=urb://urb-master.default:6379
 #RUN mkdir -p /urb/bin
 #COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
 

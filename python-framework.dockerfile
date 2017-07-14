@@ -48,6 +48,6 @@ COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
 ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
 RUN mkdir -p /urb/bin
 #COPY urb-core/dist/urb-*/share/examples/frameworks/python/*.py /urb/bin/
-#ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb.default:6379"]
-ENTRYPOINT ["/opt/bin/test_framework.py", "urb://urb.default:6379"]
+#ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb-master.default:6379"]
+ENTRYPOINT ["/opt/bin/test_framework.py", "urb://urb-master.default:6379"]
 

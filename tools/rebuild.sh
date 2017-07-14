@@ -49,11 +49,11 @@ delete_wait() {
 
 set_minikube_env
 
-kubectl delete job cpp-framework python-framework urb-executor-runner
-kubectl delete deployment,service urb
-delete_wait jobs urb-executor-runner
+kubectl delete job cpp-framework python-framework urb-exec
+kubectl delete deployment,service urb-master
+delete_wait jobs urb-exec
 kubectl get pods -a
-delete_wait pods urb-executor-runner
+delete_wait pods urb-exec
 
 rmi "local\/urb-service"
 rmi "local\/urb-cpp-framework"
