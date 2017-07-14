@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marathonsvc
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      nodePort: 32080
+  selector:
+    app: marathonsvc
+#  clusterIP: None
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: marathonsvc
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: marathonsvc
+    spec:
+      volumes:
+        - name: urb-pv-storage
+          persistentVolumeClaim:
+            claimName: urb-pvc
+      containers:
+#      - image: mesosphere/marathon
+      - image: local/marathon
+        name: marathonsvc
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c", "env; ls -lFa /; ls -lFa /opt; ./bin/start --master urb://urb.default:6379 --zk zk://kafka-zoo-svc:2181/marathon"]
+        env:
+        - name: MESOS_NATIVE_JAVA_LIBRARY
+          value: /opt/urb/lib/liburb.so
+        volumeMounts:
+        - mountPath: "/opt"
+          name: urb-pv-storage
+        ports:
+        - containerPort: 8080
+          name: marathonsvc
