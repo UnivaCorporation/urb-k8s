@@ -71,16 +71,20 @@ prepare_pv() {
   cp urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /tmp/urb-k8s-volume/bin
   # add python test framework
   cp urb-core/dist/urb-*/share/examples/frameworks/python/*.py /tmp/urb-k8s-volume/bin
+  # make symlink
+  pushd /tmp/urb-k8s-volume
+  ln -fs $URB_VER urb
+  popd
 }
 
 clean() {
   kubectl delete -f source/urb-master.yaml
-  kubectl delete -f system-test/cpp-framework.yaml
-  kubectl delete -f system-test/python-framework.yaml
+  kubectl delete -f test/example-frameworks/cpp-framework.yaml
+  kubectl delete -f test/example-frameworks/python-framework.yaml
   kubectl delete jobs $(kubectl get jobs -a|awk '/urb-executor-runner/ {print $1}')
   kubectl delete pods $(kubectl get pods -a|awk '/urb-executor-runner/ {print $1}')
-  kubectl delete -f system-test/pvc.yaml
-  kubectl delete -f system-test/pv.yaml
+  kubectl delete -f test/example-frameworks/pvc.yaml
+  kubectl delete -f test/example-frameworks/pv.yaml
 }
 
 create_pv() {
@@ -88,8 +92,8 @@ create_pv() {
   minikube mount /tmp/urb-k8s-volume:/urb&
   mount_pid=$!
 
-  kubectl create -f system-test/pv.yaml
-  kubectl create -f system-test/pvc.yaml
+  kubectl create -f test/example-frameworks/pv.yaml
+  kubectl create -f test/example-frameworks/pvc.yaml
 }
 
 prepare_pv
@@ -98,8 +102,8 @@ create_pv
 
 kubectl create -f source/urb-master.yaml
 sleep 3
-kubectl create -f system-test/cpp-framework.yaml
-kubectl create -f system-test/python-framework.yaml
+kubectl create -f test/example-frameworks/cpp-framework.yaml
+kubectl create -f test/example-frameworks/python-framework.yaml
 
 framework_wait python-framework "exiting with status 0" 60
 framework_wait cpp-framework "example_framework: ~TestScheduler()" 60
