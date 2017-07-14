@@ -247,7 +247,8 @@ class URBService:
 # Run server.
 def run():
     try:
-        from gevent import monkey; monkey.patch_socket()
+#        from gevent import monkey; monkey.patch_socket()
+        from gevent import monkey; monkey.patch_all()
         server = URBService()
         server.run()
     except KeyboardInterrupt, ex:

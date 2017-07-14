@@ -5,3 +5,5 @@ urb.egg-info
 redis-*.egg
 .coverage
 urb/__init__.py
+*.log
+*.log.*

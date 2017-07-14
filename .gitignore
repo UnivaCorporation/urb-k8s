@@ -1,10 +1,10 @@
 **/.directory
-.idea
 dist/
 build/
 **/*~
 **/*.egg-info/
 **/*.pyc
 **/*.rdb
-venv
-vagrant/.vagrant
+**/*.orig
+**/.vagrant
+**/.coverage

@@ -40,6 +40,10 @@ package { 'less':
   ensure => 'installed',
 }
 
+package { 'file':
+  ensure => 'installed',
+}
+
 package { 'unzip':
   ensure => 'installed',
 }

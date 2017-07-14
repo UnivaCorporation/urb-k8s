@@ -18,24 +18,23 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.boot_timeout = 10
   config.ssh.insert_key = false
-  config.vm.define "build-machine", autostart: true do |app|
+  if ENV['SYNCED_FOLDER']
+    synced_folder = ENV['SYNCED_FOLDER']
+  else
+    synced_folder = ".."
+  end
+  vm_name = File.basename(Pathname.new(Dir.pwd + "/" + synced_folder).realpath) + "-build"
+  config.vm.define "urb-build", autostart: true do |app|
+    app.vm.synced_folder synced_folder, "/scratch/urb"
     app.vm.hostname = "head.private"
-    if ENV['SYNCED_FOLDER']
-      app.vm.synced_folder ENV['SYNCED_FOLDER'], "/scratch/urb"
-    else
-      app.vm.synced_folder "..", "/scratch/urb"
-    end
-    app.vm.provision "puppet" do |puppet|
-      puppet.options = "--verbose"
-      puppet.hiera_config_path = "puppet/hiera.yaml"
-      puppet.manifests_path = "puppet"
-      puppet.manifest_file  = "default.pp"
+    app.vm.provision "shell" do |shell|
+      shell.inline = "/opt/puppetlabs/bin/puppet apply /vagrant/puppet/default.pp"
     end
     app.vm.provider "docker" do |d|
       d.image = "urb-build"
-      d.name = "urb-build"
+      d.name = vm_name
       if ENV['DOCKER_SUFFIX']
-          d.name += ENV['DOCKER_SUFFIX']
+        d.name += ENV['DOCKER_SUFFIX']
       end
       d.has_ssh = true
       d.create_args = [ "--privileged", "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro" ]

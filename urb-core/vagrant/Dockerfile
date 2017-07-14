@@ -13,7 +13,7 @@ rm -f /lib/systemd/system/basic.target.wants/*;\
 rm -f /lib/systemd/system/anaconda.target.wants/*;
 VOLUME [ "/sys/fs/cgroup" ]
 # vagrant user
-RUN yum -y install sudo
+RUN yum -y install sudo which git
 RUN /usr/sbin/groupadd -g 1000 vagrant
 RUN /usr/sbin/useradd --create-home -s /bin/bash vagrant -u 1000 -g vagrant -G wheel
 RUN echo -n "vagrant:vagrant" | chpasswd
@@ -27,8 +27,8 @@ RUN chown -R vagrant:vagrant /home/vagrant/.ssh
 RUN yum -y install openssh-server openssh-clients
 RUN sed -i -e 's/Defaults.*requiretty/#&/' /etc/sudoers
 RUN sed -i -e 's/\(UsePAM \)yes/\1 no/' /etc/ssh/sshd_config
-RUN yum -y install http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm
-RUN yum -y install puppet hostname
+RUN yum -y install https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+RUN yum -y install puppet-agent hostname && ln -s /opt/puppetlabs/bin/puppet /usr/bin
 RUN puppet module install stahnma/epel
 RUN puppet module install puppetlabs-java
 RUN systemctl enable sshd.service
