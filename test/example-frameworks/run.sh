@@ -17,15 +17,7 @@
 set -x
 RET=0
 
-#export KUBECONFIG=/vagrant/.kube/config
-#HOST_DIST_PATH=$(find urb-core/dist -maxdepth 1 -regex "urb-core/dist/urb-[1-9]+\.[0-9]+\.[0-9]$" -print)
-#HOST_PROJECT_PATH=$(pwd | sed "s|$HOME/||")
-# path to URB dist inside minikube
-#MINIKUBE_DIST_PATH=/hosthome/$USER/$HOST_PROJECT_PATH/$HOST_DIST_PATH
-#echo "MINIKUBE_DIST_PATH=$MINIKUBE_DIST_PATH"
-#minikube mount /home/sutasu/Projects/URB/urb-k8s/urb-core/dist/urb-1.4.2:/urb&
-#sed "s|path_template|$MINIKUBE_DIST_PATH|" system-test/pv.yaml | kubectl create -f -
-
+# wait for framework run completion
 framework_wait() {
   local fr=$1
   local pattern=$2
@@ -70,6 +62,7 @@ prepare_pv() {
   cp urb-core/dist/urb-*/share/examples/frameworks/python/*.py /tmp/urb-k8s-volume/bin
 }
 
+# clean k8s cluster
 clean() {
   kubectl delete -f source/urb-master.yaml
   kubectl delete -f test/example-frameworks/cpp-framework.yaml
@@ -80,6 +73,7 @@ clean() {
   kubectl delete -f test/example-frameworks/pv.yaml
 }
 
+# create persistent volume
 create_pv() {
   pkill -f "minikube mount"
   minikube mount /tmp/urb-k8s-volume:/urb&
