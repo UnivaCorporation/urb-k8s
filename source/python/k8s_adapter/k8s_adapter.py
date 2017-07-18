@@ -248,24 +248,25 @@ class K8SAdapter(object):
 
     def unregister_framework(self, framework):
         self.logger.debug("Unregister framework: %s" % framework['id']['value'])
-        self.__delete_config_map(framework['id']['value'])
-        self.delete_jobs_delay(framework)
+#        self.__delete_config_map(framework['id']['value'])
+        self.__delete_jobs_delay(framework)
 
-    def delete_jobs_delay(self, framework):
+    def __delete_jobs_delay(self, framework):
         # Delete all of the jobs
         job_ids = framework.get('job_ids')
         if job_ids is not None:
             # Spawn job to make sure the actual executors exit...
-            gevent.spawn(self.delete_jobs, job_ids)
+            gevent.spawn(self.__delete_jobs, job_ids, framework['id']['value'])
 
-    def delete_jobs(self, job_ids):
+    def __delete_jobs(self, job_ids, framework_name):
         for j in job_ids:
             try:
                 self.delete_job(j[0])
             except Exception, ex:
                 self.logger.warn("Error deleteing job: %s" % ex)
+        self.__delete_config_map(framework_name)
 
-    def delete_job(self, job_id):
+    def __delete_job(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
         self.logger.debug("Deleting job: %s (%s k8s job)" % (job_id, k8s_job_id))
         body = client.V1DeleteOptions()
