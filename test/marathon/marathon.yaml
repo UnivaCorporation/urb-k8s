@@ -28,11 +28,10 @@ spec:
           persistentVolumeClaim:
             claimName: urb-pvc
       containers:
-#      - image: mesosphere/marathon
       - image: local/marathon
         name: marathonsvc
         imagePullPolicy: IfNotPresent
-        command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master.default:6379 --zk zk://kafka-zoo-svc:2181/marathon"]
+        command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master.default:6379 --zk zk://zoo-svc:2181/marathon"]
         env:
         - name: MESOS_NATIVE_JAVA_LIBRARY
           value: /opt/urb/lib/liburb.so

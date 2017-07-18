@@ -52,7 +52,7 @@ prepare_pv() {
     urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli \
     /tmp/urb-k8s-volume/urb/bin
   mkdir -p /tmp/urb-k8s-volume/urb/lib
-  cp urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /tmp/urb-k8s-volume/urb/lib
+  cp urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb* /tmp/urb-k8s-volume/urb/lib
   cp -r urb-core/dist/urb-*/share /tmp/urb-k8s-volume/urb
 
   mkdir -p /tmp/urb-k8s-volume/bin
@@ -67,8 +67,8 @@ clean() {
   kubectl delete -f source/urb-master.yaml
   kubectl delete -f test/example-frameworks/cpp-framework.yaml
   kubectl delete -f test/example-frameworks/python-framework.yaml
-  kubectl delete jobs $(kubectl get jobs -a|awk '/urb-executor-runner/ {print $1}')
-  kubectl delete pods $(kubectl get pods -a|awk '/urb-executor-runner/ {print $1}')
+  kubectl delete jobs $(kubectl get jobs -a|awk '/urb-exec/ {print $1}')
+  kubectl delete pods $(kubectl get pods -a|awk '/urb-exec/ {print $1}')
   kubectl delete -f test/example-frameworks/pvc.yaml
   kubectl delete -f test/example-frameworks/pv.yaml
 }
