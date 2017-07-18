@@ -101,19 +101,6 @@ class Adapter(object):
     @abc.abstractmethod
     def unregister_framework(self, framework):
         self.logger.debug('Unregister framework: %s' % framework['name'])
-        self.delete_jobs_delay(framework)
-
-    @abc.abstractmethod
-    def delete_jobs_delay(self, framework):
-        self.logger.debug('Deleting job with delay for framework: %s', framework)
-
-    @abc.abstractmethod
-    def delete_jobs(self, job_ids):
-        self.logger.debug('Deleting jobs: %s', job_ids)
-
-    @abc.abstractmethod
-    def delete_job(self, job_id):
-        self.logger.debug('Deleting job: %s', job_id)
 
     @abc.abstractmethod
     def get_job_id_tuple(self, job_id):
