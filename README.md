@@ -181,12 +181,25 @@ Chronos scheduler also requires Zookeeper so we assume that it continues to run 
 
 ```
     minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
-    minikube service marathonsvc --format "{{.IP}}:{{.Port}}"
+    minikube service zoo-svc --format "{{.IP}}:{{.Port}}"
+```
+
+- add port forwarding in `urb-core/vagrant/Vagrantfile` to build machine for Chronos to be accessable from the host browser by inserting following line after `Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|`:
+
+```
+config.vm.network "forwarded_port", guest: 4040, host: 4040
+```
+- recreate build machine by:
+
+```
+    cd urb-core/vagrant
+    vagrant destroy -f
+    SYNCED_FOLDER=../.. vagrant up
 ```
 - login to build machine:
 
 ```
-    cd urb-core/vagrant; vagrant ssh
+    vagrant ssh
 ```
 - install Chronos and disable it from starting automatically:
 
@@ -201,6 +214,6 @@ Chronos scheduler also requires Zookeeper so we assume that it continues to run 
 ```
     sudo MESOS_NATIVE_JAVA_LIBRARY=$(echo $(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.so) chronos -u $USER --master <URB_URI> --zk_hosts <ZOO_URL>
 ```
-
+Now Chronos scheduler can be accessed at `localhost:4040`
 
 ### Spark

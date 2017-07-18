@@ -248,7 +248,6 @@ class K8SAdapter(object):
 
     def unregister_framework(self, framework):
         self.logger.debug("Unregister framework: %s" % framework['id']['value'])
-#        self.__delete_config_map(framework['id']['value'])
         self.__delete_jobs_delay(framework)
 
     def __delete_jobs_delay(self, framework):
