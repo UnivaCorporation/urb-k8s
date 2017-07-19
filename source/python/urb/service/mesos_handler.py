@@ -262,29 +262,32 @@ class MesosHandler(MessageHandler):
             return None
 
     def update_job_status(self, job_id, framework_id, job_status):
-        self.logger.debug('Updating status for job id: %s' % job_id)
-        self.logger.trace('Job status: %s' % job_status)
+        self.logger.debug("Updating job status for framework %s and job id %s" % (framework_id, job_id))
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is not None:
             # No need to acquire/release lock here
             existing_status = framework.get('job_status',{})
-            existing_status[str(job_id)] = job_status
+            existing_status[job_id] = job_status
+            self.logger.debug("Existing job status: %s, new: %s" % (existing_status, job_status))
             framework['job_status'] = existing_status
+        else:
+            self.logger.debug("Cannot update job status. Framework does not exist for id: %s" % framework_id)
 
     def update_job_accounting(self, job_id, framework_id, job_accounting):
-        self.logger.debug('Updating accounting for job id %s' % job_id)
+        self.logger.debug('Updating accounting for framework %s and job id %s' % (framework_id, job_id))
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is not None:
             # No need to acquire/release lock here
             existing_accounting = framework.get('job_accounting',{})
-            existing_accounting[str(job_id)] = job_accounting
+            existing_accounting[job_id] = job_accounting
+            self.logger.trace("Existing job accounting: %s, new: %s" % (existing_accounting, job_accounting))
             framework['job_accounting'] = existing_accounting
 
             # Make sure db gets updated here
             if self.framework_db_interface is not None:
                 self.framework_db_interface.update_framework(framework_id)
         else:
-            self.logger.debug('Cannot update accounting info.  Framework does not exist')
+            self.logger.debug("Cannot update accounting info. Framework does not exist for id: %s" % framework_id)
 
     def __delete_slave(self, framework, slave):
         # Delete the slave
