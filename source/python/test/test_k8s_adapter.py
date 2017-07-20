@@ -42,7 +42,7 @@ def test_short_job_management():
     adapter.set_command(["/bin/sh", "-c", "env; sleep 1"])
     print("Submitting short jobs")
     jobs_num = 1
-    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1'})
+    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'test'})
     print("Got job ids: %s" % job_ids)
     assert job_ids != None
     gevent.sleep(3)
@@ -66,7 +66,7 @@ def test_long_job_management():
     adapter.set_command(["/bin/sh", "-c", "env; sleep 100"])
     print("Submitting long jobs")
     jobs_num = 1
-    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1'})
+    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'test'})
     print("Got job ids: %s" % job_ids)
     assert job_ids != None
     gevent.sleep(1)
@@ -92,6 +92,7 @@ def test_register_framework():
     framework_env = {
         'URB_CONFIG_FILE' : cm.get_config_file(),
         'URB_FRAMEWORK_ID' : '1',
+        'URB_FRAMEWORK_NAME':'test',
         'URB_MASTER' : cf.get_message_broker_connection_url(),
     }
     adapter = K8SAdapter()
@@ -132,9 +133,9 @@ def test_unregister_framework():
         for job_id in j_list:
             try:
                 jid = job_id[0]
-                print("Get jiob status for: %s" % jid)
+                print("Get job status for: %s" % jid)
                 resp = adapter.get_job_status(jid)
-                print("Satatus: %s" % resp.status)
+                print("Status: %s" % resp.status)
             except ApiException as e:
                 if e.reason == "Not Found":
                     print("Was deleted")
