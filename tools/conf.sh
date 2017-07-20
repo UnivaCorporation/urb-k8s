@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-mkdir urb-core/vagrant/.minikube
+set -x
+
+mkdir -p urb-core/vagrant/.minikube
 cp ~/.minikube/apiserver.* urb-core/vagrant/.minikube
 cp ~/.minikube/ca.* urb-core/vagrant/.minikube
 cp ~/.minikube/cert.pem urb-core/vagrant/.minikube
-mkdir urb-core/vagrant/.kube
+mkdir -p urb-core/vagrant/.kube
 cp ~/.kube/config urb-core/vagrant/.kube
 sed -i "s|/home/.*/\.minikube|/vagrant/.minikube|" urb-core/vagrant/.kube/config
