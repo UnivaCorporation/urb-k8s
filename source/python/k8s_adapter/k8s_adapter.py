@@ -20,7 +20,6 @@ if __name__ == '__main__':
     sys.path.append('../../../urb-core/source/python')
 
 from urb.log.log_manager import LogManager
-from urb.utility.job_tracker import JobTracker
 from urb.config.config_manager import ConfigManager
 from urb.exceptions.unknown_job import UnknownJob
 from urb.utility.value_utility import ValueUtility
@@ -36,7 +35,7 @@ import yaml
 class K8SAdapter(object):
     """ Kubernetes Adapter class. """
 
-    DEL_WAIT_PERIOD_IN_SECONDS = 2.0
+    CONFIG_MAP_DEL_WAIT = 10.0
     URB_EXECUTOR_RUNNER = "urb-executor-runner"
     CONFIG_MAP_TEMPLATE = URB_EXECUTOR_RUNNER + "-config"
     JOB_NAME_MAX_SIZE = 63
@@ -129,8 +128,12 @@ class K8SAdapter(object):
 
     def __delete_config_map(self, framework_id):
         try:
+            fid = self.config_map_dict.get(framework_id)
+            if fid is None:
+                self.logger.warn("Cannot delete config map: no element with id: %s" % framework_id)
+                return
+            name = fid['metadata']['name']
             body = client.V1DeleteOptions()
-            name = self.config_map_dict[framework_id]['metadata']['name']
             resp = self.core_v1.delete_namespaced_config_map(name = name,
                                                              namespace = self.namespace,
                                                              body = body,
@@ -248,24 +251,34 @@ class K8SAdapter(object):
 
     def unregister_framework(self, framework):
         self.logger.debug("Unregister framework: %s" % framework['id']['value'])
-        self.__delete_jobs_delay(framework)
+        self.delete_jobs_delay(framework)
 
-    def __delete_jobs_delay(self, framework):
+    def delete_jobs_delay(self, framework):
         # Delete all of the jobs
         job_ids = framework.get('job_ids')
         if job_ids is not None:
             # Spawn job to make sure the actual executors exit...
-            gevent.spawn(self.__delete_jobs, job_ids, framework['id']['value'])
+            gevent.spawn(self.delete_jobs, job_ids, framework['id']['value'])
 
-    def __delete_jobs(self, job_ids, framework_name):
+    # delete config_map with delay since some pods still might be in creation
+    # and to avoid "configmaps not found" message in "kubectl get pods"
+    def __delete_config_map_delay(self, framework_id):
+        gevent.spawn(self.__delete_config_map_sleep, framework_id)
+
+    def __delete_config_map_sleep(self, framework_id):
+        gevent.sleep(K8SAdapter.CONFIG_MAP_DEL_WAIT)
+        self.__delete_config_map(framework_id)
+
+    def delete_jobs(self, job_ids, framework_id):
+        self.logger.trace("Delete jobs: %s, framework_id=%s" % (job_ids, framework_id))
         for j in job_ids:
             try:
                 self.delete_job(j[0])
             except Exception, ex:
                 self.logger.warn("Error deleteing job: %s" % ex)
-        self.__delete_config_map(framework_name)
+        self.__delete_config_map_delay(framework_id)
 
-    def __delete_job(self, job_id):
+    def delete_job(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
         self.logger.debug("Deleting job: %s (%s k8s job)" % (job_id, k8s_job_id))
         body = client.V1DeleteOptions()
