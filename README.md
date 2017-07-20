@@ -19,7 +19,7 @@ Following steps need to be done to perform a project build:
 
 ## Create kubernetes configuration to be used inside the build container
 
-`./conf.sh`
+`tools/conf.sh`
 
 ## Create docker build environment (requires `docker` to be installed):
 
@@ -55,7 +55,7 @@ Inside the build container:
 
 `make test`
 
-### Create distribution
+### Create distribution archifacts
 
 `make dist`
 
@@ -85,7 +85,7 @@ In many situations, especially when framework uses custom executor or executor r
 ### Run Mesos framework from outside of the kubernetes cluster
 
 URB service can be accessable from outside of the cluster on port `30379`. In the development environment with minikube URB URI
-can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have framework runtime installed on the same paths inside and outside of kubernetes cluster as well as to have same URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set. Since URB executor runner relies on `/opt` path possibly mounted to the persistent volume, it can be used as a base for the frameworks installation outside of the kubernetes cluster.
+can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have framework runtime installed on the same paths inside and outside of kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set. Since URB executor runner relies on `/opt` path possibly mounted to the persistent volume, it can be used as a base for the frameworks installation outside of the kubernetes cluster.
 
 ## Run C++ and Python example frameworks
 
@@ -106,7 +106,7 @@ In order to run C++ and Python example frameworks inside kubernetes cluster:
     kubectl python-framework-f537l
 ```
 
-In order to cleans kubernetes cluster from previous run, create persistent volume, start both frameworks in minikube environment and wait for the completionrun run:
+In order to clean kubernetes cluster from previous run, create persistent volume, start both frameworks in minikube environment and wait for the completionrun run:
 
 ```
 test/example-frameworks/run.sh
@@ -125,7 +125,7 @@ This is an example of how to run C++ example framework from the outside of the k
 ```
     cd urb-core/vagrant; vagrant ssh
 ```
-- create directory to contain C++ framework binaries (framework scheduler and executor) which matches path in kubernetes persistent volume:
+- create directory to contain C++ framework binaries (framework scheduler and executor) which matches the path in kubernetes persistent volume [test/example-frameworks/pv.yaml](test/example-frameworks/pv.yaml) created in minikube on `/urb` path by [test/example-frameworks/run.sh](test/example-frameworks/run.sh) in previous example:
 
 ```
     sudo mkdir -p /opt/bin
@@ -167,53 +167,10 @@ Create Marathon service and deployment:
 kubectl create -f marathon.yaml
 ```
 
-Now Marathon scheduler can be accessed at:
+Now Marathon scheduler can be accessed from the web browser at:
 
 ```
 minikube service marathonsvc --url
 ```
-
-### Chronos
-
-Chronos scheduler also requires Zookeeper so we assume that it continues to run after previous example. In this example Chronos will be running in build machine (outside of kubernetes cluster) and dispatch tasks to kubernetes cluster:
-
-- get URB service URI and Zookkeper URL from host machine:
-
-```
-    minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
-    minikube service zoo-svc --format "{{.IP}}:{{.Port}}"
-```
-
-- add port forwarding in `urb-core/vagrant/Vagrantfile` to build machine for Chronos to be accessable from the host browser by inserting following line after `Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|`:
-
-```
-config.vm.network "forwarded_port", guest: 4040, host: 4040
-```
-- recreate build machine by:
-
-```
-    cd urb-core/vagrant
-    vagrant destroy -f
-    SYNCED_FOLDER=../.. vagrant up
-```
-- login to build machine:
-
-```
-    vagrant ssh
-```
-- install Chronos and disable it from starting automatically:
-
-```
-    sudo rpm -Uvh http://repos.mesosphere.io/el/7/noarch/RPMS/mesosphere-el-repo-7-1.noarch.rpm
-    sudo yum install -y chronos
-    sudo systemctl stop chronos
-    sudo systemctl disable chronos
-```
-- Start Chronos (substitute `<URB_URI>` and `<ZOO_URL>` with the onces determined in the first step from the host machine):
-
-```
-    sudo MESOS_NATIVE_JAVA_LIBRARY=$(echo $(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.so) chronos -u $USER --master <URB_URI> --zk_hosts <ZOO_URL>
-```
-Now Chronos scheduler can be accessed at `localhost:4040`
 
 ### Spark

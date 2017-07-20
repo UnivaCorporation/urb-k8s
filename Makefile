@@ -40,10 +40,10 @@ urb-cpp-framework:
 urb-python-framework:
 	docker build --rm -t local/urb-python-framework -f python-framework.dockerfile .
 
-urb-pv:
-	docker build --rm -t local/urb-pv -f urb-pv.dockerfile .
+#urb-pv:
+#	docker build --rm -t local/urb-pv -f urb-pv.dockerfile .
 
-images: urb-service urb-redis urb-executor-runner urb-cpp-framework urb-python-framework urb-pv
+images: urb-service urb-redis urb-executor-runner urb-cpp-framework urb-python-framework # urb-pv
 
 
 gimages:
