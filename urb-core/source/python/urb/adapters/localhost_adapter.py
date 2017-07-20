@@ -122,21 +122,21 @@ class LocalhostAdapter(Adapter):
         self.logger.debug('Unregister framework: %s' % framework['name'])
         self.delete_jobs_delay(framework)
 
-    def delete_jobs_delay(self, framework):
+    def __delete_jobs_delay(self, framework):
         # Delete all jobs
         job_ids = framework.get('job_ids')
         if job_ids is not None:
             # Spawn job to make sure the actual executors exit...
-            gevent.spawn(self.delete_jobs, job_ids)
+            gevent.spawn(self.__delete_jobs, job_ids)
 
-    def delete_jobs(self, job_ids):
+    def __delete_jobs(self, job_ids):
         for job_id in job_ids:
             try:
                 self.delete_job(job_id)
             except Exception, ex:
                 self.logger.warn("Error deleting job: %s" % ex)
 
-    def delete_job(self, job_id):
+    def __delete_job(self, job_id):
         if len(str(job_id[0])) != 0:
             pid = str(job_id[1])
             self.logger.debug('Request deleting job: %s', job_id)
