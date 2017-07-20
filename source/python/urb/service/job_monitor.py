@@ -127,15 +127,15 @@ class JobMonitor(object):
                         self.logger.trace('Job id %s status: %s' % (job_id, job_status))
                         job_info['job_status'] = job_status
                         # Got status, call framework callback
+                        # this should throw exception to stop job monitoring
                         self.job_status_update_callback(job_id, framework_id, job_status)
                     else:
                         # We are no longer monitoring this job.
                         #self.__remove_job_from_tracker(job_id, framework_id)
                         self.__retrieve_job_accounting_and_remove_job_from_tracker(job_id, job_info)
+                # handles jobs completion (UnknownJob for UGE and CompletedJob for k8s)
                 except Exception, ex:
-                    self.logger.debug(
-                        'Unable to retrieve status for job id %s: %s' % (
-                        job_id, ex))
+                    self.logger.debug('Job %s likely completed: %s' % (job_id, ex))
                     if job_info is not None:
                         self.__handle_job_status_retrieval_error(job_id, 
                             job_info)

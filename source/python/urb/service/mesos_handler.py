@@ -268,7 +268,7 @@ class MesosHandler(MessageHandler):
             # No need to acquire/release lock here
             existing_status = framework.get('job_status',{})
             existing_status[job_id] = job_status
-            self.logger.debug("Existing job status: %s, new: %s" % (existing_status, job_status))
+            self.logger.trace("Existing job status: %s, new: %s" % (existing_status, job_status))
             framework['job_status'] = existing_status
         else:
             self.logger.debug("Cannot update job status. Framework does not exist for id: %s" % framework_id)
@@ -423,11 +423,12 @@ class MesosHandler(MessageHandler):
         offers = []
         slave_dict = framework.get("slave_dict", {})
         slaves.extend(slave_dict.values())
+        slaves_cnt = len(slaves)
         framework_config = framework.get('config')
         max_tasks = int(framework_config.get('max_tasks'))
 
         self.logger.debug("Generating offers for framework %s with %d slaves: %s" %
-                         (framework['name'], len(slaves), [sl['id']['value'] for sl in slaves]))
+                         (framework['name'], slaves_cnt, [sl['id']['value'] for sl in slaves]))
         now = time.time()
         built_offer_count = 0
         offerable_after_for_placeholder = 0
@@ -455,9 +456,9 @@ class MesosHandler(MessageHandler):
         self.logger.debug("Offers built for framework [%s]: %d" %(framework["name"],built_offer_count))
         # Only send placeholder offers if we have no other offers to send, we are under our max offer count
         # and we don't have any pending jobs
-        if built_offer_count == 0 and len(slaves) < max_tasks:
+        if built_offer_count == 0 and slaves_cnt < max_tasks:
             # Pending job count can be determined by the difference between the len job_id and slave_dict
-            pending_jobs = len(framework.get('job_ids',[])) - len(slaves)
+            pending_jobs = len(framework.get('job_ids',[])) - slaves_cnt
             self.logger.debug("Framework %s has %s pending job(s) (active jobs: %s)" % \
                               (framework["name"], pending_jobs, framework.get('job_ids',[])))
 #            if pending_jobs <= 0 and framework.get('__placeholder_offerable_after',0) < now:
@@ -536,7 +537,7 @@ class MesosHandler(MessageHandler):
                 finally:
                     # Release lock
                     self.__release_framework_lock(framework)
-                self.logger.debug("Waiting in offer loop for framework id %s for %s" % (framework_id['value'], time_to_wait))
+                self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
             except Exception, ex:
                 self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
@@ -992,10 +993,19 @@ class MesosHandler(MessageHandler):
                                 self.adapter.get_job_status(job_id)
                                 job_status = "TASK_RUNNING"
                                 self.logger.info("Reconcile: determined task status: %s" % job_status)
-                            except Exception, ex:
+                            except UnknownJob, ex:
                                 job_status = "TASK_LOST"
-                                self.logger.info("Reconcile: cannot get task status for job id '%s' (slave id: %s), set status to %s" % \
-                                                  (job_id, slave_id['value'], job_status))
+                                self.logger.info("Reconcile: cannot get task status for job id '%s' \
+                                                 (slave id: %s), set status to %s" % \
+                                                 (job_id, slave_id['value'], job_status))
+                            except CompletedJob, ex:
+                                self.logger.debug("Reconcile: cannot get task status for job id '%s' \
+                                                  (slave id: %s), status remains %s, %s" % \
+                                                  (job_id, slave_id['value'], job_status, ex))
+                            except Exception, ex:
+                                self.logger.warn("Reconcile: cannot get task status for job id '%s' \
+                                                  (slave id: %s), unexpected exception: %s" % \
+                                                  (job_id, slave_id['value'], ex))
                         else:
                             job_status = "TASK_LOST"
                             self.logger.error("Reconcile: cannot get job id form slave id: %s, set task status to %s" % \
