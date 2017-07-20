@@ -22,6 +22,7 @@ if __name__ == '__main__':
 from urb.log.log_manager import LogManager
 from urb.config.config_manager import ConfigManager
 from urb.exceptions.unknown_job import UnknownJob
+from urb.exceptions.completed_job import CompletedJob
 from urb.utility.value_utility import ValueUtility
 import gevent
 import uuid
@@ -306,6 +307,9 @@ class K8SAdapter(object):
         self.logger.trace("Job status: %s" % status_resp.status)
         if (active is None or active == 0) and (failed is not None and failed > 0):
             raise UnknownJob("Job %s has no active pods and has failed count of %s" % (job_id, failed))
+        # this exception indicates job completion (requires by JobMonitor)
+        if succeeded:
+            raise CompletedJob("Job %s succeeded" % job_id)
         return status_resp.status
 
     def get_job_accounting(self, job_id):
