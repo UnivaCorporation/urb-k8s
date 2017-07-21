@@ -71,6 +71,9 @@ from urb.config.config_manager import ConfigManager
 from urb.db.db_manager import DBManager
 
 from urb.exceptions.registration_error import RegistrationError
+from urb.exceptions.unknown_job import UnknownJob
+from urb.exceptions.completed_job import CompletedJob
+
 
 class MesosHandler(MessageHandler):
 
@@ -1171,22 +1174,22 @@ class MesosHandler(MessageHandler):
             else:
                 slave['executor'] = tasks[0].get('executor')
                 self.logger.debug("Register executor runner: set custom slave executor to: %s" % slave['executor'])
-            return
-#            for t in payload.get('tasks',[]):
-#                # lets try and rebuild the state...
-#                slave['executor'] = t.get('executor')
-#                task_dict = framework.get('task_dict', {})
-#                task_record = {}
-#                task_record['task_info'] = t
-#                task_record['state'] = "TASK_RUNNING"
-#                task_record['offer_ids'] = None
-#                task_record['job_id'] =  int(payload['job_id'])
-#                task_dict[t['task_id']['value']] = task_record
-#                framework['task_dict'] = task_dict
-#                # We need to deduct the slave resources since we have a running task
-#                self.__debit_resources(slave,task_record['task_info'])
-#            self.adapter.register_executor_runner(self, framework_id, slave_id)
 #            return
+            for t in payload.get('tasks',[]):
+                # lets try and rebuild the state...
+#                slave['executor'] = t.get('executor')
+                task_dict = framework.get('task_dict', {})
+                task_record = {}
+                task_record['task_info'] = t
+                task_record['state'] = "TASK_RUNNING"
+                task_record['offer_ids'] = None
+                task_record['job_id'] =  int(payload['job_id'])
+                task_dict[t['task_id']['value']] = task_record
+                framework['task_dict'] = task_dict
+                # We need to deduct the slave resources since we have a running task
+                self.__debit_resources(slave,task_record['task_info'])
+#            self.adapter.register_executor_runner(self, framework_id, slave_id)
+            return
 
         executor_in_docker = False
         task_in_docker = False
