@@ -962,8 +962,9 @@ class MesosHandler(MessageHandler):
             self.retry_manager.retry(request)
             return
 
+        retry_list = []
         # First check if we actually have a task list
-        if message.has_key("statuses"):
+        if message.has_key('statuses'):
             # Explicit reconciliation...
             for s in message['statuses']:
                 # First lets see if we have a record for this task
@@ -1017,10 +1018,15 @@ class MesosHandler(MessageHandler):
                     else:
                         # ... And we don't have a slave to use to query backend scheduler
                         # if our slave has been up for a while we can assume the task is gone
-                        queue_time = t.get('queue_time')
-                        if not queue_time:
-                            self.logger.debug("Reconcile: no queue_time")
+                        if len(t) == 0:
+                            self.logger.debug("Reconcile: empty task %s, will retry" % task_id)
+                            retry_list.append(s)
                             continue
+                        else:
+                            queue_time = t.get('queue_time')
+                            if not queue_time:
+                                self.logger.debug("Reconcile: no queue_time")
+                                continue
                         if time.time() - queue_time > MesosHandler.SLAVE_GRACE_PERIOD:
                             self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST" % task_id)
                             task_record = {}
@@ -1052,6 +1058,11 @@ class MesosHandler(MessageHandler):
                 channel = framework['channel_name']
                 self.send_status_update(channel, framework, status_update)
 
+            if len(retry_list) > 0:
+                self.logger.debug("Reconcile: will retry to get statuses: %s" % retry_list)
+                del message['statuses']
+                message['statuses'] = retry_list
+                self.retry_manager.retry(request)
         else:
             # Implicit reconciliation... Send all non-completed tasks
             self.logger.debug("Reconcile: implicit")
