@@ -12,11 +12,11 @@ spec:
           persistentVolumeClaim:
             claimName: urb-pvc
       containers:
-      - name: urb-python-framework
-        image: local/urb-python-framework
-        imagePullPolicy: IfNotPresent
-#        command: [/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
-        volumeMounts:
-        - mountPath: "/opt"
-          name: urb-pv-storage
+        - name: urb-python-framework
+          image: local/urb-python-framework
+          imagePullPolicy: IfNotPresent
+#          command: [/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
+          volumeMounts:
+            - mountPath: "/opt"
+              name: urb-pv-storage
       restartPolicy: Never

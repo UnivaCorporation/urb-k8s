@@ -12,19 +12,19 @@ spec:
           persistentVolumeClaim:
             claimName: urb-pvc
       containers:
-      - name: urb-executor-runner
-        image: local/urb-executor-runner
-        imagePullPolicy: IfNotPresent
-        env:
-          - name: JOB_ID
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-        envFrom:
-        - configMapRef:
-            name: urb-executor-runner-config
-#        command: ["/bin/sh", "-c", "env; sleep 10000"]
-        volumeMounts:
-        - mountPath: "/opt"
-          name: urb-pv-storage
+        - name: urb-executor-runner
+          image: local/urb-executor-runner
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JOB_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - configMapRef:
+              name: urb-executor-runner-config
+#          command: ["/bin/sh", "-c", "env; sleep infinity"]
+          volumeMounts:
+            - mountPath: "/opt"
+              name: urb-pv-storage
       restartPolicy: Never 
