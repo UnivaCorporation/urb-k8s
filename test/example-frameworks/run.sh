@@ -75,7 +75,7 @@ clean() {
 
 # create persistent volume
 create_pv() {
-  pkill -f "minikube mount"
+  pkill -f "minikube mount /tmp/urb-k8s-volume:/urb"
   minikube mount /tmp/urb-k8s-volume:/urb&
   mount_pid=$!
 

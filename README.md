@@ -147,7 +147,7 @@ Some Mesos framework schedulers such as Marathon or Chronos have dependency on [
 
 ### Marathon
 
-In this example Marathon scheduler will be running inside kubernetes cluster. External project [kubernetes-zookeeper](https://github.com/taeminKwon/kubernetes-zookeeper) is used to install Zookeeper in minikube:
+In this example [Marathon](https://mesosphere.github.io/marathon) scheduler will be running inside kubernetes cluster. External project [kubernetes-zookeeper](https://github.com/taeminKwon/kubernetes-zookeeper) is used to install Zookeeper in minikube:
 
 ```
 kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml
@@ -174,3 +174,21 @@ minikube service marathonsvc --url
 ```
 
 ### Spark
+
+In this section simple Pi example from (Spark)[https://spark.apache.org] data processing framework will be running in kubernetes cluster.
+
+The (test/spark/run.sh)[test/spark/run.sh] script does Spark deployment in the persistent volume as well as creates docker container and corresponding kubernetes job and persistent volume objects which can be used to run driver side of the Spark application. Upon it's execution determine a Spark pod name with `kubectl get pods`.
+
+
+Run Spark Pi example on the pod with the name from previous command:
+
+```
+kubectl exec spark-7g14w -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name SparkExamplePi --master mesos://urb://urb-master:6379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py
+```
+
+It should produce an output which includes Pi number estimate similar to:
+
+```
+Pi is roughly 3.140806
+```
+

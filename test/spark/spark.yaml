@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark
+spec:
+  template:
+    metadata:
+      name: spark
+    spec:
+      volumes:
+        - name: urb-pv-storage
+          persistentVolumeClaim:
+            claimName: urb-pvc
+      containers:
+        - name: spark
+          image: local/spark
+          imagePullPolicy: IfNotPresent
+          command: [ "/bin/sh", "-c", "env; sleep infinity" ]
+          env:
+            - name: SPARK_HOME
+              value: /opt/spark-2.1.0-bin-hadoop2.7
+            - name: MESOS_NATIVE_JAVA_LIBRARY
+              value: /opt/urb/lib/liburb.so
+          volumeMounts:
+            - mountPath: "/opt"
+              name: urb-pv-storage
+      restartPolicy: Never
