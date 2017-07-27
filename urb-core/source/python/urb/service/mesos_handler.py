@@ -71,6 +71,9 @@ from urb.config.config_manager import ConfigManager
 from urb.db.db_manager import DBManager
 
 from urb.exceptions.registration_error import RegistrationError
+from urb.exceptions.unknown_job import UnknownJob
+from urb.exceptions.completed_job import CompletedJob
+
 
 class MesosHandler(MessageHandler):
 
@@ -262,29 +265,32 @@ class MesosHandler(MessageHandler):
             return None
 
     def update_job_status(self, job_id, framework_id, job_status):
-        self.logger.debug('Updating status for job id: %s' % job_id)
-        self.logger.trace('Job status: %s' % job_status)
+        self.logger.debug("Updating job status for framework %s and job id %s" % (framework_id, job_id))
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is not None:
             # No need to acquire/release lock here
             existing_status = framework.get('job_status',{})
-            existing_status[str(job_id)] = job_status
+            existing_status[job_id] = job_status
+            self.logger.trace("Existing job status: %s, new: %s" % (existing_status, job_status))
             framework['job_status'] = existing_status
+        else:
+            self.logger.debug("Cannot update job status. Framework does not exist for id: %s" % framework_id)
 
     def update_job_accounting(self, job_id, framework_id, job_accounting):
-        self.logger.debug('Updating accounting for job id %s' % job_id)
+        self.logger.debug('Updating accounting for framework %s and job id %s' % (framework_id, job_id))
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is not None:
             # No need to acquire/release lock here
             existing_accounting = framework.get('job_accounting',{})
-            existing_accounting[str(job_id)] = job_accounting
+            existing_accounting[job_id] = job_accounting
+            self.logger.trace("Existing job accounting: %s, new: %s" % (existing_accounting, job_accounting))
             framework['job_accounting'] = existing_accounting
 
             # Make sure db gets updated here
             if self.framework_db_interface is not None:
                 self.framework_db_interface.update_framework(framework_id)
         else:
-            self.logger.debug('Cannot update accounting info.  Framework does not exist')
+            self.logger.debug("Cannot update accounting info. Framework does not exist for id: %s" % framework_id)
 
     def __delete_slave(self, framework, slave):
         # Delete the slave
@@ -420,11 +426,12 @@ class MesosHandler(MessageHandler):
         offers = []
         slave_dict = framework.get("slave_dict", {})
         slaves.extend(slave_dict.values())
+        slaves_cnt = len(slaves)
         framework_config = framework.get('config')
         max_tasks = int(framework_config.get('max_tasks'))
 
         self.logger.debug("Generating offers for framework %s with %d slaves: %s" %
-                         (framework['name'], len(slaves), [sl['id']['value'] for sl in slaves]))
+                         (framework['name'], slaves_cnt, [sl['id']['value'] for sl in slaves]))
         now = time.time()
         built_offer_count = 0
         offerable_after_for_placeholder = 0
@@ -452,9 +459,9 @@ class MesosHandler(MessageHandler):
         self.logger.debug("Offers built for framework [%s]: %d" %(framework["name"],built_offer_count))
         # Only send placeholder offers if we have no other offers to send, we are under our max offer count
         # and we don't have any pending jobs
-        if built_offer_count == 0 and len(slaves) < max_tasks:
+        if built_offer_count == 0 and slaves_cnt < max_tasks:
             # Pending job count can be determined by the difference between the len job_id and slave_dict
-            pending_jobs = len(framework.get('job_ids',[])) - len(slaves)
+            pending_jobs = len(framework.get('job_ids',[])) - slaves_cnt
             self.logger.debug("Framework %s has %s pending job(s) (active jobs: %s)" % \
                               (framework["name"], pending_jobs, framework.get('job_ids',[])))
 #            if pending_jobs <= 0 and framework.get('__placeholder_offerable_after',0) < now:
@@ -533,7 +540,7 @@ class MesosHandler(MessageHandler):
                 finally:
                     # Release lock
                     self.__release_framework_lock(framework)
-                self.logger.debug("Waiting in offer loop for framework id %s for %s" % (framework_id['value'], time_to_wait))
+                self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
             except Exception, ex:
                 self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
@@ -955,8 +962,9 @@ class MesosHandler(MessageHandler):
             self.retry_manager.retry(request)
             return
 
+        retry_list = []
         # First check if we actually have a task list
-        if message.has_key("statuses"):
+        if message.has_key('statuses'):
             # Explicit reconciliation...
             for s in message['statuses']:
                 # First lets see if we have a record for this task
@@ -989,10 +997,19 @@ class MesosHandler(MessageHandler):
                                 self.adapter.get_job_status(job_id)
                                 job_status = "TASK_RUNNING"
                                 self.logger.info("Reconcile: determined task status: %s" % job_status)
-                            except Exception, ex:
+                            except UnknownJob, ex:
                                 job_status = "TASK_LOST"
-                                self.logger.info("Reconcile: cannot get task status for job id '%s' (slave id: %s), set status to %s" % \
-                                                  (job_id, slave_id['value'], job_status))
+                                self.logger.info("Reconcile: cannot get task status for job id '%s' \
+                                                 (slave id: %s), set status to %s" % \
+                                                 (job_id, slave_id['value'], job_status))
+                            except CompletedJob, ex:
+                                self.logger.debug("Reconcile: cannot get task status for job id '%s' \
+                                                  (slave id: %s), status remains %s, %s" % \
+                                                  (job_id, slave_id['value'], job_status, ex))
+                            except Exception, ex:
+                                self.logger.warn("Reconcile: cannot get task status for job id '%s' \
+                                                  (slave id: %s), unexpected exception: %s" % \
+                                                  (job_id, slave_id['value'], ex))
                         else:
                             job_status = "TASK_LOST"
                             self.logger.error("Reconcile: cannot get job id form slave id: %s, set task status to %s" % \
@@ -1001,10 +1018,15 @@ class MesosHandler(MessageHandler):
                     else:
                         # ... And we don't have a slave to use to query backend scheduler
                         # if our slave has been up for a while we can assume the task is gone
-                        queue_time = t.get('queue_time')
-                        if not queue_time:
-                            self.logger.debug("Reconcile: no queue_time")
+                        if len(t) == 0:
+                            self.logger.debug("Reconcile: empty task %s, will retry" % task_id)
+                            retry_list.append(s)
                             continue
+                        else:
+                            queue_time = t.get('queue_time')
+                            if not queue_time:
+                                self.logger.debug("Reconcile: no queue_time")
+                                continue
                         if time.time() - queue_time > MesosHandler.SLAVE_GRACE_PERIOD:
                             self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST" % task_id)
                             task_record = {}
@@ -1036,6 +1058,11 @@ class MesosHandler(MessageHandler):
                 channel = framework['channel_name']
                 self.send_status_update(channel, framework, status_update)
 
+            if len(retry_list) > 0:
+                self.logger.debug("Reconcile: will retry to get statuses: %s" % retry_list)
+                del message['statuses']
+                message['statuses'] = retry_list
+                self.retry_manager.retry(request)
         else:
             # Implicit reconciliation... Send all non-completed tasks
             self.logger.debug("Reconcile: implicit")
@@ -1158,22 +1185,22 @@ class MesosHandler(MessageHandler):
             else:
                 slave['executor'] = tasks[0].get('executor')
                 self.logger.debug("Register executor runner: set custom slave executor to: %s" % slave['executor'])
-            return
-#            for t in payload.get('tasks',[]):
-#                # lets try and rebuild the state...
-#                slave['executor'] = t.get('executor')
-#                task_dict = framework.get('task_dict', {})
-#                task_record = {}
-#                task_record['task_info'] = t
-#                task_record['state'] = "TASK_RUNNING"
-#                task_record['offer_ids'] = None
-#                task_record['job_id'] =  int(payload['job_id'])
-#                task_dict[t['task_id']['value']] = task_record
-#                framework['task_dict'] = task_dict
-#                # We need to deduct the slave resources since we have a running task
-#                self.__debit_resources(slave,task_record['task_info'])
-#            self.adapter.register_executor_runner(self, framework_id, slave_id)
 #            return
+            for t in payload.get('tasks',[]):
+                # lets try and rebuild the state...
+#                slave['executor'] = t.get('executor')
+                task_dict = framework.get('task_dict', {})
+                task_record = {}
+                task_record['task_info'] = t
+                task_record['state'] = "TASK_RUNNING"
+                task_record['offer_ids'] = None
+                task_record['job_id'] =  int(payload['job_id'])
+                task_dict[t['task_id']['value']] = task_record
+                framework['task_dict'] = task_dict
+                # We need to deduct the slave resources since we have a running task
+                self.__debit_resources(slave,task_record['task_info'])
+#            self.adapter.register_executor_runner(self, framework_id, slave_id)
+            return
 
         executor_in_docker = False
         task_in_docker = False
