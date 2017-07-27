@@ -18,7 +18,7 @@ FROM centos:7
 RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
 
 # install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+RUN yum update -y; yum install -y libev libuuid zlib python-setuptools java-1.8.0-openjdk-headless; yum clean all
 
 # copy Python eggs
 COPY urb-core/dist/urb-*-py2.7/*.egg \
@@ -58,6 +58,9 @@ RUN mkdir $URB_ROOT/bin
 COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
      urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/command-executor \
      $URB_ROOT/bin/
+
+# Java home
+ENV JAVA_HOME=/etc/alternatives/jre_openjdk
 
 # for testing purposes
 #COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
