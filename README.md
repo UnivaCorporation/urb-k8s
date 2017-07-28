@@ -187,7 +187,7 @@ minikube service marathonsvc --url
 
 In this section a simple Pi example from the [Spark](https://spark.apache.org) data processing framework will be run inside a Kubernetes cluster.
 
-From the project root run foloowing script:
+From the project root run following script:
 
 ```
 test/spark/run.sh
