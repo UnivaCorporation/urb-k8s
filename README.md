@@ -185,7 +185,7 @@ minikube service marathonsvc --url
 
 ### Spark
 
-In this section a simple Pi example from the (Spark)[https://spark.apache.org] data processing framework will be run inside a Kubernetes cluster.
+In this section a simple Pi example from the [Spark](https://spark.apache.org) data processing framework will be run inside a Kubernetes cluster.
 
 The (test/spark/run.sh)[test/spark/run.sh] script creates a Spark deployment in the persistent volume, creates a Docker container and corresponding Kubernetes job, and creates a persistent volume object that can be used to run the driver side of the Spark application. Upon its execution determine a Spark pod name with `kubectl get pods`.
 

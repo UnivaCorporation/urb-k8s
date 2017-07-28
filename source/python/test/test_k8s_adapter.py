@@ -29,6 +29,7 @@ from urb.config.config_manager import ConfigManager
 from urb.utility.framework_tracker import FrameworkTracker
 from urb.exceptions.urb_exception import URBException
 from urb.exceptions.unknown_job import UnknownJob
+from urb.exceptions.completed_job import CompletedJob
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -47,7 +48,10 @@ def test_short_job_management():
     assert job_ids != None
     gevent.sleep(3)
     for jid in job_ids:
-        print("Job status: %s" % adapter.get_job_status(jid[0]))
+        try:
+            adapter.get_job_status(jid[0])
+        except CompletedJob as e:
+            print("Job status: completed")
         gevent.spawn(adapter.delete_job, jid[0])
     gevent.sleep(2)
     for jid in job_ids:
@@ -60,6 +64,8 @@ def test_short_job_management():
                 pass
             else:
                 assert False
+        except CompletedJob as e:
+            pass
 
 def test_long_job_management():
     adapter = K8SAdapter()
