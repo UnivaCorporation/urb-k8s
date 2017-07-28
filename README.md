@@ -1,41 +1,47 @@
-# Kubernetes adapter for Universal Resource Broker (URB)
+# Kubernetes Adapter for Universal Resource Broker (URB)
 
-This project allows one to run [Apache Mesos](http://mesos.apache.org) frameworks with Universal Resource Broker in [Kubernetes](https://kubernetes.io) cluster.
+This project allows one to run [Apache Mesos](http://mesos.apache.org) frameworks with Universal Resource Broker (URB) in a [Kubernetes](https://kubernetes.io) cluster.
 
-It utilizes [urb-core](https://github.com/UnivaCorporation/urb-core) project and provides Kubernetes adapter for URB.
+It utilizes the [urb-core](https://github.com/UnivaCorporation/urb-core) project and provides the Kubernetes adapter for URB.
 
-Please see [Universal Resource Broker core](https://github.com/UnivaCorporation/urb-core) project for more architectual details.
+Please see the [Universal Resource Broker core](https://github.com/UnivaCorporation/urb-core) project for more architectual details.
 
-Following steps need to be done to perform a project build:
+The following steps need to be done to perform a project build:
 
-## Install `kubectl` and `minikube` (requires `VirtualBox` to be installed):
+## Install `kubectl` and `minikube`
 
 `curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod a+x kubectl && sudo mv kubectl /usr/local/bin`
+
 `curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin`
 
 ## Start `minikube`
 
+_Requires Virtualbox or another supported minikube backend to be installed_
+
 `minikube start`
 
-## Create kubernetes configuration to be used inside the build container
+## Create Kubernetes Configuration
+
+_This will be used inside the build container_
 
 `tools/conf.sh`
 
-## Create docker build environment (requires `docker` to be installed):
+## Create Docker Build Environment
+_Requires `docker` to be installed_
 
 `cd urb-core/vagrant`
 
 `make`
 
-## Start docker build container:
+## Start Docker Build Container
 
 `SYNCED_FOLDER=../.. vagrant up`
 
-## Login into docker build container:
+## Login Into Docker Build Container
+
+_Enter the build container_
 
 `vagrant ssh`
-
-Inside the build container:
 
 ### Install `kubectl`:
 
@@ -55,87 +61,91 @@ Inside the build container:
 
 `make test`
 
-### Create distribution archifacts
+### Create Distribution Artifacts
 
 `make dist`
 
-## Open new shell, (in a root of the project) create docker images for URB service and example frameworks (reusing minikube's docker daemon):
+## Create Docker Images for URB Service and Example Frameworks
+
+_Open a new shell in the root of the project_
 
 `eval $(minikube docker-env)`
 
 `make images`
 
-## Run Mesos frameworks
+## Run Mesos Frameworks
 
-URB service in minikube kubernetes cluster can be started with following command:
+URB service in minikube Kubernetes cluster can be started with following command:
 
 `kubectl create -f source/urb-master.yaml`
 
-There are two options to run Mesos framework schedulers: within kubernetes cluster and outside of kubernetes cluster.
+There are two options to run Mesos framework schedulers: 
 
-In both cases `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables has to be specified for the run time environment of the framework. `LD_LIBRARY_PATH` has to contain a path to URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379` .
+* As pods within a Kubernetes cluster
+* As processes  outside of Kubernetes cluster
 
-### Run Mesos framework inside kubernetes cluster
+In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables have to be specified in the run time environment of the framework. `LD_LIBRARY_PATH` has to contain a path to the URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing the Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379`.
 
-Framework has to be "dockerized" and associated with corresponding kubernetes object like pod, deployment, service, etc.
-Following run time dependencied are required to be installed in docker container for the framework: `libev`, `libuuid`, `zlib` as well as `liburb.so` (to be found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set (see for example [C++ example framework](cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile), [Marathon](test/marathon/marathon.dockerfile)) and URB URI specified as `urb://urb-master.default:6379` (see for example [Marathon](test/marathon/marathon.yaml)).
+### Run Mesos Framework Inside a Kubernetes Cluster
 
-In many situations, especially when framework uses custom executor or executor requires massive run time which is shared by framework scheduler and executor, it is convenient to have common run time located on persistent volume which is accessable from executor runner and framework. `urb-pvc` persistent volume claim name is predefined and mounted to `/opt` by URB executor runner making possible to place framework files to this location and share them within the cluster.
+The framework has to be "dockerized" and associated with the corresponding Kubernetes object like pod, deployment, service, etc.
+The following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set (see for example [C++ example framework](cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile), [Marathon](test/marathon/marathon.dockerfile)) and URB URI specified as `urb://urb-master.default:6379` (see for example [Marathon](test/marathon/marathon.yaml)).
 
-### Run Mesos framework from outside of the kubernetes cluster
+In many situations, especially when a framework uses a custom executor or an executor requires a massive run time bundle that is shared by the framework scheduler and executor it is convenient to have a common run time located on a persistent volume that is accessible from both the executor runner and the framework. The `urb-pvc` persistent volume claim name is predefined and mounted to `/opt` by the URB executor runner making it possible to place framework files in this location to be shared within the cluster.
 
-URB service can be accessable from outside of the cluster on port `30379`. In the development environment with minikube URB URI
-can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have framework runtime installed on the same paths inside and outside of kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set. Since URB executor runner relies on `/opt` path possibly mounted to the persistent volume, it can be used as a base for the frameworks installation outside of the kubernetes cluster.
+### Run Mesos Framework From Outside of the Kubernetes Cluster
 
-## Run C++ and Python example frameworks
+The URB service can be accessible from outside of the cluster at port `30379`. In the minikube based development environment the URB URI can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have the framework runtime installed on the same paths inside and outside of the Kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set. Since the URB executor runner relies on the `/opt` path possibly mounted to the persistent volume, it can be used as a base for framework installations outside of the Kubernetes cluster.
 
-In order to run C++ and Python example frameworks inside kubernetes cluster:
+## Run C++ and Python Example Frameworks
 
-- URB service has to be running (`kubectl create -f source/urb-master.yaml`),
-- persistent volume keeping custom executors has to be created in minikube,
-- example frameworks started:
+In order to run C++ and Python example frameworks inside the Kubernetes cluster:
+
+- The URB service has to be running (`kubectl create -f source/urb-master.yaml`)
+- A persistent volume for storing custom executors has to be created in minikube
+- The appropriate example frameworks need to be started:
 
 ```
     kubectl create -f test/example-frameworks/cpp-framework.yaml
     kubectl create -f test/example-frameworks/python-framework.yaml
 ```
-- an output from the frameworks can be examined with (actual pod names has to be specified):
+- The output from the frameworks can be examined with (replace pod names with names from your environment):
 
 ```
     kubectl logs cpp-framework-ck8zz
     kubectl python-framework-f537l
 ```
 
-In order to clean kubernetes cluster from previous run, create persistent volume, start both frameworks in minikube environment and wait for the completionrun run:
+The `run.sh` helper script is designed to allow consecutive runs of the example frameworks by first cleaning up the Kubernetes cluster from the previous run, creating the persistent volume, starting both frameworks in the minikube environment, and waiting for the completion of the frameworks.  It can be run with the following command:
 
 ```
 test/example-frameworks/run.sh
 ```
 
 
-This is an example of how to run C++ example framework from the outside of the kubernetes cluster (build machine).
+This is an example of how to run the C++ example framework from  outside of the Kubernetes cluster (build machine).
 
-- get URB service URI:
+- Get the URB service URI:
 
 ```
     minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
 ```
-- login to build machine:
+- Login to build machine:
 
 ```
     cd urb-core/vagrant; vagrant ssh
 ```
-- create directory to contain C++ framework binaries (framework scheduler and executor) which matches the path in kubernetes persistent volume [test/example-frameworks/pv.yaml](test/example-frameworks/pv.yaml) created in minikube on `/urb` path by [test/example-frameworks/run.sh](test/example-frameworks/run.sh) in previous example:
+- Create a directory to contain C++ framework binaries (framework scheduler and executor) which matches the path in the Kubernetes persistent volume [test/example-frameworks/pv.yaml](test/example-frameworks/pv.yaml) created in minikube at `/urb` path by [test/example-frameworks/run.sh](test/example-frameworks/run.sh) in the previous example:
 
 ```
     sudo mkdir -p /opt/bin
 ```
-- copy C++ framework binaries:
+- Copy the C++ framework binaries:
 
 ```
     sudo cp urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/bin
 ```
-- run C++ framework (substitute `<URB_URI>` with an actual URI determined in the first step from the host machine)
+- Run the C++ framework (substitute `<URB_URI>` with an actual URI determined in the first step from the host machine)
 
 ```
     LD_LIBRARY_PATH=$(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64:$LD_LIBRARY_PATH URB_MASTER=<URB_URI> /opt/bin/example_framework.test
@@ -143,18 +153,18 @@ This is an example of how to run C++ example framework from the outside of the k
 
 ## Run some actual Mesos frameworks
 
-Some Mesos framework schedulers such as Marathon or Chronos have dependency on [Zookeeper](https://zookeeper.apache.org). Same as with C++ and Python example frameworks they can run inside of outside of kubernetes cluster submitting their tasks to kubernetes cluster.
+Some Mesos framework schedulers, such as Marathon or Chronos, have a dependency on [Zookeeper](https://zookeeper.apache.org). Like the C++ and Python example frameworks they can run inside or outside of a Kubernetes cluster submitting their tasks to the Kubernetes cluster.
 
 ### Marathon
 
-In this example [Marathon](https://mesosphere.github.io/marathon) scheduler will be running inside kubernetes cluster. External project [kubernetes-zookeeper](https://github.com/taeminKwon/kubernetes-zookeeper) is used to install Zookeeper in minikube:
+In this example the [Marathon](https://mesosphere.github.io/marathon) scheduler will be running inside of the Kubernetes cluster. The external project [kubernetes-zookeeper](https://github.com/taeminKwon/kubernetes-zookeeper) is used to install Zookeeper in minikube:
 
 ```
 kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml
 kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-service.yaml
 ```
 
-Create Marathon docker image:
+Create Marathon Docker image:
 
 ```
 cd test/marathon
@@ -175,12 +185,11 @@ minikube service marathonsvc --url
 
 ### Spark
 
-In this section simple Pi example from [Spark](https://spark.apache.org) data processing framework will be running in kubernetes cluster.
+In this section a simple Pi example from the [Spark](https://spark.apache.org) data processing framework will be run inside a Kubernetes cluster.
 
-The [test/spark/run.sh](test/spark/run.sh) script does Spark deployment in the persistent volume as well as creates docker container and corresponding kubernetes job and persistent volume objects which can be used to run driver side of the Spark application. Upon it's execution determine Spark pod name with `kubectl get pods`.
+The (test/spark/run.sh)[test/spark/run.sh] script creates a Spark deployment in the persistent volume, creates a Docker container and corresponding Kubernetes job, and creates a persistent volume object that can be used to run the driver side of the Spark application. Upon its execution determine a Spark pod name with `kubectl get pods`.
 
-
-Run Pi example Spark driver on the pod with the name from previous command:
+Run the Spark Pi example on the pod with the name from the previous command:
 
 ```
 kubectl exec spark-7g14w -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name SparkExamplePi --master mesos://urb://urb-master:6379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py

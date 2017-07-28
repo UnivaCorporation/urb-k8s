@@ -21,5 +21,6 @@ cp ~/.minikube/apiserver.* urb-core/vagrant/.minikube
 cp ~/.minikube/ca.* urb-core/vagrant/.minikube
 cp ~/.minikube/cert.pem urb-core/vagrant/.minikube
 mkdir -p urb-core/vagrant/.kube
-cp ~/.kube/config urb-core/vagrant/.kube
-sed -i "s|/home/.*/\.minikube|/vagrant/.minikube|" urb-core/vagrant/.kube/config
+cp ~/.kube/config urb-core/vagrant/.kube/config.orig
+sed "s|/home/.*/\.minikube|/vagrant/.minikube|; s|/Users/.*/\.minikube|/vagrant/.minikube|" \
+	urb-core/vagrant/.kube/config.orig > urb-core/vagrant/.kube/config
