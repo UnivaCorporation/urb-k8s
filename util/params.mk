@@ -33,17 +33,14 @@ export GIT_REV          := git$(shell git rev-parse --verify head)
 # By default the library will contain the string prepended with "GIT:"
 # with URB_REL_STR variable content bellow.
 ifneq ($(strip $(GIT_REV)),)
-export URB_REL_STR       = Version ($(GIT_REV))
+  export URB_REL_STR       = Version ($(GIT_REV))
 endif
 
 # URB Makefile parameters
 export SHORT_NAME=urb
 export NAME=lib$(SHORT_NAME)
-ifneq ($(strip $(URB_VERSION)),)
-export VERSION=$(URB_VERSION)
-else
-export VERSION=1.4.2
-endif
+
+export VERSION?=0.0.0
 export SOVERSION=$(shell echo $(VERSION) | cut -d'.' -f 1)
 export LIB_SONAME=$(NAME).so.$(SOVERSION)
 export LIB_SOBIG=$(NAME)_big.so.$(SOVERSION)
@@ -63,19 +60,19 @@ export EXT_MESOS_SRC_DIR=$(STOCK_MESOS_DIR)/mesos-$(EXT_MESOS_VERSION)
 export BOOST_ROOT?=$(TOP)/source/cpp/3rdparty/boost/boost-1.58.0
 
 ifeq ($(shell uname -s),SunOS)
-export PYTHON?=/usr/bin/python
-export FIND?=gfind
-export TAR?=gtar
-export PATCH?=gpatch
-export AR?=gar
-export SED?=gsed 
+  export PYTHON?=/usr/bin/python
+  export FIND?=gfind
+  export TAR?=gtar
+  export PATCH?=gpatch
+  export AR?=gar
+  export SED?=gsed
 else
-export PYTHON?=python
-export FIND?=find
-export TAR?=tar
-export PATCH?=patch
-export AR?=ar
-export SED?=sed 
+  export PYTHON?=python
+  export FIND?=find
+  export TAR?=tar
+  export PATCH?=patch
+  export AR?=ar
+  export SED?=sed
 endif
 
 export CMAKE?=cmake
@@ -87,9 +84,9 @@ export JAVA_HOME?=/etc/alternatives/java_sdk
 #export EGG_PYOS?=$(shell python $(TOP)/source/installer/whatos/whatos.py)
 export EGG_PYV=$(shell python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)")
 ifeq ($(shell uname -s),SunOS)
-export EGG_ARCH=$(shell python -c "import platform; print platform.platform(aliased=True, terse=True).lower() + '-' + platform.machine()")
+  export EGG_ARCH=$(shell python -c "import platform; print platform.platform(aliased=True, terse=True).lower() + '-' + platform.machine()")
 else
-export EGG_ARCH=$(shell python -c "import platform; print platform.system().lower() + '-' + platform.machine()")
+  export EGG_ARCH=$(shell python -c "import platform; print platform.system().lower() + '-' + platform.machine()")
 endif
 
 export GCCVERSION:=$(shell gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/')
