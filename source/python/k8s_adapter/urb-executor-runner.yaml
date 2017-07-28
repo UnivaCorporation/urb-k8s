@@ -22,7 +22,7 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - configMapRef:
-              name: urb-executor-runner-config
+                name: urb-executor-runner-config
 #          command: ["/bin/sh", "-c", "env; sleep infinity"]
           volumeMounts:
             - mountPath: "/opt"
