@@ -58,7 +58,9 @@ create_pv() {
   kubectl create -f test/spark/pvc.yaml
 }
 
+cd test/spark
 docker build --rm -t local/spark -f spark.dockerfile .
+cd -
 prepare_pv
 clean
 create_pv
