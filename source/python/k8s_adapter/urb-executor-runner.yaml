@@ -7,6 +7,7 @@ spec:
     metadata:
       name: urb-exec
     spec:
+      # reference to volume claim will be removed by adapter if PV doesn't exist
       volumes:
         - name: urb-pv-storage
           persistentVolumeClaim:
@@ -24,6 +25,7 @@ spec:
             - configMapRef:
                 name: urb-executor-runner-config
 #          command: ["/bin/sh", "-c", "env; sleep infinity"]
+          # mount will be removed by adapter if PV doesn't exist
           volumeMounts:
             - mountPath: "/opt"
               name: urb-pv-storage

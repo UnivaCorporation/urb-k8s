@@ -64,6 +64,5 @@ clean
 create_pv
 
 kubectl create -f source/urb-master.yaml
-#sleep 3
 kubectl create -f test/spark/spark.yaml
 

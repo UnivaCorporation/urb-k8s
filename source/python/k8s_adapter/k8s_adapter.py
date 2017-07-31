@@ -48,9 +48,11 @@ class K8SAdapter(object):
         self.logger.info("K8s registry path: %s" % k8s_registry_path)
         self.configure()
         self.channel_name = None
+
         with open(os.path.join(os.path.dirname(__file__), K8SAdapter.CONFIG_MAP_TEMPLATE + ".yaml")) as fc:
             self.config_map = yaml.load(fc)
             self.logger.debug("Loaded config map yaml: %s" % self.config_map)
+
         with open(os.path.join(os.path.dirname(__file__), K8SAdapter.URB_EXECUTOR_RUNNER + ".yaml")) as fj:
             self.job = yaml.load(fj)
             if len(k8s_registry_path) != 0:
@@ -62,8 +64,24 @@ class K8SAdapter(object):
             if self.job_name_template_size >= K8SAdapter.JOB_NAME_MAX_SIZE:
                 self.logger.error("Job name template %s is too long, should be < %s bytes" %
                                   (self.job_name_template_size, K8SAdapter.JOB_NAME_MAX_SIZE))
+
+
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
+
+        try:
+            resp = self.core_v1.read_persistent_volume_status("urb-pv")
+            self.logger.debug("URB PV status resp: %s" % resp)
+        except ApiException as e:
+            if e.reason == "Not Found":
+                self.logger.debug("ApiException getting URB PV: %s" % e)
+                self.logger.warn("URB persistent volume (urb-pv) doesn't exist")
+                self.logger.warn("Frameworks relying on their run-time located on urb-pv will fail!")
+            else:
+                self.logger.error("ApiException getting URB PV: %s" % e)
+            del self.job['spec']['template']['spec']['volumes']
+            del self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
+
         self.config_map_dict = {}
 
     def configure(self):

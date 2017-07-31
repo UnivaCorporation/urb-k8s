@@ -43,6 +43,12 @@ framework_wait() {
   fi
 }
 
+urb_wait() {
+  while ! kubectl get pods | grep "urb-master.*Running" ; do
+    sleep 2
+  done
+}
+
 # create URB and frameworks artifacts to be used in k8s persistent volume
 prepare_pv() {
   rm -rf /tmp/urb-k8s-volume
@@ -88,7 +94,7 @@ clean
 create_pv
 
 kubectl create -f source/urb-master.yaml
-sleep 3
+urb_wait
 kubectl create -f test/example-frameworks/cpp-framework.yaml
 kubectl create -f test/example-frameworks/python-framework.yaml
 

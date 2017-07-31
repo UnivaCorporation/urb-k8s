@@ -8,7 +8,6 @@ spec:
   capacity:
     storage: 1Gi
   accessModes:
-    - ReadWriteOnce
+    - ReadOnlyMany
   hostPath:
     path: "/urb"
-#    path: "path_template"

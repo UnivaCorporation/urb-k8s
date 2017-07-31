@@ -43,7 +43,7 @@ def test_short_job_management():
     adapter.set_command(["/bin/sh", "-c", "env; sleep 1"])
     print("Submitting short jobs")
     jobs_num = 1
-    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'test'})
+    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'short-test'})
     print("Got job ids: %s" % job_ids)
     assert job_ids != None
     gevent.sleep(3)
@@ -72,7 +72,7 @@ def test_long_job_management():
     adapter.set_command(["/bin/sh", "-c", "env; sleep 100"])
     print("Submitting long jobs")
     jobs_num = 1
-    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'test'})
+    job_ids = adapter.submit_jobs(100, jobs_num, {'URB_FRAMEWORK_ID': 'framework-1', 'URB_FRAMEWORK_NAME':'long-test'})
     print("Got job ids: %s" % job_ids)
     assert job_ids != None
     gevent.sleep(1)
@@ -87,6 +87,7 @@ def test_long_job_management():
             assert False
         except ApiException as e:
             if e.reason == "Not Found":
+                print("Not found as expected")
                 pass
             else:
                 assert False
