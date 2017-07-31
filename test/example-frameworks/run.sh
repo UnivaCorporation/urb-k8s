@@ -44,9 +44,16 @@ framework_wait() {
 }
 
 urb_wait() {
-  while ! kubectl get pods | grep "urb-master.*Running" ; do
-    sleep 2
+  local max=10
+  local cnt=0
+  while ! kubectl get pods | grep "urb-master.*Running" && [ $cnt -le $max ]; do
+    let cnt=cnt+1
+    sleep 3
   done
+  if [ $cnt -ge $max ]; then
+    echo "ERROR: Timeout waiting for URB service pod to start"
+    RET=1
+  fi
 }
 
 # create URB and frameworks artifacts to be used in k8s persistent volume
