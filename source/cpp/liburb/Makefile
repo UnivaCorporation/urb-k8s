@@ -447,7 +447,9 @@ $(BUILD_DIR)/%.test.valgrind: $(BUILDDIR)/%.test
 	PYTHON=$(PYTHON) LD_LIBRARY_PATH=$(BUILDDIR) valgrind --read-var-info=yes --track-origins=yes --xml=yes --xml-file=$@ $<
 #	PYTHON=$(PYTHON) LD_LIBRARY_PATH=$(BUILDDIR) valgrind --leak-check=full --log-file=$@ $<
 
-valgrind: $(VALGRIND_OUTPUTS)
+valgrind: start_redis $(VALGRIND_OUTPUTS)
+	-jobid=$(qstat -f -q *@$$(hostname) | grep '^[ \t]\+[0-9]\+[ \t]' | awk '/executor_runner.py/ {print $$1}') ; if [ ! -z "$$jobid" ]; then for j in $$jobid; do qdel $$j; done; fi
+	$(REDIS_BIN)/redis-cli flushdb; $(REDIS_BIN)/redis-cli shutdown
 
 # Python bindings rules
 #python-bindings: $(BUILDDIR) $(PYTHONEGG)
