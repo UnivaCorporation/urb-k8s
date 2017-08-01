@@ -420,7 +420,7 @@ distclean clean:
 #	if [ "$$(redis-cli ping)" != "PONG" ]; then if which systemctl >/dev/null 2>&1; then sudo systemctl redis_6379 start; else sudo service redis_6379 start; fi; fi
 
 start_redis:
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& sleep 3; fi
 
 stop_redis:
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" = "PONG" ]; then $(REDIS_BIN)/redis-cli shutdown fi
