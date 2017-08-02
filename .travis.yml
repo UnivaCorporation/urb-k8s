@@ -5,8 +5,9 @@ before_install:
 
 install:
   - sudo pip install setuptools nose nosexcover mock==1.0.1 gevent pymongo sortedcontainers xmltodict redis
-  - sudo apt-get install g++ cmake openjdk-8-jdk python-pip libev-dev uuid-dev zlib1g-dev
+  - sudo apt-get install g++ cmake openjdk-8-jdk-headless python-pip libev-dev uuid-dev zlib1g-dev
 
 script:
   - make
   - make test
+  - make dist
