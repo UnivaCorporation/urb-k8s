@@ -54,6 +54,12 @@ urb_wait() {
     echo "ERROR: Timeout waiting for URB service pod to start"
     RET=1
   fi
+  cnt=0
+  local pod=$(kubectl get pods | awk '/urb-master/ {print $1}')
+  while ! kubectl logs $pod urb-service | grep 'Instantiating handler: MesosHandler'; do
+    let cnt=cnt+1
+    sleep 2
+  done
 }
 
 # create URB and frameworks artifacts to be used in k8s persistent volume
