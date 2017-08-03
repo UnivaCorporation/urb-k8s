@@ -54,6 +54,12 @@ urb_wait() {
     echo "ERROR: Timeout waiting for URB service pod to start"
     RET=1
   fi
+  cnt=0
+  local pod=$(kubectl get pods | awk '/urb-master/ {print $1}')
+  while ! kubectl logs $pod urb-service | grep 'Instantiating handler: MesosHandler'; do
+    let cnt=cnt+1
+    sleep 2
+  done
 }
 
 # create URB and frameworks artifacts to be used in k8s persistent volume
@@ -88,8 +94,9 @@ clean() {
 
 # create persistent volume
 create_pv() {
-  pkill -f "minikube mount /tmp/urb-k8s-volume:/urb"
-  minikube mount /tmp/urb-k8s-volume:/urb&
+  local mount_cmd="minikube mount --msize 1048576 /tmp/urb-k8s-volume:/urb"
+  pkill -f "$mount_cmd"
+  $mount_cmd &
   mount_pid=$!
 
   kubectl create -f test/example-frameworks/pv.yaml
