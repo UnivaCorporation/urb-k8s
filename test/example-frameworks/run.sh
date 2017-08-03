@@ -88,8 +88,9 @@ clean() {
 
 # create persistent volume
 create_pv() {
-  pkill -f "minikube mount /tmp/urb-k8s-volume:/urb"
-  minikube mount /tmp/urb-k8s-volume:/urb&
+  local mount_cmd="minikube mount --msize 1048576 /tmp/urb-k8s-volume:/urb"
+  pkill -f "$mount_cmd"
+  $mount_cmd &
   mount_pid=$!
 
   kubectl create -f test/example-frameworks/pv.yaml

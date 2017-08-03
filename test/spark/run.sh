@@ -50,8 +50,9 @@ clean() {
 
 # create persistent volume
 create_pv() {
-  pkill -f "minikube mount /tmp/spark-k8s-volume:/spark"
-  minikube mount /tmp/spark-k8s-volume:/spark&
+  local mount_cmd="minikube mount --msize 1048576 /tmp/spark-k8s-volume:/spark"
+  pkill -f "$mount_cmd"
+  $mount_cmd &
   mount_pid=$!
 
   kubectl create -f test/spark/pv.yaml
