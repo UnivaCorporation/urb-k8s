@@ -420,7 +420,7 @@ distclean clean:
 #	if [ "$$(redis-cli ping)" != "PONG" ]; then if which systemctl >/dev/null 2>&1; then sudo systemctl redis_6379 start; else sudo service redis_6379 start; fi; fi
 
 start_redis:
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& sleep 3; fi
 
 stop_redis:
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" = "PONG" ]; then $(REDIS_BIN)/redis-cli shutdown fi
@@ -447,7 +447,9 @@ $(BUILD_DIR)/%.test.valgrind: $(BUILDDIR)/%.test
 	PYTHON=$(PYTHON) LD_LIBRARY_PATH=$(BUILDDIR) valgrind --read-var-info=yes --track-origins=yes --xml=yes --xml-file=$@ $<
 #	PYTHON=$(PYTHON) LD_LIBRARY_PATH=$(BUILDDIR) valgrind --leak-check=full --log-file=$@ $<
 
-valgrind: $(VALGRIND_OUTPUTS)
+valgrind: start_redis $(VALGRIND_OUTPUTS)
+	-jobid=$(qstat -f -q *@$$(hostname) | grep '^[ \t]\+[0-9]\+[ \t]' | awk '/executor_runner.py/ {print $$1}') ; if [ ! -z "$$jobid" ]; then for j in $$jobid; do qdel $$j; done; fi
+	$(REDIS_BIN)/redis-cli flushdb; $(REDIS_BIN)/redis-cli shutdown
 
 # Python bindings rules
 #python-bindings: $(BUILDDIR) $(PYTHONEGG)
