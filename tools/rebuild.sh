@@ -66,6 +66,40 @@ delete_wait() {
     fi
   fi
 }
+if [ $# -eq 0 ]; then
+  URB_SERVICE=1
+  URB_REDIS=1
+  URB_EXECUTOR_RUNNER=1
+  RB_CPP=1
+  URB_PYTHON=1
+else
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    "urb-service")
+      URB_SERVICE=1
+      shift
+      ;;
+    "urb-redis")
+      URB_REDIS=1
+      shift
+      ;;
+    "urb-executor-runner")
+      URB_EXECUTOR_RUNNER=1
+      shift
+      ;;
+    "urb-cpp-framework")
+      URB_CPP=1
+      shift
+      ;;
+    "urb-cpp-framework")
+      URB_PYTHON=1
+      shift
+      ;;
+    *)
+    ;;
+    esac
+  done
+fi
 
 set_minikube_env
 
@@ -76,10 +110,22 @@ delete_wait jobs urb-exec
 kubectl get pods -a
 delete_wait pods urb-exec
 
-rmi "local\/urb-service"
-rmi "local\/urb-cpp-framework"
-rmi "local\/urb-python-framework"
-rmi "local\/urb-executor-runner"
+if [ ! -z "$URB_SERVICE" ]; then
+  rmi "local\/urb-service"
+fi
+if [ ! -z "$URB_REDIS" ]; then
+  rmi "local\/urb-redis"
+fi
+if [ ! -z "$URB_CPP" ]; then
+  rmi "local\/urb-cpp-framework"
+fi
+if [ ! -z "$URB_PYTHON" ]; then
+  rmi "local\/urb-python-framework"
+fi
+if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
+  rmi "local\/urb-executor-runner"
+fi
+
 rmi_none
 
 # rebuild URB artifacts
@@ -90,7 +136,22 @@ popd
 
 # create docker images
 set_minikube_env
-make images
+
+if [ ! -z "$URB_SERVICE" ]; then
+  make urb-service
+fi
+if [ ! -z "$URB_REDIS" ]; then
+  make urb-redis
+fi
+if [ ! -z "$URB_CPP" ]; then
+  make rb-cpp-framework
+fi
+if [ ! -z "$URB_PYTHON" ]; then
+  make urb-python-framework
+fi
+if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
+  make urb-executor-runner
+fi
 
 # start URB master
 kubectl create -f source/urb-master.yaml

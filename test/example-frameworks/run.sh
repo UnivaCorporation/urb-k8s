@@ -58,8 +58,9 @@ urb_wait() {
   local pod=$(kubectl get pods | awk '/urb-master/ {print $1}')
   while ! kubectl logs $pod urb-service | grep 'Instantiating handler: MesosHandler'; do
     let cnt=cnt+1
-    sleep 2
+    sleep 3
   done
+  sleep 5
 }
 
 # create URB and frameworks artifacts to be used in k8s persistent volume

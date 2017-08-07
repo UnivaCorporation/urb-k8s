@@ -52,4 +52,4 @@ gimages:
 	docker build --rm -t gcr.io/${PROJECT_ID}/urb-redis -f redis.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-redis
 	docker build --rm -t gcr.io/${PROJECT_ID}/urb-cpp-framework -f cpp-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-cpp-framework
 	docker build --rm -t gcr.io/${PROJECT_ID}/urb-python-framework -f python-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-python-framework
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-pv
+#	docker build --rm -t gcr.io/${PROJECT_ID}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-pv

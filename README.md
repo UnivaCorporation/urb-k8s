@@ -35,7 +35,7 @@ _Requires `docker` to be installed_
 
 ## Start Docker Build Container
 
-`SYNCED_FOLDER=../.. vagrant up`
+`SYNCED_FOLDER=../.. vagrant up --provider=docker`
 
 ## Login Into Docker Build Container
 
@@ -67,7 +67,7 @@ _Enter the build container_
 
 ## Create Docker Images for URB Service and Example Frameworks
 
-_Open a new shell in the root of the project_
+_Open a new shell in the root of the project and run:_
 
 `eval $(minikube docker-env)`
 
@@ -82,7 +82,7 @@ URB service in minikube Kubernetes cluster can be started with following command
 There are two options to run Mesos framework schedulers: 
 
 * As pods within a Kubernetes cluster
-* As processes  outside of Kubernetes cluster
+* As processes outside of Kubernetes cluster
 
 In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables have to be specified in the run time environment of the framework. `LD_LIBRARY_PATH` has to contain a path to the URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing the Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379`.
 
@@ -113,7 +113,7 @@ In order to run C++ and Python example frameworks inside the Kubernetes cluster:
 
 ```
     kubectl logs cpp-framework-ck8zz
-    kubectl python-framework-f537l
+    kubectl logs python-framework-f537l
 ```
 
 The `run.sh` helper script is designed to allow consecutive runs of the example frameworks by first cleaning up the Kubernetes cluster from the previous run, creating the persistent volume, starting both frameworks in the minikube environment, and waiting for the completion of the frameworks.  It can be run with the following command:
