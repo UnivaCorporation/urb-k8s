@@ -269,10 +269,10 @@ class MesosHandler(MessageHandler):
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is not None:
             # No need to acquire/release lock here
-            existing_status = framework.get('job_status',{})
-            existing_status[job_id] = job_status
-            self.logger.trace("Existing job status: %s, new: %s" % (existing_status, job_status))
-            framework['job_status'] = existing_status
+            existing_statuses = framework.get('job_statuses',{})
+            existing_statuses[job_id] = job_status
+            self.logger.trace("Existing job statuses: %s, new: %s" % (existing_statuses, job_status))
+            framework['job_statuses'] = existing_statuses
         else:
             self.logger.debug("Cannot update job status. Framework does not exist for id: %s" % framework_id)
 
@@ -309,8 +309,7 @@ class MesosHandler(MessageHandler):
         self.__delete_channel_with_delay(slave_channel.name)
 
     def delete_job(self, job_id, framework_id):
-        self.logger.debug('Deleting job id %s for framework id %s' % (
-            job_id, framework_id))
+        self.logger.debug('Deleting job id %s for framework id %s' % (job_id, framework_id))
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is None:
             self.logger.debug('Framework id %s could not be found' % (framework_id))
@@ -338,6 +337,7 @@ class MesosHandler(MessageHandler):
                    if jid[0] == job_id:
                        job_id_tuple = jid
                 if job_id_tuple is not None:
+                    self.logger.debug("Removing job id %s from framework jobs with key: %s" % (job_id, job_id_tuple))
                     framework['job_ids'].remove(job_id_tuple)
                 else:
                     self.logger.error('Could not remove job id %s from framework jobs: %s' %
@@ -351,6 +351,13 @@ class MesosHandler(MessageHandler):
                         #Scheduler gets the task update, send shutdown to the executor
                         self.logger.debug('About to process task lost for job id %s' % job_id)
                         self.__process_task_lost_status_update(task['task_info'], framework)
+
+                # remove job status
+                #self.logger.debug("Removing job status for %s" % job_id)
+                #statuses = framework.get('job_statuses',{})
+                #if job_id in statuses:
+                #    del statuses[job_id]
+
         finally:
             # Release lock
             self.__release_framework_lock(framework)
@@ -2339,10 +2346,12 @@ class MesosHandler(MessageHandler):
         job_submit_options = framework_config.get('job_submit_options', '')
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
+        executor_runner = framework_config.get('executor_runner', '')
         try:
-            kwargs = {"job_class":job_class,
-                      "job_submit_options":job_submit_options,
-                      "resource_mapping":resource_mapping,
+            kwargs = {"job_class": job_class,
+                      "job_submit_options": job_submit_options,
+                      "resource_mapping": resource_mapping,
+                      "executor_runner": executor_runner,
                       "task": task}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
@@ -2419,10 +2428,20 @@ class MesosHandler(MessageHandler):
 
         default_config_section = 'DefaultFrameworkConfig'
         framework_config = {}
-        for key in ['mem', 'cpus', 'disk', 'ports',
-            'max_rejected_offers', 'max_tasks', 'send_task_lost',
-            'scale_count', 'concurrent_tasks', 'job_submit_options',
-            'initial_tasks', 'job_class', 'resource_mapping']:
+        for key in ['mem',
+                    'cpus',
+                    'disk',
+                    'ports',
+                    'max_rejected_offers',
+                    'max_tasks',
+                    'send_task_lost',
+                    'scale_count',
+                    'concurrent_tasks',
+                    'job_submit_options',
+                    'initial_tasks',
+                    'job_class',
+                    'resource_mapping',
+                    'executor_runner']:
             value = cm.get_config_option(framework_config_section, key)
             if not value:
                 value = cm.get_config_option(default_config_section, key)
@@ -2433,11 +2452,12 @@ class MesosHandler(MessageHandler):
 
         # maybe make this generic later...
         for k in ['job_submit_options']:
-            if len(framework_config[k]) != 0:
-                # remove spaces if any from the beginning and end
-                framework_config[k] = framework_config[k].strip()
-                framework_config[k] += " "
-            framework_config[k] += framework['ext_data'].get(k,'')
+            if k in framework_config:
+                if len(framework_config[k]) != 0:
+                    # remove spaces if any from the beginning and end
+                    framework_config[k] = framework_config[k].strip()
+                    framework_config[k] += " "
+                framework_config[k] += framework['ext_data'].get(k,'')
 
         # get custom resources (custom_resources = dfsio_spindles:8;disk_ids:[(0,5),(10,15)])
         # numeric values or ranges are supported
