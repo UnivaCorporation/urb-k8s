@@ -14,8 +14,8 @@ rm -f /lib/systemd/system/anaconda.target.wants/*;
 VOLUME [ "/sys/fs/cgroup" ]
 # vagrant user
 RUN yum -y install sudo which git
-RUN /usr/sbin/groupadd -g 1000 vagrant
-RUN /usr/sbin/useradd --create-home -s /bin/bash vagrant -u 1000 -g vagrant -G wheel
+ARG USER_ID
+RUN /usr/sbin/useradd --create-home -s /bin/bash vagrant --user-group -u $USER_ID -G wheel
 RUN echo -n "vagrant:vagrant" | chpasswd
 RUN echo "vagrant        ALL=(ALL)       NOPASSWD: ALL" >> /etc/sudoers.d/vagrant
 RUN chmod 440 /etc/sudoers.d/vagrant

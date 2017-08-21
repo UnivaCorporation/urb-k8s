@@ -19,7 +19,7 @@ IMAGE=urb-build
 .PHONY:all
 
 all:
-	docker images $(IMAGE) | grep $(IMAGE) >/dev/null 2>&1 || docker build --rm -t $(IMAGE) .
+	docker images $(IMAGE) | grep $(IMAGE) >/dev/null 2>&1 || docker build --rm -t $(IMAGE) --build-arg USER_ID=`id -u $(USER)` .
 
 .PHONY:clean
 clean:
