@@ -1,3 +1,7 @@
+# Universal Resource Broker
+======
+[![Build Status](https://travis-ci.org/UnivaCorporation/urb-core.svg?branch=master)](https://travis-ci.org/UnivaCorporation/urb-core)
+
 # Introduction
 
 Universal Resource Broker (URB) provides an API for developing and running distributed applications.  URB exposes
