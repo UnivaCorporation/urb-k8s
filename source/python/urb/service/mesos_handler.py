@@ -28,7 +28,7 @@ from gevent import event
 from gevent import lock
 
 import platform
-if platform.system() == "Linux"
+if platform.system() == "Linux":
     import gevent_inotifyx as inotify
 from collections import namedtuple
 
@@ -106,7 +106,7 @@ class MesosHandler(MessageHandler):
         self.__delete_elements = []
         self.__new_framework_lock = lock.RLock()
         self.configure()
-        if platform.system() == "Linux"
+        if platform.system() == "Linux":
             gevent.spawn(self.__watch_config)
 
     def configure(self):
