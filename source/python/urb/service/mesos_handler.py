@@ -26,7 +26,10 @@ import base64
 import copy
 from gevent import event
 from gevent import lock
-import gevent_inotifyx as inotify
+
+import platform
+if platform.system() == "Linux"
+    import gevent_inotifyx as inotify
 from collections import namedtuple
 
 from urb.messaging.message_handler import MessageHandler
@@ -103,7 +106,8 @@ class MesosHandler(MessageHandler):
         self.__delete_elements = []
         self.__new_framework_lock = lock.RLock()
         self.configure()
-        gevent.spawn(self.__watch_config)
+        if platform.system() == "Linux"
+            gevent.spawn(self.__watch_config)
 
     def configure(self):
         cm = ConfigManager.get_instance()
