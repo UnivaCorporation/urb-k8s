@@ -26,6 +26,7 @@ import base64
 import copy
 from gevent import event
 from gevent import lock
+import gevent_inotifyx as inotify
 from collections import namedtuple
 
 from urb.messaging.message_handler import MessageHandler
@@ -68,6 +69,7 @@ from urb.utility.resource_tracker import ResourceTracker
 from urb.utility.value_utility import ValueUtility
 from urb.utility.port_range_utility import PortRangeUtility
 from urb.config.config_manager import ConfigManager
+from urb.log.log_manager import LogManager
 from urb.db.db_manager import DBManager
 
 from urb.exceptions.registration_error import RegistrationError
@@ -101,6 +103,7 @@ class MesosHandler(MessageHandler):
         self.__delete_elements = []
         self.__new_framework_lock = lock.RLock()
         self.configure()
+        gevent.spawn(self.__watch_config)
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -118,6 +121,50 @@ class MesosHandler(MessageHandler):
             self.logger.warn('Could not find executor runner config file %s, falling back to default %s' % (self.executor_runner_config_file, default_config_file))
             self.executor_runner_config_file = default_config_file
         self.logger.debug('Executor runner config file is set to %s' % (self.executor_runner_config_file))
+
+    def __watch_config(self):
+        # IN_CLOSE_WRITE handles completion of the config file modification
+        # IN_DELETE_SELF handles k8s case of the configmap midification
+        mask = inotify.IN_CLOSE_WRITE|inotify.IN_DELETE_SELF
+        nfd = inotify.init()
+        wfd = inotify.add_watch(nfd, ConfigManager.get_instance().get_config_file(), mask)
+        self.logger.info("Watching for URB configuration changes")
+        # wait for config file change
+        while True:
+            self.logger.info("Waiting for configuration change events")
+            events = inotify.get_events(nfd)
+            self.logger.info("Configuration changes: events: %s" % events)
+            for event in set(events):
+                self.logger.info("Config event: %s" % event)
+                if event.mask & inotify.IN_CLOSE_WRITE:
+                    self.__reload_config()
+                if event.mask & inotify.IN_DELETE_SELF:
+                    # give some time for new file to be created
+                    gevent.sleep(1)
+                    self.__reload_config()
+                    # watch new file
+                    wfd = inotify.add_watch(nfd, ConfigManager.get_instance().get_config_file(), mask)
+                else:
+                    self.logger.info("Do not reload config for above event")
+            gevent.sleep(1)
+
+    def __reload_config(self):
+        cm = ConfigManager.get_instance()
+        lm = LogManager.get_instance()
+        cm.clear_config_parser()
+        level = cm.get_config_option("ConsoleLogging", "level")
+        # set new log levels
+        self.logger.info("Console log level: %s" % level)
+        lm.set_console_log_level(level)
+        level = cm.get_config_option("FileLogging", "level")
+        self.logger.info("File log level: %s" % level)
+        lm.set_file_log_level(level)
+        self.logger.info("Frameworks in list: %s" % FrameworkTracker.get_instance().keys())
+        for framework in FrameworkTracker.get_instance().keys():
+            val = FrameworkTracker.get_instance().get_active_or_finished_framework(framework)
+            self.logger.info("Reconfigure framework: %s:%s" % (framework, val))
+            if val is not None:
+                self.configure_framework(val)
 
     def get_target_preprocessor(self, target):
         if self.event_db_interface is not None:
