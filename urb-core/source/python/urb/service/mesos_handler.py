@@ -1010,10 +1010,12 @@ class MesosHandler(MessageHandler):
                                                  (slave id: %s), set status to %s" % \
                                                  (job_id, slave_id['value'], job_status))
                             except CompletedJob, ex:
-                                self.logger.debug("Reconcile: cannot get task status for job id '%s' \
-                                                  (slave id: %s), status remains %s, %s" % \
-                                                  (job_id, slave_id['value'], job_status, ex))
+                                job_status = "TASK_FINISHED"
+                                self.logger.debug("Reconcile: task status is TASK_FINISHED for job id '%s' \
+                                                  (slave id: %s), (ex: %s)" % \
+                                                  (job_id, slave_id['value'], ex))
                             except Exception, ex:
+                                job_status = "TASK_LOST"
                                 self.logger.warn("Reconcile: cannot get task status for job id '%s' \
                                                   (slave id: %s), unexpected exception: %s" % \
                                                   (job_id, slave_id['value'], ex))
@@ -1026,16 +1028,25 @@ class MesosHandler(MessageHandler):
                         # ... And we don't have a slave to use to query backend scheduler
                         # if our slave has been up for a while we can assume the task is gone
                         if len(t) == 0:
-                            self.logger.debug("Reconcile: empty task %s, will retry" % task_id)
-                            retry_list.append(s)
-                            continue
+                            if 'lost_candidate' not in framework:
+                                framework['lost_candidate'] = {}
+                            if task_id not in framework['lost_candidate']:
+#                            self.logger.debug("Reconcile: empty task %s, will retry" % task_id)
+                                self.logger.debug("Reconcile: empty task %s, add queue time" % task_id)
+                                task_record = {}
+                                task_record['queue_time'] = time.time()
+                                framework['lost_candidate'][task_id] = task_record
+                            # retry_list.append(s)
+                                continue
+                            else:
+                                queue_time = framework['lost_candidate'][task_id]['queue_time']
                         else:
                             queue_time = t.get('queue_time')
                             if not queue_time:
                                 self.logger.debug("Reconcile: no queue_time")
                                 continue
                         if time.time() - queue_time > MesosHandler.SLAVE_GRACE_PERIOD:
-                            self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST" % task_id)
+                            self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST with NotValid slave id" % task_id)
                             task_record = {}
                             # slave_id is None here - set it to NotValid
                             # this may cause failures on scheduler side for some frameworks (as in Spark with non-existed
@@ -1047,6 +1058,8 @@ class MesosHandler(MessageHandler):
                             t[task_id] = task_record
                             framework['task_dict'] = t
                             job_status = task_record['state']
+                            if task_id in framework.get('lost_candidate',{}):
+                                del framework['lost_candidate'][task_id]
                         else:
                             self.logger.debug("Reconcile: slave grace period not exceeded, skip status update for task %s" % task_id)
                             continue
