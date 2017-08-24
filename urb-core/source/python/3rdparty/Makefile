@@ -52,6 +52,12 @@ ARGPARSE_EGG=$(ARGPARSE_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
 GOOGLECOMMON_ARCHIVE=$(shell ls google-common-*.tar.gz)
 GOOGLECOMMON_NAME=$(subst .tar.gz,,$(GOOGLECOMMON_ARCHIVE))
 GOOGLECOMMON_EGG=$(GOOGLECOMMON_NAME)-py$(EGG_PYV).egg
+INOTIFYX_ARCHIVE=$(shell ls inotifyx-*.tar.gz)
+INOTIFYX_NAME=$(subst .tar.gz,,$(INOTIFYX_ARCHIVE))
+INOTIFYX_EGG=$(INOTIFYX_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
+GEVENTINOTIFYX_ARCHIVE=$(shell ls gevent_inotifyx-*.tar.gz)
+GEVENTINOTIFYX_NAME=$(subst .tar.gz,,$(GEVENTINOTIFYX_ARCHIVE))
+GEVENTINOTIFYX_EGG=$(GEVENTINOTIFYX_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -62,7 +68,9 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(PROTOBUF_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
-          $(DIST_DIR)/$(GOOGLECOMMON_EGG)
+          $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
+          $(DIST_DIR)/$(INOTIFYX_EGG) \
+          $(DIST_DIR)/$(GEVENTINOTIFYX_EGG)
 
 ifeq ($(shell uname -s),SunOS)
 SETUP_ENV=PYCC_CC=gcc
@@ -121,6 +129,16 @@ $(DIST_DIR)/$(ARGPARSE_EGG): $(ARGPARSE_ARCHIVE)
 $(DIST_DIR)/$(GOOGLECOMMON_EGG): $(GOOGLECOMMON_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(GOOGLECOMMON_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
+$(DIST_DIR)/$(INOTIFYX_EGG): $(INOTIFYX_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR); $(PATCH) -p1 < ../$(INOTIFYX_NAME).patch
+	cd $(BUILDDIR)/$(INOTIFYX_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
+$(DIST_DIR)/$(GEVENTINOTIFYX_EGG): $(GEVENTINOTIFYX_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR); $(PATCH) -p1 < ../$(GEVENTINOTIFYX_NAME).patch
+	cd $(BUILDDIR)/$(GEVENTINOTIFYX_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
 dist: $(BUILDDIR)/.dummy $(DIST_DIR)/.dummy $(DIST_EGGS)
 

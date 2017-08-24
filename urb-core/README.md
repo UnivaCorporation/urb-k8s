@@ -1,3 +1,7 @@
+# Universal Resource Broker
+
+[![Build Status](https://travis-ci.org/UnivaCorporation/urb-core.svg?branch=master)](https://travis-ci.org/UnivaCorporation/urb-core)
+
 # Introduction
 
 Universal Resource Broker (URB) provides an API for developing and running distributed applications.  URB exposes
@@ -13,7 +17,7 @@ fully functioning the scheduler back end adapter has to be implemented in Python
 `source/python/urb/adapters/adapter_interface.py`.
 
 Structurally it is recommended to create a separate project with an adapter interface implementation and
-use urb-core as an external dependency (similarly to [urb-uge](https://github.com/UnivaCorporation/urb-uge) project).
+use urb-core as an external dependency (for example with git subtree, similarly to [urb-uge](https://github.com/UnivaCorporation/urb-uge) or [urb-k8s](https://github.com/UnivaCorporation/urb-k8s) projects).
 
 # Functionality
 
