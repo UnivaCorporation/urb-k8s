@@ -41,6 +41,8 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/pymongo-*-py2.7-linux-x86_64.egg \
                  /tmp/greenlet-*-py2.7-linux-x86_64.egg \
                  /tmp/gevent-*-py2.7-linux-x86_64.egg \
+                 /tmp/inotifyx-*-py2.7-linux-x86_64.egg \
+                 /tmp/gevent_inotifyx-*-py2.7.egg \
                  /tmp/mesos.scheduler-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.executor-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.native-*-py2.7.egg \
@@ -50,10 +52,10 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/k8s_adapter-*-py2.7.egg
 
 # set environment variables required by URB service and copy configuration files
-ENV URB_ROOT=/urb
-ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
-RUN mkdir -p $URB_ROOT/etc
-COPY etc/urb.conf etc/urb.executor_runner.conf $URB_ROOT/etc/
+#ENV URB_ROOT=/urb
+#ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
+#RUN mkdir -p $URB_ROOT/etc
+#COPY etc/urb.conf etc/urb.executor_runner.conf $URB_ROOT/etc/
 EXPOSE 6379
 
 ENTRYPOINT ["/usr/bin/urb-service"]

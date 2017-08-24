@@ -66,6 +66,7 @@ prepare_pv
 clean
 create_pv
 
+kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
 kubectl create -f source/urb-master.yaml
 kubectl create -f test/spark/spark.yaml
 

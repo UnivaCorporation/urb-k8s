@@ -35,4 +35,18 @@ spec:
         ports:
         - containerPort: 6379
           name: urb-service
-        
+        env:
+        - name: URB_ROOT
+          value: /urb
+        - name: URB_CONFIG_FILE
+          value: $(URB_ROOT)/etc/urb.conf
+        volumeMounts:
+        - mountPath: /urb/etc
+          name: urb-config
+      volumes:
+        - name: urb-config
+          configMap:
+            name: urb-config
+            items:
+            - key: urb.conf
+              path: urb.conf

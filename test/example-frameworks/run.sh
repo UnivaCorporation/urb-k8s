@@ -108,6 +108,7 @@ prepare_pv
 clean
 create_pv
 
+kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
 kubectl create -f source/urb-master.yaml
 urb_wait
 kubectl create -f test/example-frameworks/cpp-framework.yaml

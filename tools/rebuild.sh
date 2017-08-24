@@ -20,11 +20,13 @@ set -x
 rmi() {
   local nm=$1
   local img=$(docker images | awk "/$nm/ {print \$3}")
-  local containers=$(docker ps -a | awk "/$img/ {print \$1}")
-  if [ ! -z "$containers" ]; then
-    docker rm $containers  
+  if [ ! -z "$img" ]; then
+    local containers=$(docker ps -a | awk "/$img/ {print \$1}")
+    if [ ! -z "$containers" ]; then
+      docker rm $containers
+    fi
+    docker rmi $img
   fi
-  docker rmi $img
 }
 
 # remove <none> docker images
@@ -153,6 +155,8 @@ if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
   make urb-executor-runner
 fi
 
+# create URB configuration
+kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
 # start URB master
 kubectl create -f source/urb-master.yaml
 kubectl get pods

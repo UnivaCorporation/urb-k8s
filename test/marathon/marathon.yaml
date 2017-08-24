@@ -35,6 +35,10 @@ spec:
           env:
             - name: MESOS_NATIVE_JAVA_LIBRARY
               value: /opt/urb/lib/liburb.so
+#            - name: URB_LOGLEVEL
+#              value: 0
+#            - name: GLOG_v
+#              value: 2
           volumeMounts:
             - mountPath: "/opt"
               name: urb-pv-storage

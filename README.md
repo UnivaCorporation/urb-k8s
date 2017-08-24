@@ -75,7 +75,11 @@ _Open a new shell in the root of the project and run:_
 
 ## Run Mesos Frameworks
 
-URB service in minikube Kubernetes cluster can be started with following command:
+URB service in minikube Kubernetes cluster can be started by creating first _ConfigMap_ with URB configuration:
+
+`kubectl create configmap urb-config --from-file=etc/urb.conf`
+
+and creating URB service deployment with following command:
 
 `kubectl create -f source/urb-master.yaml`
 
@@ -207,3 +211,10 @@ It should produce an output which includes Pi number estimate similar to:
 Pi is roughly 3.140806
 ```
 
+## Updating URB configuration
+
+URB configuration file [etc/urb.conf](etc/urb.conf) consists of multiple configuration settings documented inside a file, most important of each are URB service logging levels and frameworks configuration sections. It can be reloaded with:
+
+```
+kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
+```
