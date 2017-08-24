@@ -1,0 +1,28 @@
+diff -Naur org/inotifyx-0.2.2/setup.py new/inotifyx-0.2.2/setup.py
+--- org/inotifyx-0.2.2/setup.py	2014-08-22 17:13:44.000000000 -0400
++++ new/inotifyx-0.2.2/setup.py	2017-08-22 16:01:43.000000000 -0400
+@@ -4,8 +4,13 @@
+ # This file is in the public domain.
+ 
+ import os, sys, commands
+-from distutils.core import Extension
+-
++try:
++    from setuptools import Extension, setup
++except ImportError:
++    if PYPY:
++        # need setuptools for include_package_data to work
++        raise
++    from distutils.core import Extension
+ 
+ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
+ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+@@ -41,7 +46,7 @@
+   packages = ['inotifyx'],
+   ext_modules = [
+     Extension(
+-      'inotifyx.binding',
++      name = 'inotifyx.binding',
+       sources = [os.path.join('inotifyx', 'binding.c')],
+     ),
+   ],
