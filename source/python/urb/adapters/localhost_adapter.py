@@ -62,7 +62,7 @@ class LocalhostAdapter(Adapter):
     def reconcile_tasks(self, request):
         self.logger.debug('Reconcile tasks: %s' % request)
         # indicates that job status cannot be reasonably retrieved in get_job_status
-        return False
+        return (False, 0)
 
     def register_executor_runner(self, framework_id, slave_id, *args,
             **kwargs):
