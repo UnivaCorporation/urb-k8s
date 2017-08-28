@@ -68,12 +68,12 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(PROTOBUF_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
-          $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
-          $(DIST_DIR)/$(INOTIFYX_EGG) \
-          $(DIST_DIR)/$(GEVENTINOTIFYX_EGG)
+          $(DIST_DIR)/$(GOOGLECOMMON_EGG)
 
 ifeq ($(shell uname -s),SunOS)
-SETUP_ENV=PYCC_CC=gcc
+  SETUP_ENV=PYCC_CC=gcc
+else
+  DIST_EGGS+=$(DIST_DIR)/$(INOTIFYX_EGG) $(DIST_DIR)/$(GEVENTINOTIFYX_EGG)
 endif
 
 distclean: clean
