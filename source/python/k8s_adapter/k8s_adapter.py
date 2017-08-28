@@ -128,7 +128,8 @@ class K8SAdapter(object):
     def reconcile_tasks(self, request):
         self.logger.trace("Reconcile tasks: %s" % request)
         # indicate that job status reasonably can be retrieved on adapter level (get_job_status)
-        return True
+        # after specified time since job submission
+        return (True, 2)
 
     def register_executor_runner(self, framework_id, slave_id, *args, 
             **kwargs):
