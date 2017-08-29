@@ -994,7 +994,7 @@ class MesosHandler(MessageHandler):
 
     def reconcile_tasks(self, request):
         self.logger.info('Reconcile request: %s' % request)
-        smart_adapter = self.adapter.reconcile_tasks(request)
+        (smart_adapter, adapter_status_update_time) = self.adapter.reconcile_tasks(request)
         source_id = request.get('source_id')
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         reply_to = request.get('payload').get('reply_to')
@@ -1038,11 +1038,28 @@ class MesosHandler(MessageHandler):
                 if job_status == "TASK_STAGING":
                     self.logger.debug("Reconcile STAGING task")
                     # Kinda a catch all... if we have a reconcile on a staging task with a job we don't know about
-                    # This will catch it, for dumb adapter leave staging status
+                    # This will catch it, for dumb adapter or leave staging status or skip update at all
                     if smart_adapter:
-                        job_status = None
-                    if not slave_id:
-                        slave_id = t.get('task_info',{}).get('slave_id')
+                        if adapter_status_update_time > 0:
+                            queue_time = t.get('queue_time')
+                            if not queue_time:
+                                if not slave_id:
+                                    self.logger.debug("Reconcile: no queue_time, no slave for STAGING task, not sending status update for task")
+                                    continue
+                                else:
+                                    self.logger.debug("Reconcile: no queue_time for STAGING task, leaving STAGING status for task")
+                            if time.time() - queue_time < adapter_status_update_time:
+                                if not slave_id:
+                                    self.logger.debug("Reconcile: STAGING task: have to wait longer, no slave, not sending status update for task")
+                                    continue
+                                else:
+                                    self.logger.debug("Reconcile: STAGING task: have to wait longer, leaving STAGING status for task")
+                            else:
+                                self.logger.debug("Reconcile: STAGING task: enough time passed, will determine status")
+                                job_status = None
+                        else:
+                            self.logger.debug("Reconcile: STAGING task: no need to wait, will determine status")
+                            job_status = None
 
                 if job_status is None:
                     # We don' have a record...
@@ -1094,7 +1111,7 @@ class MesosHandler(MessageHandler):
                         else:
                             queue_time = t.get('queue_time')
                             if not queue_time:
-                                self.logger.debug("Reconcile: no queue_time")
+                                self.logger.debug("Reconcile: no queue_time, not sending status update for task")
                                 continue
                         if time.time() - queue_time > MesosHandler.SLAVE_GRACE_PERIOD:
                             self.logger.debug("Reconcile: slave grace period exceeded, set status for task %s to TASK_LOST with NotValid slave id" % task_id)
