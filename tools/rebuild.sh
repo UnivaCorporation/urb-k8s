@@ -24,14 +24,27 @@ rmi() {
     local containers=$(docker ps -a | awk "/$img/ {print \$1}")
     if [ ! -z "$containers" ]; then
       docker rm $containers
+      local containers_left=$(docker ps -a | awk "/$img/ {print \$1}")
+      if [ ! -z "$containers_left" ]; then
+        docker rm -f $containers_left
+      fi
     fi
     docker rmi $img
+    if [ $? -ne 0 ]; then
+      docker rmi -f $img
+    fi
   fi
 }
 
 # remove <none> docker images
 rmi_none() {
-  docker rmi $(docker images | awk "/^<none>/ {print \$3}")
+  im=$(docker images | awk "/^<none>/ {print \$3}")
+  if [ ! -z "$im" ]; then
+    docker rmi $im
+    if [ $? -ne 0 ]; then
+      docker rmi -f $(docker images | awk "/^<none>/ {print \$3}")
+    fi
+  fi
 }
 
 # set minikube docker environment

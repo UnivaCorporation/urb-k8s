@@ -64,6 +64,7 @@ class K8SAdapter(object):
             if self.job_name_template_size >= K8SAdapter.JOB_NAME_MAX_SIZE:
                 self.logger.error("Job name template %s is too long, should be < %s bytes" %
                                   (self.job_name_template_size, K8SAdapter.JOB_NAME_MAX_SIZE))
+            self.image = self.job['spec']['template']['spec']['containers'][0]['image']
 
 
         self.core_v1 = client.CoreV1Api()
@@ -131,14 +132,13 @@ class K8SAdapter(object):
         # after specified time since job submission
         return (True, 2)
 
-    def register_executor_runner(self, framework_id, slave_id, *args, 
-            **kwargs):
+    def register_executor_runner(self, framework_id, slave_id, *args, **kwargs):
         self.logger.trace(
             "Register executor runner for framework id %s, slave id %s" %
             (framework_id, slave_id))
 
     def register_framework(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
-        job_ids = self.submit_jobs(max_tasks, concurrent_tasks, framework_env, user, args, kwargs)
+        job_ids = self.submit_jobs(max_tasks, concurrent_tasks, framework_env, user, *args, **kwargs)
         return job_ids
 
     def __add_config_map(self, framework_id):
@@ -201,25 +201,42 @@ class K8SAdapter(object):
             raise ge
 
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
-        self.logger.debug("register_framework: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, kwargs: %s" %
-                         (max_tasks, concurrent_tasks, framework_env, user, kwargs))
+        self.logger.debug("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
+                         (max_tasks, concurrent_tasks, framework_env, user, args, kwargs))
 
         self.__add_config_map(framework_env['URB_FRAMEWORK_ID'])
         framework_name = framework_env['URB_FRAMEWORK_NAME'].lower()
-        # try not to exceed name limit in 63 bytes
-        left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size
+        # do not exceed name limit of 63 bytes
+        if concurrent_tasks > 1:
+            add_len = len(str(concurrent_tasks)) + 1
+            left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size - add_len
+        else:
+            left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size
         if len(framework_name) > left:
             framework_name = framework_name[:left]
         job_name = "%s-%s-%s" % (self.job_name_template, framework_name, uuid.uuid1().hex[:K8SAdapter.UUID_SIZE])
+
+        self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'] = \
+                             K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_env['URB_FRAMEWORK_ID']
+
+        executor_runner = kwargs.get('executor_runner')
+        if executor_runner and len(executor_runner) > 0:
+            self.job['spec']['template']['spec']['containers'][0]['image'] = executor_runner
+        else:
+            self.job['spec']['template']['spec']['containers'][0]['image'] = self.image
+
+        self.logger.debug("Config map ref: %s, executor runner image: %s" %
+                         (self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'],
+                          self.job['spec']['template']['spec']['containers'][0]['image']))
+
         job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
+            if concurrent_tasks > 1:
+                job_name = job_name + "-%d" % i
             self.job['metadata']['name'] = job_name
-            self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'] = \
-                                 K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_env['URB_FRAMEWORK_ID']
             self.logger.info("Submit k8s job: %s" % self.job['metadata']['name'])
-            self.logger.debug("With config map ref: %s" % self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'])
             job_resp = self.batch_v1.create_namespaced_job(body = self.job, namespace = self.namespace)
             self.logger.trace("job_resp: %s" % job_resp)
             uid = job_resp.metadata.uid
