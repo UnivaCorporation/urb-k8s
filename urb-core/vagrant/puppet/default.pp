@@ -44,6 +44,10 @@ package { 'file':
   ensure => 'installed',
 }
 
+package { 'patch':
+  ensure => 'installed',
+}
+
 package { 'unzip':
   ensure => 'installed',
 }
