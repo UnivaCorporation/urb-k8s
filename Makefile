@@ -15,8 +15,8 @@
 
 SUBDIRS=urb-core source/python
 PROJECT_ID=$(shell gcloud config get-value project 2> /dev/null)
-#REGISTRY=gcr.io
-#REPOSITORY=${PROJECT_ID}
+REGISTRY=gcr.io
+REPOSITORY=${REGISTRY}/${PROJECT_ID}
 
 include urb-core/util/include.mk 
 
@@ -47,9 +47,9 @@ images: urb-service urb-redis urb-executor-runner urb-cpp-framework urb-python-f
 
 
 gimages:
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-service -f urb-service.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-service
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-executor-runner -f urb-executor-runner.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-executor-runner
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-redis -f redis.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-redis
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-cpp-framework -f cpp-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-cpp-framework
-	docker build --rm -t gcr.io/${PROJECT_ID}/urb-python-framework -f python-framework.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-python-framework
-#	docker build --rm -t gcr.io/${PROJECT_ID}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push gcr.io/${PROJECT_ID}/urb-pv
+	docker build --rm -t ${REPOSITORY}/urb-service -f urb-service.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-service
+	docker build --rm -t ${REPOSITORY}/urb-executor-runner -f urb-executor-runner.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-executor-runner
+	docker build --rm -t ${REPOSITORY}/urb-redis -f redis.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-redis
+	docker build --rm -t ${REPOSITORY}/urb-cpp-framework -f cpp-framework.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-cpp-framework
+	docker build --rm -t ${REPOSITORY}/urb-python-framework -f python-framework.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-python-framework
+#	docker build --rm -t ${REPOSITORY}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-pv

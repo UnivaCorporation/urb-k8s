@@ -104,11 +104,20 @@ create_pv() {
   kubectl create -f test/example-frameworks/pvc.yaml
 }
 
+configmap() {
+  kubectl get configmap urb-config1 2> /dev/null
+  if [ $? -ne 0 ]; then
+    kubectl create configmap urb-config --from-file=etc/urb.conf
+  else
+    kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
+  fi
+}
+
 prepare_pv
 clean
 create_pv
 
-kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
+configmap
 kubectl create -f source/urb-master.yaml
 urb_wait
 kubectl create -f test/example-frameworks/cpp-framework.yaml

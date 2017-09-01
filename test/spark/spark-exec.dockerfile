@@ -17,11 +17,7 @@ FROM local/urb-executor-runner
 RUN yum update -y && yum install -y wget && yum clean all
 
 RUN mkdir -p /opt && \
-    if [ -f spark-2.1.0-bin-hadoop2.7.tgz ]; then \
-      tar xzf spark-2.1.0-bin-hadoop2.7.tgz -C /opt \
-    else \
-      wget -qO- d3kbcqa49mib13.cloudfront.net/spark-2.1.0-bin-hadoop2.7.tgz | tar xz -C /opt \
-    fi
+    wget -qO- d3kbcqa49mib13.cloudfront.net/spark-2.1.0-bin-hadoop2.7.tgz | tar xz -C /opt && \
     cp /opt/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf.template /opt/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf && \
     echo "spark.mesos.executor.home /opt/spark-2.1.0-bin-hadoop2.7" >> /opt/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf
 

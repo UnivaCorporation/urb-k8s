@@ -59,6 +59,15 @@ create_pv() {
   kubectl create -f test/spark/pvc.yaml
 }
 
+configmap() {
+  kubectl get configmap urb-config1 2> /dev/null
+  if [ $? -ne 0 ]; then
+    kubectl create configmap urb-config --from-file=etc/urb.conf
+  else
+    kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
+  fi
+}
+
 cd test/spark
 docker build --rm -t local/spark -f spark.dockerfile .
 cd -
@@ -66,7 +75,7 @@ prepare_pv
 clean
 create_pv
 
-kubectl create configmap urb-config --from-file=etc/urb.conf --dry-run -o yaml | kubectl replace -f -
+configmap
 kubectl create -f source/urb-master.yaml
 kubectl create -f test/spark/spark.yaml
 

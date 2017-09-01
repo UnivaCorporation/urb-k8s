@@ -95,7 +95,7 @@ In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or
 The framework has to be "dockerized" and associated with the corresponding Kubernetes object like pod, deployment, service, etc.
 The following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set (see for example [C++ example framework](cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile), [Marathon](test/marathon/marathon.dockerfile)) and URB URI specified as `urb://urb-master.default:6379` (see for example [Marathon](test/marathon/marathon.yaml)).
 
-In many situations, especially when a framework uses a custom executor or an executor requires a massive run time bundle that is shared by the framework scheduler and executor it is convenient to have a common run time located on a persistent volume that is accessible from both the executor runner and the framework. The `urb-pvc` persistent volume claim name is predefined and mounted to `/opt` by the URB executor runner making it possible to place framework files in this location to be shared within the cluster.
+In many situations, especially when a framework uses a custom executor or an executor requires a massive run time bundle that is shared by the framework scheduler and executor it is convenient to have a common run time located on a persistent volume that is accessible from both the executor runner and the framework. The `urb-pvc` persistent volume claim name is predefined and mounted to `/opt` by the URB executor runner making it possible to place framework or other data files in this location to be shared within the cluster.
 
 ### Run Mesos Framework From Outside of the Kubernetes Cluster
 
@@ -189,7 +189,7 @@ minikube service marathonsvc --url
 
 ### Spark
 
-In this section a simple Pi example from the [Spark](https://spark.apache.org) data processing framework will be run inside a Kubernetes cluster.
+In this section Python Pi example from the [Spark](https://spark.apache.org) data processing framework will be run inside a Kubernetes cluster.
 
 From the project root run following script:
 
@@ -197,7 +197,7 @@ From the project root run following script:
 test/spark/run.sh
 ```
 
-It creates a Spark deployment in the persistent volume, creates a Docker container and corresponding Kubernetes job, and creates a persistent volume object that can be used to run the driver side of the Spark application. Upon its execution determine a Spark pod name with `kubectl get pods`.
+It creates a Spark deployment in the persistent volume, creates a Docker container and corresponding Kubernetes job, and creates a persistent volume object that can be used to run both driver and executor sides of the Spark application. Upon its execution determine a Spark pod name with `kubectl get pods`.
 
 Run the Spark Pi example on the pod with the name from the previous command:
 
@@ -211,9 +211,9 @@ It should produce an output which includes Pi number estimate similar to:
 Pi is roughly 3.140806
 ```
 
-Alternatively, the same Spark Pi example can be run from outside of the Kubernetes cluster (Spark user workstation) and not rely on persistent volume to keep Spark deployment but create custom executor runner with Spark run time files.
+Alternatively, the same Spark Pi example can be run without relying on persistent volume to keep Spark deployment but using custom executor runner with Spark run time files.
 
-Docker file for Spark custom executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) is based on generic [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile).
+Docker file for Spark custom executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) is based on generic [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile) and uses the same `/opt` directory as root for Spark deployment.
 
 Create docker image running following commands on the host:
 
@@ -222,29 +222,13 @@ cd test/spark
 docker build --rm -t local/spark-exec -f spark-exec.dockerfile .
 ```
 
-Since Spark driver and executors establish multiple communication connections between each other on random ports, running Spark example in docker based build machine (as it was done second time for C++ example framework) would require extra networking configuration changes the easiest way to do it from the host machine.
-
-Install Spark on the host machine (assuming that after previous Spark example Spark archive is already downloaded) from the project root:
-
-```
-sudo mkdir -p /opt
-sudo tar xzf test/spark/spark-2.1.0-bin-hadoop2.7.tgz -C /opt
-sudo chown -R $USER.$USER /opt/spark-2.1.0-bin-hadoop2.7
-sudo sed -e "\$aspark.mesos.executor.home /opt/spark-2.1.0-bin-hadoop2.7" /opt/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf.template > /opt/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf
-```
-
-Note that Spark installation path (`/opt`) is the same on local host and in custon executor runner container.
-
 Run the Spark Pi example using previously determined URB master connection string and different application name `PythonPi`:
 
 ```
-LD_LIBRARY_PATH=$(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64:$LD_LIBRARY_PATH MESOS_NATIVE_JAVA_LIBRARY=$(echo $(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.so) /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name PythonPi --master mesos://urb://192.168.99.100:30379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py
+kubectl exec spark-7g14w -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name PythonPi --master mesos://urb://urb-master:6379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py
 ```
 
-Spark application name `PythonPi` provided as a parameter (unless it is overridden in the application code) is used by Spark as Mesos framework name, driver registers with. This name will prompt URB to use `Python*FrameworkConfig` framework configuration from [etc/urb.conf](etc/urb.conf) with `executor_runner = local/spark-exec` configuration option pointing to Spark custom executor runner docker image created earlier.
-
-By changing `--name` parameter in the above command to `SparkExamplePi`, `Spark*FrameworkConfig` framework configuration section will be used which will result in running on default URB executor runner with Spark run-time located on the persistent volume as in the very first Spark example.
-
+Spark application name `PythonPi` provided as a parameter is used by Spark as Mesos framework name, driver registers with. This name will prompt URB to use `Python*FrameworkConfig` framework configuration from [etc/urb.conf](etc/urb.conf) with `executor_runner = local/spark-exec` configuration option pointing to Spark custom executor runner docker image created earlier. Note that in this example Spark driver running on `spark-7g14w` pod still uses Spark deployment located on `urb-pv` persistent volume but Spark executors use thier own local Spark deployments.
 
 ## Updating URB configuration
 
