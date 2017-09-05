@@ -60,7 +60,7 @@ create_pv() {
 }
 
 configmap() {
-  kubectl get configmap urb-config1 2> /dev/null
+  kubectl get configmap urb-config 2> /dev/null
   if [ $? -ne 0 ]; then
     kubectl create configmap urb-config --from-file=etc/urb.conf
   else

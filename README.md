@@ -213,7 +213,7 @@ Pi is roughly 3.140806
 
 Alternatively, the same Spark Pi example can be run without relying on persistent volume to keep Spark deployment but using custom executor runner with Spark run time files.
 
-Docker file for Spark custom executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) is based on generic [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile) and uses the same `/opt` directory as root for Spark deployment.
+Docker file for Spark custom executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) is based on generic [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile) and uses the same `/opt` directory as root for the Spark deployment.
 
 Create docker image running following commands on the host:
 
