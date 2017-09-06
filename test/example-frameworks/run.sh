@@ -55,7 +55,7 @@ urb_wait() {
     RET=1
   fi
   cnt=0
-  local pod=$(kubectl get pods | awk '/urb-master/ {print $1}')
+  local pod=$(kubectl get pods | awk "/urb-master.*Running/ {print \$1}")
   while ! kubectl logs $pod urb-service | grep 'Instantiating handler: MesosHandler'; do
     let cnt=cnt+1
     sleep 3
@@ -105,7 +105,7 @@ create_pv() {
 }
 
 configmap() {
-  kubectl get configmap urb-config1 2> /dev/null
+  kubectl get configmap urb-config 2> /dev/null
   if [ $? -ne 0 ]; then
     kubectl create configmap urb-config --from-file=etc/urb.conf
   else
