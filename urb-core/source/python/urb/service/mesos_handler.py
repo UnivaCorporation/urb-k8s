@@ -1282,7 +1282,7 @@ class MesosHandler(MessageHandler):
                 task_record['task_info'] = t
                 task_record['state'] = "TASK_RUNNING"
                 task_record['offer_ids'] = None
-                task_record['job_id'] =  int(payload['job_id'])
+                task_record['job_id'] =  payload['job_id']
                 task_dict[t['task_id']['value']] = task_record
                 framework['task_dict'] = task_dict
                 # We need to deduct the slave resources since we have a running task
@@ -2417,10 +2417,10 @@ class MesosHandler(MessageHandler):
         cm = ConfigManager.get_instance()
         cf = ChannelFactory.get_instance()
         framework_env = {
-            "URB_CONFIG_FILE" : self.executor_runner_config_file,
-            "URB_FRAMEWORK_ID" : framework_id['value'],
-            "URB_MASTER" : cf.get_message_broker_connection_url(),
-            "URB_FRAMEWORK_NAME" : scrubbed_framework_name,
+            'URB_CONFIG_FILE' : self.executor_runner_config_file,
+            'URB_FRAMEWORK_ID' : framework_id['value'],
+            'URB_MASTER' : cf.get_message_broker_connection_url(),
+            'URB_FRAMEWORK_NAME' : scrubbed_framework_name,
         }
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
@@ -2429,11 +2429,11 @@ class MesosHandler(MessageHandler):
         resource_mapping = framework_config.get('resource_mapping', '')
         executor_runner = framework_config.get('executor_runner', '')
         try:
-            kwargs = {"job_class": job_class,
-                      "job_submit_options": job_submit_options,
-                      "resource_mapping": resource_mapping,
-                      "executor_runner": executor_runner,
-                      "task": task}
+            kwargs = {'job_class': job_class,
+                      'job_submit_options': job_submit_options,
+                      'resource_mapping': resource_mapping,
+                      'executor_runner': executor_runner,
+                      'task': task}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
         except Exception, ex:

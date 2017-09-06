@@ -130,7 +130,7 @@ $(DIST_TARGET_ARCH_BIN): all $(DIST_DIR)/../.dummy $(LIBURB_TARGET) $(LIBURB_BIG
 	cp $(FETCHER_SRC) $(FETCHER_TARGET)
 	cp $(COMMAND_EXECUTOR_SRC) $(COMMAND_EXECUTOR_TARGET)
 	cd $(LIBURB_TARGET_DIR) && ln -sf $(LIB_NAME) $(LIB_SONAME) && ln -sf $(LIB_NAME) $(LIB_NAME_SHORT)
-	if [ -f $(LIB_BIG) ]; then cd $(LIBURB_TARGET_DIR) && ln -sf $(LIB_BIG) $(LIB_SOBIG) && ln -sf $(LIB_BIG) $(LIB_BIG_SHORT); fi
+	if [ -f $(LIBURB_TARGET_DIR)/$(LIB_BIG) ]; then cd $(LIBURB_TARGET_DIR) && ln -sf $(LIB_BIG) $(LIB_SOBIG) && ln -sf $(LIB_BIG) $(LIB_BIG_SHORT); fi
 	cd $(BASE_DIR)/$(DEP_ARCH_BIN) && $(TAR) czvf $@ .
 
 $(DIST_TARGET_NOARCH): all $(DIST_DIR)/../.dummy $(URB_EGG_TARGET) $(LIBURB_PYTHON_NOARCH_BINDINGS)
