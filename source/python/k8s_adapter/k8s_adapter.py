@@ -258,6 +258,28 @@ class K8SAdapter(object):
                          (self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'],
                           self.job['spec']['template']['spec']['containers'][0]['image']))
 
+        task = kwargs.get('task')
+        resources = task.get('resources')
+        resource_mapping = str(kwargs.get('resource_mapping')).lower()
+        self.logger.trace("resource_mapping=%s" % resource_mapping)
+        if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
+            mem = None
+            cpus = None
+            requests = {}
+            for resource in resources:
+                if resource['name'] == 'mem':
+                    requests['memory'] = str(resource['scalar']['value']) + "M"
+                elif resource['name'] == 'cpus':
+                    requests['cpu'] = str(int(resource['scalar']['value']))
+
+            if len(requests) > 0:
+                self.logger.debug("Requests: %s" % requests)
+                req_key = {'requests' : requests }
+                self.job['spec']['template']['spec']['containers'][0]['resources'] = req_key
+                self.logger.trace("Container: %s" % self.job['spec']['template']['spec']['containers'][0])
+
+        # do two loops to allow more time for controller-uid to be generated
+        label_selectors = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
