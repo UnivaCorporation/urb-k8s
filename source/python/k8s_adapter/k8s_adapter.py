@@ -200,6 +200,35 @@ class K8SAdapter(object):
             self.logger.error("Exception creating config map: %s" % ge)
             raise ge
 
+    def __retrieve_pod_name(self, label_selector):
+        pod_name = None
+        list_resp = self.core_v1.list_namespaced_pod(namespace = self.namespace,
+                                                     label_selector = label_selector)
+        self.logger.trace("list_resp: %s" % list_resp)
+        items = len(list_resp.items)
+        if items > 1:
+            self.logger.warn("Only one element expected in pod list for label selector: %s" % label_selector)
+        elif items == 0:
+            self.logger.warn("No elements in pod list for label selector: %s" % label_selector)
+        else:
+            pod_name = list_resp.items[0].metadata.name
+        return pod_name
+
+    def __get_job_ids(self, label_selectors):
+        retry_label_selectors = []
+        job_ids = []
+        for label_selector in label_selectors:
+            pod_name = self.__retrieve_pod_name(label_selector)
+            if not pod_name:
+                retry_label_selectors.append(label_selector)
+                continue
+            # job id is set as pod name as it can be exposed as JOB_ID environment variable mapped from
+            # metadata.name to executor runner
+            job_id = (pod_name,None,None)
+            self.logger.info("Got pod id: %s for label selector %s" % (pod_name, label_selector))
+            job_ids.append(job_id)
+        return (job_ids, retry_label_selectors)
+
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.debug("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
                          (max_tasks, concurrent_tasks, framework_env, user, args, kwargs))
@@ -229,7 +258,6 @@ class K8SAdapter(object):
                          (self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'],
                           self.job['spec']['template']['spec']['containers'][0]['image']))
 
-        job_ids = []
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
@@ -241,21 +269,16 @@ class K8SAdapter(object):
             self.logger.trace("job_resp: %s" % job_resp)
             uid = job_resp.metadata.uid
             label_selector = "controller-uid=" + uid
-            list_resp = self.core_v1.list_namespaced_pod(namespace = self.namespace,
-                                                         label_selector = label_selector)
-            self.logger.trace("list_resp: %s" % list_resp)
-            items = len(list_resp.items)
-            if items > 1:
-                self.logger.warn("Only one element expected in pod list for label selector: %s" % label_selector)
-            elif items == 0:
-                self.logger.error("No elements in pod list for label selector: %s" % label_selector)
-                continue
-            pod_name = list_resp.items[0].metadata.name
-            # job id is set as pod name as it can be exposed as JOB_ID environment variable mapped from
-            # metadata.name to executor runner
-            job_id = (pod_name,None,None)
-            self.logger.info("Submitted job to k8s, got pod id: %s, uid=%s" % (pod_name, uid))
-            job_ids.append(job_id)
+            label_selectors.append(label_selector)
+
+        (job_ids, retry_label_selectors) = self.__get_job_ids(label_selectors)
+        if len(retry_label_selectors) > 0:
+            self.logger.warn("Could not get pod names for following: %s" % retry_label_selectors)
+            gevent.sleep(1)
+            (jids, retry_ls) = self.__get_job_ids(retry_label_selectors)
+            job_ids.extend(jids)
+            if len(retry_ls) > 0:
+                self.logger.error("After delay, could not get pod names for following: %s" % retry_label_selectors)
 
         return job_ids
 
