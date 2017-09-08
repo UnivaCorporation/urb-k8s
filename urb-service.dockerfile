@@ -18,9 +18,10 @@ FROM centos:7
 RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
 
 # install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+RUN yum update -y; yum install -y libev libuuid zlib python-setuptools python-pip; yum clean all
 
-RUN easy_install kubernetes==2.0.0 # temporary indicate stable version
+#RUN easy_install kubernetes
+RUN pip install kubernetes
 
 # copy urb-core and k8s adapter Python eggs 
 COPY urb-core/dist/urb-*-py2.7/*.egg \
@@ -30,8 +31,6 @@ COPY urb-core/dist/urb-*-py2.7/*.egg \
 
 # for testing purposes add redis command line tool
 COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /tmp
-
-# copy k8s adapter Python egg
 
 # install all required Python dependencies, Mesos and URB eggs
 RUN easy_install /tmp/google_common-*-py2.7.egg \
