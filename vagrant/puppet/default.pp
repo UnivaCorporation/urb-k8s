@@ -76,6 +76,10 @@ package { "python-virtualenv":
   ensure => "installed"
 }
 
+package { "python-pip":
+  ensure => "installed"
+}
+
 package { "zlib-devel":
   ensure => "installed"
 }
