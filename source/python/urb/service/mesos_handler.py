@@ -37,6 +37,7 @@ from urb.messaging.channel_factory import ChannelFactory
 from urb.messaging.messaging_utility import MessagingUtility
 from urb.adapters.adapter_manager import AdapterManager
 from urb.utility.naming_utility import NamingUtility
+from urb.utility.utils import isfloat
 from urb.messaging.mesos.resource_offers_message import ResourceOffersMessage
 from urb.messaging.mesos.register_framework_message import RegisterFrameworkMessage
 from urb.messaging.mesos.reregister_framework_message import ReregisterFrameworkMessage
@@ -2481,6 +2482,43 @@ class MesosHandler(MessageHandler):
             framework_name)
         return scrubbed_framework_name
 
+    def __check_type(self, key, value, t):
+        ret = False
+        for tt in t.split(','):
+            self.logger.trace("k=%s, v=%s, t=%s, tt=%s" % (key, value, t, tt))
+            if tt == 'num':
+                if value.isdigit():
+                    return True
+            elif tt == 'float':
+                if isfloat(value):
+                    return True
+            elif tt == 'str':
+                if isinstance(value, str):
+                    return True
+            elif tt == 'list_tuple_num':
+                lst = []
+                try:
+                    lst = eval(value)
+                    self.logger.trace("lst=%s" % lst)
+                except Exception, ex:
+                    self.logger.trace("lst exception: %s" % ex)
+                    return False
+                for l in lst:
+                    if isinstance(l, tuple):
+                        if not isinstance(l[0], int) or not isinstance(l[1], int):
+                            return False
+                    else:
+                        return False
+                return True
+            elif tt == 'bool':
+                if value in ['True', 'False']:
+                    return True
+            else:
+                self.logger.error("Invalid configuration option type: %s" % tt)
+                return False
+        self.logger.trace("ret=%s" % ret)
+        return ret
+
     def configure_framework(self, framework):
         cm = ConfigManager.get_instance()
         framework_name = framework['name']
@@ -2509,25 +2547,30 @@ class MesosHandler(MessageHandler):
 
         default_config_section = 'DefaultFrameworkConfig'
         framework_config = {}
-        for key in ['mem',
-                    'cpus',
-                    'disk',
-                    'ports',
-                    'max_rejected_offers',
-                    'max_tasks',
-                    'send_task_lost',
-                    'scale_count',
-                    'concurrent_tasks',
-                    'job_submit_options',
-                    'initial_tasks',
-                    'job_class',
-                    'resource_mapping',
-                    'executor_runner']:
+        for key, t in {
+                    'mem' : 'num',
+                    'cpus' : 'num,float',
+                    'disk' : 'num',
+                    'ports' : 'list_tuple_num',
+                    'max_rejected_offers' : 'num',
+                    'max_tasks' : 'num',
+                    'send_task_lost' : 'bool',
+                    'scale_count' : 'num',
+                    'concurrent_tasks' : 'num',
+                    'job_submit_options' : 'str',
+                    'initial_tasks' : 'num',
+                    'job_class' : 'str',
+                    'resource_mapping' : 'str,bool',
+                    'executor_runner' : 'str'
+                    }.items():
             value = cm.get_config_option(framework_config_section, key)
             if not value:
                 value = cm.get_config_option(default_config_section, key)
             if value is not None:
-                framework_config[key] = value
+                if self.__check_type(key, value, t):
+                    framework_config[key] = value
+                else:
+                    self.logger.error("Configuration option: %s=%s invalid type, expected: %s" % (key, value, t))
             else:
                 self.logger.debug('config parameter missing: %s' % key)
 
