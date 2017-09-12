@@ -135,9 +135,9 @@ class MesosHandler(MessageHandler):
         self.logger.info("Watching for URB configuration changes")
         # wait for config file change
         while True:
-            self.logger.info("Waiting for configuration change events")
+            self.logger.info("Waiting for URB configuration change events")
             events = inotify.get_events(nfd)
-            self.logger.info("Configuration changes: events: %s" % events)
+            self.logger.info("URB configuration changes: events: %s" % events)
             for event in set(events):
                 self.logger.info("Config event: %s" % event)
                 if event.mask & inotify.IN_CLOSE_WRITE:
@@ -166,8 +166,8 @@ class MesosHandler(MessageHandler):
         self.logger.info("Frameworks in list: %s" % FrameworkTracker.get_instance().keys())
         for framework in FrameworkTracker.get_instance().keys():
             val = FrameworkTracker.get_instance().get_active_or_finished_framework(framework)
-            self.logger.info("Reconfigure framework: %s:%s" % (framework, val))
             if val is not None:
+                self.logger.info("Reconfigure framework: %s" % framework)
                 self.configure_framework(val)
 
     def get_target_preprocessor(self, target):
