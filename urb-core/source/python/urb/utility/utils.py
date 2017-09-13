@@ -142,3 +142,11 @@ def replace_vars(init_str, env):
 
 def join_args(*args):
     return " ".join(map(str, args))
+
+def isfloat(value):
+    try:
+        float(value)
+        return True
+    except:
+        return False
+
