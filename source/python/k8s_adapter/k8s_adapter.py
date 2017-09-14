@@ -378,20 +378,83 @@ class K8SAdapter(object):
     def get_job_status(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
         self.logger.debug("Getting status for job: %s (%s k8s job)" % (job_id, k8s_job_id))
-        status_resp = self.batch_v1.read_namespaced_job_status(name = k8s_job_id,
+        job_status_resp = self.batch_v1.read_namespaced_job_status(name = k8s_job_id,
                                                                namespace = self.namespace)
-        active = status_resp.status.active
-        succeeded = status_resp.status.succeeded
-        failed = status_resp.status.failed
+        active = job_status_resp.status.active
+        succeeded = job_status_resp.status.succeeded
+        failed = job_status_resp.status.failed
         self.logger.debug("Job status: active=%s, succeeded=%s, failed=%s" %
                           (active, succeeded, failed))
-        self.logger.trace("Job status: %s" % status_resp.status)
+        self.logger.trace("Job status: %s" % job_status_resp.status)
         if (active is None or active == 0) and (failed is not None and failed > 0):
+            # will trigger task lost
             raise UnknownJob("Job %s has no active pods and has failed count of %s" % (job_id, failed))
         # this exception indicates job completion (requires by JobMonitor)
         if succeeded:
             raise CompletedJob("Job %s succeeded" % job_id)
-        return status_resp.status
+        else:
+            self.logger.debug("Getting status for pod: %s" % job_id)
+            pod_status_resp = self.core_v1.read_namespaced_pod_status(name = job_id,
+                                                               namespace = self.namespace)
+            status = pod_status_resp.status
+            self.logger.trace("Pod status: %s" % status)
+            phase = status.phase
+            if phase in ["Unknown", "Failed"]:
+                raise UnknownJob("Pod %s in '%s' phase" % (job_id, phase))
+            elif phase == "Pending":
+                if hasattr(status, 'conditions') and len(status.conditions) > 0:
+                    last_condition = status.conditions[-1]
+                    if last_condition.status == "False" and last_condition.type == "PodScheduled":
+                        self.logger.debug("Pod %s has last condition: status=%s, type=%s, reason=%s, message=%s" %
+                                          (job_id, last_condition.status, last_condition.type,
+                                           last_condition.reason, last_condition.message))
+            elif phase == "Running":
+                #status.reason
+                if hasattr(status, 'container_statuses'):
+                    container_status = status.container_statuses[0]
+                    #container_status.ready
+                    if hasattr(container_status, 'state'):
+                        state = container_status.state
+                        if hasattr(state, 'running') and state.running:
+                            self.logger.debug("Pod status: running")
+                        elif hasattr(state, 'terminated') and state.terminated:
+                            terminated = state.terminated
+                            self.logger.debug("Pod status: terminated")
+                            if hasattr(terminated, 'reason'):
+                                if terminated.reason == "Completed":
+                                    raise CompletedJob("Pod %s terminated with reason: %s" % (job_id, terminated.reason))
+                                else:
+                                    raise UnknownJob("Pod %s is in terminated state with exit code: %s" %
+                                                    (job_id, terminated.exit_code if hasattr(terminated, 'exit_code') else "unknown"))
+                            else:
+                                self.logger.warn("Pod status: terminated: no reason field")
+                        elif hasattr(state, 'waiting') and state.waiting:
+                            self.logger.debug("Pod status: waiting")
+                            warn = True
+                            waiting = state.waiting
+                            if hasattr(waiting, 'reason') and waiting.reason:
+                                warn = False
+                                self.logger.debug("Pod status: waiting: reason=%s" % waiting.reason)
+                                if waiting.reason in ["ImagePullBackOff", "ImageInspectError", "ErrImagePull",
+                                                    "ErrImageNeverPull", "RegistryUnavailable", "InvalidImageName"]:
+                                    raise UnknownJob("Pod %s is in waiting state due to %s reason" %
+                                                    (job_id, waiting.reason))
+                            if hasattr(waiting, 'message') and waiting.message:
+                                warn = False
+                                self.logger.debug("Pod status: waiting: message=%s" % waiting.message)
+                                if any(m in waiting.message for m in ["not found", "fail", "can't"]):
+                                    raise UnknownJob("Pod %s is in waiting state with 'message': %s" %
+                                                    (job_id, waiting.message))
+                            if warn:
+                                self.logger.warn("Pod status: waiting: no details")
+                        else:
+                            self.logger.error("Pod status: incorrect state")
+                    else:
+                        self.logger.warn("Pod status: no container state")
+                else:
+                    self.logger.error("Pod status: no container statuses")
+
+        return job_status_resp.status
 
     def get_job_accounting(self, job_id):
         self.logger.debug("Getting accounting for job: %s" % job_id)
