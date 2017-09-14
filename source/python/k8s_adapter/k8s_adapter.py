@@ -267,9 +267,9 @@ class K8SAdapter(object):
             cpus = None
             requests = {}
             for resource in resources:
-                if resource['name'] == 'mem':
+                if resource['name'] == "mem" and (resource_mapping == "true" or "mem" in resource_mapping):
                     requests['memory'] = str(resource['scalar']['value']) + "M"
-                elif resource['name'] == 'cpus':
+                elif resource['name'] == "cpus" and (resource_mapping == "true" or "cpu" in resource_mapping):
                     requests['cpu'] = str(int(resource['scalar']['value']))
 
             if len(requests) > 0:
