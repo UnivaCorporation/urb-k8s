@@ -24,6 +24,8 @@ from urb.config.config_manager import ConfigManager
 from urb.exceptions.unknown_job import UnknownJob
 from urb.exceptions.completed_job import CompletedJob
 from urb.utility.value_utility import ValueUtility
+from urb.utility.utils import isfloat
+
 import gevent
 import uuid
 import os
@@ -205,6 +207,22 @@ class K8SAdapter(object):
         self.logger.trace("resource_mapping=%s" % resource_mapping)
         if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
             requests = {}
+            rm_lst = resource_mapping.split(",")
+            for rm in rm_lst:
+                rm = rm.strip()
+                for resource in resources:
+                    if resource['name'] == "mem":
+                        if rm == "mem" or rm == "true":
+                            requests['memory'] = str(resource['scalar']['value']) + "M"
+                        elif "mem" == rm[0:3]:
+                            mul = self.__scale_resource(rm)
+                            requests['memory'] = str(int(resource['scalar']['value'])*mul) + "M"
+                    elif resource['name'] == "cpus":
+                        if rm == "cpu" or rm == "true":
+                            requests['cpu'] = str(int(resource['scalar']['value']))
+                        elif "cpu" == rm[0:3]:
+                            mul = self.__scale_resource(rm)
+                            requests['cpu'] = str(int(resource['scalar']['value'])*mul)
 
             if len(requests) > 0:
                 self.logger.debug("Requests: %s" % requests)
@@ -237,6 +255,19 @@ class K8SAdapter(object):
                 self.logger.error("After delay, could not get pod names for following: %s" % retry_label_selectors)
 
         return job_ids
+
+    def __scale_resource(self, resource):
+        mul = 1.
+        pos = resource.find('*', 3)
+        v = resource[pos+1:]
+        if pos != -1 and isfloat(v):
+            mul = float(v)
+        else:
+            pos = resource.find('/', 3)
+            v = resource[pos+1:]
+            if pos != -1 and isfloat(v):
+                mul = 1./float(resource[pos+1:])
+        return mul
 
     def register_slave(self, request):
         self.logger.trace("Register slave: %s" % request)
