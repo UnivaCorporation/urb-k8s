@@ -40,6 +40,8 @@ spec:
           value: /urb
         - name: URB_CONFIG_FILE
           value: $(URB_ROOT)/etc/urb.conf
+        - name: URB_MASTER
+          value: urb://urb-master:6379
         volumeMounts:
         - mountPath: /urb/etc
           name: urb-config

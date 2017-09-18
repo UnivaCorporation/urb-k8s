@@ -21,10 +21,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          envFrom:
-            - configMapRef:
-                name: urb-executor-runner-config
-#          command: ["/bin/sh", "-c", "env; sleep infinity"]
           # mount will be removed by adapter if PV doesn't exist
           volumeMounts:
             - mountPath: "/opt"

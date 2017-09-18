@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: urb-executor-runner-config
-  namespace: default
-data:
-  URB_FRAMEWORK_ID: framework-1
-  URB_MASTER: urb://urb-master.default:6379
-#  path: /additional/path/

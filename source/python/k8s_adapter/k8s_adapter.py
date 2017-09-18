@@ -49,18 +49,21 @@ class K8SAdapter(object):
         self.configure()
         self.channel_name = None
 
-        with open(os.path.join(os.path.dirname(__file__), K8SAdapter.CONFIG_MAP_TEMPLATE + ".yaml")) as fc:
-            self.config_map = yaml.load(fc)
-            self.logger.debug("Loaded config map yaml: %s" % self.config_map)
-
         with open(os.path.join(os.path.dirname(__file__), K8SAdapter.URB_EXECUTOR_RUNNER + ".yaml")) as fj:
             self.job = yaml.load(fj)
             if len(k8s_registry_path) != 0:
                 self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/" + K8SAdapter.URB_EXECUTOR_RUNNER
-            self.logger.debug("Loaded job yaml: %s" % self.job)
-            self.job_name_template = self.job['metadata']['name']
+            # URB_MASTER environment variable has to be set in urb-master.yaml
+            urb_master = os.environ.get('URB_MASTER')
+            if not urb_master:
+                self.logger.error("URB_MASTER is not set in urb-master.yaml")
+            urb_master_env = {'name' : 'URB_MASTER',
+                              'value' : urb_master }
+            self.job['spec']['template']['spec']['containers'][0]['env'].append(urb_master_env)
+
+            self.logger.debug("Loaded job yaml template: %s" % self.job)
             # uuid.time_low size is 8, plus 2 dashes ('-')
-            self.job_name_template_size = len(self.job_name_template) + K8SAdapter.UUID_SIZE + 2
+            self.job_name_template_size = len(self.job['metadata']['name']) + K8SAdapter.UUID_SIZE + 2
             if self.job_name_template_size >= K8SAdapter.JOB_NAME_MAX_SIZE:
                 self.logger.error("Job name template %s is too long, should be < %s bytes" %
                                   (self.job_name_template_size, K8SAdapter.JOB_NAME_MAX_SIZE))
@@ -83,10 +86,8 @@ class K8SAdapter(object):
             del self.job['spec']['template']['spec']['volumes']
             del self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
 
-        self.config_map_dict = {}
-
     def configure(self):
-        cm = ConfigManager.get_instance()
+        self.cm = ConfigManager.get_instance()
         # we might want to get namespace from config or name it after framework
         self.namespace = "default"
         # cover test environment
@@ -141,65 +142,6 @@ class K8SAdapter(object):
         job_ids = self.submit_jobs(max_tasks, concurrent_tasks, framework_env, user, *args, **kwargs)
         return job_ids
 
-    def __add_config_map(self, framework_id):
-        if framework_id not in self.config_map_dict:
-            self.__create_config_map(framework_id)
-            self.config_map_dict[framework_id] = copy.deepcopy(self.config_map)
-
-    def __delete_config_map(self, framework_id):
-        try:
-            fid = self.config_map_dict.get(framework_id)
-            if fid is None:
-                self.logger.warn("Cannot delete config map: no element with id: %s" % framework_id)
-                return
-            name = fid['metadata']['name']
-            body = client.V1DeleteOptions()
-            resp = self.core_v1.delete_namespaced_config_map(name = name,
-                                                             namespace = self.namespace,
-                                                             body = body,
-                                                             grace_period_seconds = 0)
-        except ApiException as e:
-            self.logger.error("ApiException deleting config map %s: %s" % (name, e))
-
-        del self.config_map_dict[framework_id]
-
-    def __create_config_map(self, framework_id = None):
-        if framework_id:
-            self.config_map['metadata']['name'] = K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_id
-            self.config_map['data']['URB_FRAMEWORK_ID'] = framework_id
-        try:
-            self.logger.info("Creating config map: %s" % self.config_map['metadata']['name'])
-            config_map_resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
-                                                                        namespace = self.namespace)
-            self.logger.trace("Config map created: %s" % self.config_map['metadata']['name'])
-        except ApiException as e:
-            self.logger.debug("ApiException creating config map: %s" % e)
-            if e.reason == "Conflict":
-                self.logger.info("Delete existing config map: %s" % self.config_map['metadata']['name'])
-                try:
-                    body = client.V1DeleteOptions()
-                    resp = self.core_v1.delete_namespaced_config_map(name = self.config_map['metadata']['name'],
-                                                                namespace = self.namespace,
-                                                                body = body,
-                                                                grace_period_seconds = 0)
-                except ApiException as ee:
-                    self.logger.error("ApiException deleting config map: %s" % ee)
-                try:
-                    self.logger.info("Creating new config map: %s" % self.config_map['metadata']['name'])
-                    resp = self.core_v1.create_namespaced_config_map(body = self.config_map,
-                                                                     namespace = self.namespace)     
-                    self.logger.trace("New config map created: %s" % self.config_map['metadata']['name'])
-                except ApiException as ee:
-                    self.logger.error("ApiException creating config map again: %s" % ee)
-                    raise ee
-            else:
-                self.logger.error("ApiException creating config map with reason other than Conflict: %s" % e)
-                raise e
-#        except TIMEO
-        except Exception as ge:
-            self.logger.error("Exception creating config map: %s" % ge)
-            raise ge
-
     def __retrieve_pod_name(self, label_selector):
         pod_name = None
         list_resp = self.core_v1.list_namespaced_pod(namespace = self.namespace,
@@ -232,8 +174,7 @@ class K8SAdapter(object):
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.debug("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
                          (max_tasks, concurrent_tasks, framework_env, user, args, kwargs))
-
-        self.__add_config_map(framework_env['URB_FRAMEWORK_ID'])
+        job = copy.deepcopy(self.job)
         framework_name = framework_env['URB_FRAMEWORK_NAME'].lower()
         # do not exceed name limit of 63 bytes
         if concurrent_tasks > 1:
@@ -243,40 +184,33 @@ class K8SAdapter(object):
             left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size
         if len(framework_name) > left:
             framework_name = framework_name[:left]
-        job_name = "%s-%s-%s" % (self.job_name_template, framework_name, uuid.uuid1().hex[:K8SAdapter.UUID_SIZE])
+        job_name = "%s-%s-%s" % (self.job['metadata']['name'], framework_name, uuid.uuid1().hex[:K8SAdapter.UUID_SIZE])
 
-        self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'] = \
-                             K8SAdapter.CONFIG_MAP_TEMPLATE + "-" + framework_env['URB_FRAMEWORK_ID']
+        framework_id_env = {'name' : 'URB_FRAMEWORK_ID',
+                            'value' : framework_env['URB_FRAMEWORK_ID'] }
+        job['spec']['template']['spec']['containers'][0]['env'].append(framework_id_env)
 
         executor_runner = kwargs.get('executor_runner')
         if executor_runner and len(executor_runner) > 0:
-            self.job['spec']['template']['spec']['containers'][0]['image'] = executor_runner
+            job['spec']['template']['spec']['containers'][0]['image'] = executor_runner
         else:
-            self.job['spec']['template']['spec']['containers'][0]['image'] = self.image
+            job['spec']['template']['spec']['containers'][0]['image'] = self.image
 
-        self.logger.debug("Config map ref: %s, executor runner image: %s" %
-                         (self.job['spec']['template']['spec']['containers'][0]['envFrom'][0]['configMapRef']['name'],
-                          self.job['spec']['template']['spec']['containers'][0]['image']))
+        self.logger.debug("Executor runner image: %s" %
+                           job['spec']['template']['spec']['containers'][0]['image'])
 
         task = kwargs.get('task')
         resources = task.get('resources')
         resource_mapping = str(kwargs.get('resource_mapping')).lower()
         self.logger.trace("resource_mapping=%s" % resource_mapping)
         if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
-            mem = None
-            cpus = None
             requests = {}
-            for resource in resources:
-                if resource['name'] == "mem" and (resource_mapping == "true" or "mem" in resource_mapping):
-                    requests['memory'] = str(resource['scalar']['value']) + "M"
-                elif resource['name'] == "cpus" and (resource_mapping == "true" or "cpu" in resource_mapping):
-                    requests['cpu'] = str(int(resource['scalar']['value']))
 
             if len(requests) > 0:
                 self.logger.debug("Requests: %s" % requests)
                 req_key = {'requests' : requests }
-                self.job['spec']['template']['spec']['containers'][0]['resources'] = req_key
-                self.logger.trace("Container: %s" % self.job['spec']['template']['spec']['containers'][0])
+                job['spec']['template']['spec']['containers'][0]['resources'] = req_key
+                self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
 
         # do two loops to allow more time for controller-uid to be generated
         label_selectors = []
@@ -285,9 +219,9 @@ class K8SAdapter(object):
                 break
             if concurrent_tasks > 1:
                 job_name = job_name + "-%d" % i
-            self.job['metadata']['name'] = job_name
-            self.logger.info("Submit k8s job: %s" % self.job['metadata']['name'])
-            job_resp = self.batch_v1.create_namespaced_job(body = self.job, namespace = self.namespace)
+            job['metadata']['name'] = job_name
+            self.logger.info("Submit k8s job: %s" % job['metadata']['name'])
+            job_resp = self.batch_v1.create_namespaced_job(body = job, namespace = self.namespace)
             self.logger.trace("job_resp: %s" % job_resp)
             uid = job_resp.metadata.uid
             label_selector = "controller-uid=" + uid
@@ -342,15 +276,6 @@ class K8SAdapter(object):
             # Spawn job to make sure the actual executors exit...
             gevent.spawn(self.delete_jobs, job_ids, framework['id']['value'])
 
-    # delete config_map with delay since some pods still might be in creation
-    # and to avoid "configmaps not found" message in "kubectl get pods"
-    def __delete_config_map_delay(self, framework_id):
-        gevent.spawn(self.__delete_config_map_sleep, framework_id)
-
-    def __delete_config_map_sleep(self, framework_id):
-        gevent.sleep(K8SAdapter.CONFIG_MAP_DEL_WAIT)
-        self.__delete_config_map(framework_id)
-
     def delete_jobs(self, job_ids, framework_id):
         self.logger.trace("Delete jobs: %s, framework_id=%s" % (job_ids, framework_id))
         for j in job_ids:
@@ -358,7 +283,6 @@ class K8SAdapter(object):
                 self.delete_job(j[0])
             except Exception, ex:
                 self.logger.warn("Error deleteing job: %s" % ex)
-        self.__delete_config_map_delay(framework_id)
 
     def delete_job(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
