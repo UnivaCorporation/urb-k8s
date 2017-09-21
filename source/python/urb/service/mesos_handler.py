@@ -170,6 +170,7 @@ class MesosHandler(MessageHandler):
             if val is not None:
                 self.logger.info("Reconfigure framework: %s" % framework)
                 self.configure_framework(val)
+        self.adapter.config_update()
 
     def get_target_preprocessor(self, target):
         if self.event_db_interface is not None:
@@ -2415,7 +2416,6 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Submit executor runner, framework name: %s' % framework_name)
         scrubbed_framework_name = self.scrub_framework_name(framework_name)
 
-        cm = ConfigManager.get_instance()
         cf = ChannelFactory.get_instance()
         framework_env = {
             'URB_CONFIG_FILE' : self.executor_runner_config_file,
