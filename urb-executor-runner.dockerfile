@@ -51,7 +51,6 @@ RUN mkdir -p $URB_ROOT/etc
 #ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
 #COPY etc/urb.conf $URB_CONFIG_FILE
-#RUN sed -i "s/host='localhost'/host='urb.default'/" $URB_CONFIG_FILE
 COPY etc/urb.executor_runner.conf $URB_ROOT/etc
 RUN mkdir -p $URB_ROOT/lib
 COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* $URB_ROOT/lib/
@@ -70,3 +69,5 @@ ENV JAVA_HOME=/etc/alternatives/jre_openjdk
 
 
 ENTRYPOINT ["/usr/bin/urb-executor-runner"]
+#ENTRYPOINT ["/bin/sh", "-c", "env; ls -lFa /; ls -lFa /opt; sleep infinity"]
+

@@ -38,9 +38,7 @@ import yaml
 class K8SAdapter(object):
     """ Kubernetes Adapter class. """
 
-    CONFIG_MAP_DEL_WAIT = 10.0
     URB_EXECUTOR_RUNNER = "urb-executor-runner"
-    CONFIG_MAP_TEMPLATE = URB_EXECUTOR_RUNNER + "-config"
     JOB_NAME_MAX_SIZE = 63
     UUID_SIZE = 8
 
@@ -75,18 +73,21 @@ class K8SAdapter(object):
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
 
-        try:
-            resp = self.core_v1.read_persistent_volume_status("urb-pv")
-            self.logger.debug("URB PV status resp: %s" % resp)
-        except ApiException as e:
-            if e.reason == "Not Found":
-                self.logger.debug("ApiException getting URB PV: %s" % e)
-                self.logger.warn("URB persistent volume (urb-pv) doesn't exist")
-                self.logger.warn("Frameworks relying on their run-time located on urb-pv will fail!")
-            else:
-                self.logger.error("ApiException getting URB PV: %s" % e)
-            del self.job['spec']['template']['spec']['volumes']
-            del self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
+#        self.pv_cfg = {}
+        self.__update_pv()
+
+        #try:
+            #resp = self.core_v1.read_persistent_volume_status("urb-pv")
+            #self.logger.debug("URB PV status resp: %s" % resp)
+        #except ApiException as e:
+            #if e.reason == "Not Found":
+                #self.logger.debug("ApiException getting URB PV: %s" % e)
+                #self.logger .warn("URB persistent volume (urb-pv) doesn't exist")
+                #self.logger.warn("Frameworks relying on their run-time located on urb-pv will fail!")
+            #else:
+                #self.logger.error("ApiException getting URB PV: %s" % e)
+            #del self.job['spec']['template']['spec']['volumes']
+            #del self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
 
     def configure(self):
         self.cm = ConfigManager.get_instance()
@@ -105,6 +106,10 @@ class K8SAdapter(object):
             # has to set environment variable:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes'
             config.load_incluster_config()
+
+    def __configure_pvc(self):
+        for pvc, path in self.cm.get_config_items("PersistentVolumeClaims"):
+            self.logger.debug("persistent volume claim: %s, path: %s" % (pvc, path))
 
     # override default executor runner command (for testing purposes)
     def set_command(self, cmd = ["/bin/sh", "-c", "env; sleep 1"]):
@@ -202,33 +207,34 @@ class K8SAdapter(object):
                            job['spec']['template']['spec']['containers'][0]['image'])
 
         task = kwargs.get('task')
-        resources = task.get('resources')
-        resource_mapping = str(kwargs.get('resource_mapping')).lower()
-        self.logger.trace("resource_mapping=%s" % resource_mapping)
-        if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
-            requests = {}
-            rm_lst = resource_mapping.split(",")
-            for rm in rm_lst:
-                rm = rm.strip()
-                for resource in resources:
-                    if resource['name'] == "mem":
-                        if rm == "mem" or rm == "true":
-                            requests['memory'] = str(resource['scalar']['value']) + "M"
-                        elif "mem" == rm[0:3]:
-                            mul = self.__scale_resource(rm)
-                            requests['memory'] = str(int(resource['scalar']['value'])*mul) + "M"
-                    elif resource['name'] == "cpus":
-                        if rm == "cpu" or rm == "true":
-                            requests['cpu'] = str(int(resource['scalar']['value']))
-                        elif "cpu" == rm[0:3]:
-                            mul = self.__scale_resource(rm)
-                            requests['cpu'] = str(int(resource['scalar']['value'])*mul)
+        if task:
+            resources = task.get('resources')
+            resource_mapping = str(kwargs.get('resource_mapping')).lower()
+            self.logger.trace("resource_mapping=%s" % resource_mapping)
+            if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
+                requests = {}
+                rm_lst = resource_mapping.split(";")
+                for rm in rm_lst:
+                    rm = rm.strip()
+                    for resource in resources:
+                        if resource['name'] == "mem":
+                            if rm == "mem" or rm == "true":
+                                requests['memory'] = str(resource['scalar']['value']) + "M"
+                            elif "mem" == rm[0:3]:
+                                mul = self.__scale_resource(rm)
+                                requests['memory'] = str(int(resource['scalar']['value'])*mul) + "M"
+                        elif resource['name'] == "cpus":
+                            if rm == "cpu" or rm == "true":
+                                requests['cpu'] = str(int(resource['scalar']['value']))
+                            elif "cpu" == rm[0:3]:
+                                mul = self.__scale_resource(rm)
+                                requests['cpu'] = str(int(resource['scalar']['value'])*mul)
 
-            if len(requests) > 0:
-                self.logger.debug("Requests: %s" % requests)
-                req_key = {'requests' : requests }
-                job['spec']['template']['spec']['containers'][0]['resources'] = req_key
-                self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
+                if len(requests) > 0:
+                    self.logger.debug("Requests: %s" % requests)
+                    req_key = {'requests' : requests }
+                    job['spec']['template']['spec']['containers'][0]['resources'] = req_key
+                    self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
 
         # do two loops to allow more time for controller-uid to be generated
         label_selectors = []
@@ -239,6 +245,7 @@ class K8SAdapter(object):
                 job_name = job_name + "-%d" % i
             job['metadata']['name'] = job_name
             self.logger.info("Submit k8s job: %s" % job['metadata']['name'])
+            self.logger.trace("job body=%s" % job)
             job_resp = self.batch_v1.create_namespaced_job(body = job, namespace = self.namespace)
             self.logger.trace("job_resp: %s" % job_resp)
             uid = job_resp.metadata.uid
@@ -425,6 +432,115 @@ class K8SAdapter(object):
 
     def __job_id_2_k8s_job_id(self, job_id):
         return "-".join(job_id.split("-")[:-1])
+
+    #def __update_pv(self):
+        #self.logger.trace("Before update: %s" % self.job['spec']['template']['spec'])
+        #pv_cfg = self.cm.get_config_items("PersistentVolumeClaims")
+        #volumes_add = []
+        #volume_mounts_add = []
+        #volumes_rm = []
+        #volume_mounts_rm = []
+        ## adding
+        #for pvc, path in pv_cfg:
+            #if (pvc not in self.pv_cfg) or (pvc in self.pv_cfg and path != self.pv_cfg[pvc]):
+                #self.pv_cfg[pvc] = path
+                #pvc_name = pvc + "-storage"
+                #vol = {'name' : pvc_name,
+                    #'persistentVolumeClaim' :
+                        #{ 'claimName' : pvc }
+                    #}
+                #volumes.append(vol)
+                #mount = {'mountPath' : path,
+                        #'name' : pvc_name }
+                #volume_mounts.append(mount)
+        ## removing
+        #for pvc in self.pv_cfg:
+            #if pvc not in [(v[0],) for v in pv_cfg]
+
+
+    #def config_update1(self):
+        #self.logger.info("Configuration update")
+        #self.__update_pv()
+
+        #self.logger.trace("Before update: %s" % self.job['spec']['template']['spec'])
+        #cfg_lst = self.cm.get_config_items("PersistentVolumeClaims")
+        #volumes = []
+        #volume_mounts = []
+        #for pvc, path in cfg_lst:
+            #self.logger.debug("Persistent volume claim from config: %s, path: %s" % (pvc, path))
+            #pvc_name = pvc + "-storage"
+            #vol = {'name' : pvc_name,
+                   #'persistentVolumeClaim' :
+                       #{ 'claimName' : pvc }
+                  #}
+            #volumes.append(vol)
+            #mount = {'mountPath' : path,
+                     #'name' : pvc_name }
+            #volume_mounts.append(mount)
+
+        #self.job['spec']['template']['spec']['volumes'] = volumes
+        #self.job['spec']['template']['spec']['containers'][0]['volumeMounts'] = volume_mounts
+        #self.logger.trace("After update: %s" % self.job['spec']['template']['spec'])
+
+    def config_update(self):
+        self.logger.info("Configuration update")
+        self.__update_pv()
+
+    def __add_pv(self, job, pvc, path):
+        pvc_name = pvc + "-storage"
+        volume = {'name' : pvc_name,
+                  'persistentVolumeClaim' :
+                     { 'claimName' : pvc }
+                 }
+        volume_mount = {'mountPath' : path,
+                        'name' : pvc_name }
+
+        spec = job['spec']['template']['spec']
+        if not spec.get('volumes'):
+            spec['volumes'] = []
+        spec['volumes'].append(volume)
+
+        containers0 = job['spec']['template']['spec']['containers'][0]
+        if not containers0.get('volumeMounts'):
+            containers0['volumeMounts'] = []
+        containers0['volumeMounts'].append(volume_mount)
+
+    def __update_pv(self):
+        self.logger.trace("PV before update: %s" % self.job['spec']['template']['spec'])
+        cfg_lst = self.cm.get_config_items("PersistentVolumeClaims")
+        for pvc, path in cfg_lst:
+            self.logger.debug("PVC from config: %s, path: %s" % (pvc, path))
+            if pvc in self.job['spec']['template']['spec'].get('volumes', []):
+                for volume in self.job['spec']['template']['spec']['volumes']:
+                    self.logger.trace("volume=%s" % volume)
+                    volume_mounts = self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
+                    if volume['persistentVolumeClaim']['claimName'] == pvc:
+                        if ['mountPath'] != path:
+                            self.logger.info("Update to new path: %s" % path)
+                            self.job['spec']['template']['spec']['containers'][0]['volumeMounts']['mountPath'] = path
+            else:
+                self.logger.info("New PVC: %s:%s" % (pvc, path))
+                self.__add_pv(self.job, pvc, path)
+
+        volumes_remove = []
+        volume_mounts_remove = []
+        volume_names = [v[0] for v in cfg_lst]
+        self.logger.trace("volume_names=%s" % volume_names)
+        for v in self.job['spec']['template']['spec'].get('volumes', []):
+            nm = v['persistentVolumeClaim']['claimName']
+            if nm not in volume_names:
+                self.logger.info("PVC %s removed" % nm)
+                volumes_remove.append(v)
+                for vm in self.job['spec']['template']['spec']['containers'][0]['volumeMounts']:
+                    if nm == self.job['spec']['template']['spec']['containers'][0]['volumeMounts']['name']:
+                        volume_mounts_remove.append(vm)
+
+        for v in volumes_remove:
+            self.job['spec']['template']['spec']['volumes'].remove(v)
+        for vm in volume_mounts_remove:
+            self.job['spec']['template']['spec']['containers'][0]['volumeMounts'].remove(vm)
+
+        self.logger.trace("PV after update: %s" % self.job['spec']['template']['spec'])
 
 # Testing
 if __name__ == '__main__':
