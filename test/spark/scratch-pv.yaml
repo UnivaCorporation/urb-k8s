@@ -1,13 +1,13 @@
 kind: PersistentVolume
 apiVersion: v1
 metadata:
-  name: example-pv
+  name: scratch-pv
   labels:
     type: local
 spec:
   capacity:
     storage: 1Gi
   accessModes:
-    - ReadOnlyMany
+   - ReadOnlyMany
   hostPath:
-    path: "/example"
+    path: "/scratch"

@@ -16,26 +16,39 @@
 
 set -x
 
-# create URB and Spark artifacts to be used in k8s persistent volume
-prepare_pv() {
-  rm -rf /tmp/spark-k8s-volume
-  mkdir -p /tmp/spark-k8s-volume/urb/bin
+# create URB artifacts to be used in k8s persistent volume
+prepare_urb_pv() {
+  local root=/tmp/urb-k8s-volume/urb
+  rm -rf $root
+  mkdir -p $root/bin
   cp urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
     urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/command-executor \
     urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli \
-    /tmp/spark-k8s-volume/urb/bin
-  mkdir -p /tmp/spark-k8s-volume/urb/lib
-  cp urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb* /tmp/spark-k8s-volume/urb/lib
-  cp -r urb-core/dist/urb-*/share /tmp/spark-k8s-volume/urb
+    $root/bin
+  mkdir -p $root/lib
+  cp urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb* $root/lib
+  cp -r urb-core/dist/urb-*/share $root
+}
 
+# create URB and Spark artifacts to be used in k8s persistent volume
+prepare_spark_pv() {
   # Download and extract Spark
   if [ ! -d /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7 ]; then
+    mkdir -p /tmp/spark-k8s-volume
     wget -c d3kbcqa49mib13.cloudfront.net/spark-2.1.0-bin-hadoop2.7.tgz
     tar -C /tmp/spark-k8s-volume -xzf spark-2.1.0-bin-hadoop2.7.tgz
     cp /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf.template /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf
     # executor has to know SPARK_HOME
     echo "spark.mesos.executor.home /opt/spark-2.1.0-bin-hadoop2.7" >> /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7/conf/spark-defaults.conf
   fi
+}
+
+# create data PV
+prepare_scratch_pv() {
+  local root=/tmp/scratch-k8s-volume
+  rm -rf $root
+  mkdir -p $root
+  cp README.md $root
 }
 
 # clean k8s cluster
@@ -46,17 +59,43 @@ clean() {
   kubectl delete pods $(kubectl get pods -a|awk '/urb-exec/ {print $1}')
   kubectl delete -f test/spark/pvc.yaml
   kubectl delete -f test/spark/pv.yaml
+  kubectl delete -f test/urb-pvc.yaml
+  kubectl delete -f test/urb-pv.yaml
+  kubectl delete -f test/spark/scratch-pvc.yaml
+  kubectl delete -f test/spark/scratch-pv.yaml
+}
+
+# create URB persistent volume
+create_urb_pv() {
+  local mount_cmd="minikube mount --msize 1048576 /tmp/urb-k8s-volume/urb:/urb"
+  pkill -f "$mount_cmd"
+  $mount_cmd &
+  mount_pid=$!
+
+  kubectl create -f test/urb-pv.yaml
+  kubectl create -f test/urb-pvc.yaml
 }
 
 # create persistent volume
-create_pv() {
-  local mount_cmd="minikube mount --msize 1048576 /tmp/spark-k8s-volume:/spark"
+create_spark_pv() {
+  local mount_cmd="minikube mount --msize 1048576 /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7:/spark-2.1.0-bin-hadoop2.7"
   pkill -f "$mount_cmd"
   $mount_cmd &
   mount_pid=$!
 
   kubectl create -f test/spark/pv.yaml
   kubectl create -f test/spark/pvc.yaml
+}
+
+# create persistent volume
+create_scratch_pv() {
+  local mount_cmd="minikube mount --msize 1048576 /tmp/scratch-k8s-volume:/scratch"
+  pkill -f "$mount_cmd"
+  $mount_cmd &
+  mount_pid=$!
+
+  kubectl create -f test/spark/scratch-pv.yaml
+  kubectl create -f test/spark/scratch-pvc.yaml
 }
 
 configmap() {
@@ -71,9 +110,13 @@ configmap() {
 cd test/spark
 docker build --rm -t local/spark -f spark.dockerfile .
 cd -
-prepare_pv
+prepare_urb_pv
+prepare_spark_pv
+prepare_scratch_pv
 clean
-create_pv
+create_urb_pv
+create_spark_pv
+create_scratch_pv
 
 configmap
 kubectl create -f source/urb-master.yaml

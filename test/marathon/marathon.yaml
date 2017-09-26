@@ -32,6 +32,7 @@ spec:
           name: marathonsvc
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master.default:6379 --zk zk://zoo-svc:2181/marathon"]
+#          command: ["/bin/sh", "-c", "sleep infinity"]
           env:
             - name: MESOS_NATIVE_JAVA_LIBRARY
               value: /opt/urb/lib/liburb.so
@@ -40,7 +41,7 @@ spec:
 #            - name: GLOG_v
 #              value: 2
           volumeMounts:
-            - mountPath: "/opt"
+            - mountPath: "/opt/urb"
               name: urb-pv-storage
           ports:
             - containerPort: 8080

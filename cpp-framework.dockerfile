@@ -12,27 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM centos:7
 
-# install epel
-RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
+# C++ example framework is based on urb-bin-base image and relies on
+# framework (example_framework.test) and custom executor (example_executor.test)
+# executables to be located on persistent volume example-pv.
+# it only requires environment variable URB_MASTER to be set here
 
-# install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+FROM local/urb-bin-base
 
-# rely on persistent volume mapped to /opt containing cpp framework and executor binaries
-# in /opt/bin directory
-
-# set environment variables, copy binary files
-RUN mkdir -p /urb/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
-ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
 ENV URB_MASTER=urb://urb-master.default:6379
+
 #RUN mkdir -p /urb/bin
 #COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
+#RUN mkdir -p /opt/bin
+#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/bin/
 
 # for testing purposes add redis command line tool
 #COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /urb/bin/
 
 #ENTRYPOINT ["/urb/bin/example_framework.test"]
-ENTRYPOINT ["/opt/bin/example_framework.test"]
+#ENTRYPOINT ["/opt/bin/example_framework.test"]
+#ENTRYPOINT ["/opt/urb/bin/example_framework.test"]

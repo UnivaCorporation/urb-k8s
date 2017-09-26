@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM local/urb-bin-base
 
-RUN yum update -y && yum install -y java-1.8.0-openjdk-headless && yum clean all
+# executor runner for python example framework requires custom executor
+# "test_executor.py" to be located on the same path (/urb/bin) as
+# python framework file "test_framework.py" in python-framework.dockerfile
 
-ENV JAVA_HOME=/etc/alternatives/jre_openjdk
+FROM local/urb-executor-runner
+
+RUN mkdir -p /urb/bin
+COPY urb-core/dist/urb-*/share/examples/frameworks/python/test_executor.py /urb/bin/

@@ -11,6 +11,9 @@ spec:
         - name: urb-pv-storage
           persistentVolumeClaim:
             claimName: urb-pvc
+        - name: spark-pv-storage
+          persistentVolumeClaim:
+            claimName: spark-pvc
       containers:
         - name: spark
           image: local/spark
@@ -22,6 +25,8 @@ spec:
             - name: MESOS_NATIVE_JAVA_LIBRARY
               value: /opt/urb/lib/liburb.so
           volumeMounts:
-            - mountPath: "/opt"
+            - mountPath: "/opt/urb"
               name: urb-pv-storage
+            - mountPath: "/opt"
+              name: spark-pv-storage
       restartPolicy: Never

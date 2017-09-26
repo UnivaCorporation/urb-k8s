@@ -1,7 +1,7 @@
 kind: PersistentVolume
 apiVersion: v1
 metadata:
-  name: urb-pv
+  name: spark-pv
   labels:
     type: local
 spec:

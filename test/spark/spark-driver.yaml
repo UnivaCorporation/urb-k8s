@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-driver
+spec:
+  template:
+    metadata:
+      name: spark-driver
+    spec:
+      volumes:
+        - name: scratch-pv-storage
+          persistentVolumeClaim:
+            claimName: scratch-pvc
+      containers:
+        - name: spark
+          image: local/spark-driver
+          imagePullPolicy: IfNotPresent
+          command: [ "/bin/sh", "-c", "env; sleep infinity" ]
+          volumeMounts:
+            - mountPath: "/scratch"
+              name: scratch-pv-storage
+      restartPolicy: Never

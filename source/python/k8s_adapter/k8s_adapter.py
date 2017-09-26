@@ -69,25 +69,8 @@ class K8SAdapter(object):
                                   (self.job_name_template_size, K8SAdapter.JOB_NAME_MAX_SIZE))
             self.image = self.job['spec']['template']['spec']['containers'][0]['image']
 
-
         self.core_v1 = client.CoreV1Api()
         self.batch_v1 = client.BatchV1Api()
-
-#        self.pv_cfg = {}
-        self.__update_pv()
-
-        #try:
-            #resp = self.core_v1.read_persistent_volume_status("urb-pv")
-            #self.logger.debug("URB PV status resp: %s" % resp)
-        #except ApiException as e:
-            #if e.reason == "Not Found":
-                #self.logger.debug("ApiException getting URB PV: %s" % e)
-                #self.logger .warn("URB persistent volume (urb-pv) doesn't exist")
-                #self.logger.warn("Frameworks relying on their run-time located on urb-pv will fail!")
-            #else:
-                #self.logger.error("ApiException getting URB PV: %s" % e)
-            #del self.job['spec']['template']['spec']['volumes']
-            #del self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
 
     def configure(self):
         self.cm = ConfigManager.get_instance()
@@ -206,6 +189,18 @@ class K8SAdapter(object):
         self.logger.debug("Executor runner image: %s" %
                            job['spec']['template']['spec']['containers'][0]['image'])
 
+        persistent_volume_claims = kwargs.get('persistent_volume_claims')
+        if persistent_volume_claims and len(persistent_volume_claims) > 0:
+            for pv in persistent_volume_claims.split(";"):
+                pv = pv.strip()
+                lst = pv.split(":")
+                if len(lst) != 2:
+                    self.logger.error("Incorrect format for persistent volume claim: %s, lst=%s" % (pv, lst))
+                    continue
+                pvc = lst[0]
+                path = lst[1]
+                self.__add_pv(job, pvc, path)
+
         task = kwargs.get('task')
         if task:
             resources = task.get('resources')
@@ -213,8 +208,7 @@ class K8SAdapter(object):
             self.logger.trace("resource_mapping=%s" % resource_mapping)
             if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
                 requests = {}
-                rm_lst = resource_mapping.split(";")
-                for rm in rm_lst:
+                for rm in resource_mapping.split(";"):
                     rm = rm.strip()
                     for resource in resources:
                         if resource['name'] == "mem":
@@ -433,58 +427,8 @@ class K8SAdapter(object):
     def __job_id_2_k8s_job_id(self, job_id):
         return "-".join(job_id.split("-")[:-1])
 
-    #def __update_pv(self):
-        #self.logger.trace("Before update: %s" % self.job['spec']['template']['spec'])
-        #pv_cfg = self.cm.get_config_items("PersistentVolumeClaims")
-        #volumes_add = []
-        #volume_mounts_add = []
-        #volumes_rm = []
-        #volume_mounts_rm = []
-        ## adding
-        #for pvc, path in pv_cfg:
-            #if (pvc not in self.pv_cfg) or (pvc in self.pv_cfg and path != self.pv_cfg[pvc]):
-                #self.pv_cfg[pvc] = path
-                #pvc_name = pvc + "-storage"
-                #vol = {'name' : pvc_name,
-                    #'persistentVolumeClaim' :
-                        #{ 'claimName' : pvc }
-                    #}
-                #volumes.append(vol)
-                #mount = {'mountPath' : path,
-                        #'name' : pvc_name }
-                #volume_mounts.append(mount)
-        ## removing
-        #for pvc in self.pv_cfg:
-            #if pvc not in [(v[0],) for v in pv_cfg]
-
-
-    #def config_update1(self):
-        #self.logger.info("Configuration update")
-        #self.__update_pv()
-
-        #self.logger.trace("Before update: %s" % self.job['spec']['template']['spec'])
-        #cfg_lst = self.cm.get_config_items("PersistentVolumeClaims")
-        #volumes = []
-        #volume_mounts = []
-        #for pvc, path in cfg_lst:
-            #self.logger.debug("Persistent volume claim from config: %s, path: %s" % (pvc, path))
-            #pvc_name = pvc + "-storage"
-            #vol = {'name' : pvc_name,
-                   #'persistentVolumeClaim' :
-                       #{ 'claimName' : pvc }
-                  #}
-            #volumes.append(vol)
-            #mount = {'mountPath' : path,
-                     #'name' : pvc_name }
-            #volume_mounts.append(mount)
-
-        #self.job['spec']['template']['spec']['volumes'] = volumes
-        #self.job['spec']['template']['spec']['containers'][0]['volumeMounts'] = volume_mounts
-        #self.logger.trace("After update: %s" % self.job['spec']['template']['spec'])
-
     def config_update(self):
         self.logger.info("Configuration update")
-        self.__update_pv()
 
     def __add_pv(self, job, pvc, path):
         pvc_name = pvc + "-storage"
@@ -505,42 +449,6 @@ class K8SAdapter(object):
             containers0['volumeMounts'] = []
         containers0['volumeMounts'].append(volume_mount)
 
-    def __update_pv(self):
-        self.logger.trace("PV before update: %s" % self.job['spec']['template']['spec'])
-        cfg_lst = self.cm.get_config_items("PersistentVolumeClaims")
-        for pvc, path in cfg_lst:
-            self.logger.debug("PVC from config: %s, path: %s" % (pvc, path))
-            if pvc in self.job['spec']['template']['spec'].get('volumes', []):
-                for volume in self.job['spec']['template']['spec']['volumes']:
-                    self.logger.trace("volume=%s" % volume)
-                    volume_mounts = self.job['spec']['template']['spec']['containers'][0]['volumeMounts']
-                    if volume['persistentVolumeClaim']['claimName'] == pvc:
-                        if ['mountPath'] != path:
-                            self.logger.info("Update to new path: %s" % path)
-                            self.job['spec']['template']['spec']['containers'][0]['volumeMounts']['mountPath'] = path
-            else:
-                self.logger.info("New PVC: %s:%s" % (pvc, path))
-                self.__add_pv(self.job, pvc, path)
-
-        volumes_remove = []
-        volume_mounts_remove = []
-        volume_names = [v[0] for v in cfg_lst]
-        self.logger.trace("volume_names=%s" % volume_names)
-        for v in self.job['spec']['template']['spec'].get('volumes', []):
-            nm = v['persistentVolumeClaim']['claimName']
-            if nm not in volume_names:
-                self.logger.info("PVC %s removed" % nm)
-                volumes_remove.append(v)
-                for vm in self.job['spec']['template']['spec']['containers'][0]['volumeMounts']:
-                    if nm == self.job['spec']['template']['spec']['containers'][0]['volumeMounts']['name']:
-                        volume_mounts_remove.append(vm)
-
-        for v in volumes_remove:
-            self.job['spec']['template']['spec']['volumes'].remove(v)
-        for vm in volume_mounts_remove:
-            self.job['spec']['template']['spec']['containers'][0]['volumeMounts'].remove(vm)
-
-        self.logger.trace("PV after update: %s" % self.job['spec']['template']['spec'])
 
 # Testing
 if __name__ == '__main__':

@@ -12,42 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM centos:7
 
-# install epel
-RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
+# python example framework requires "test_framework.py" on framework side
+# and custom executor "test_executor.py" on executor runner side
+# (in python-executor-runner.dockerfile) to be located in the same path (/urb/bin)
 
-# install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+FROM local/urb-python-base
 
-# copy Python eggs
-COPY urb-core/dist/urb-*-py2.7/*.egg /tmp/
-COPY urb-core/dist/urb-*-py2.7-redhat_7-linux-x86_64/*.egg /tmp/
-COPY urb-core/dist/urb-*/pkg/urb-*-py2.7.egg /tmp/
-
-# install all required Python dependencies, Mesos eggs
-RUN easy_install /tmp/google_common-*-py2.7.egg \
-                 /tmp/xmltodict-*-py2.7.egg \
-                 /tmp/sortedcontainers-*-py2.7.egg \
-                 /tmp/redis-*-py2.7.egg \
-                 /tmp/pymongo-*-py2.7-linux-x86_64.egg \
-                 /tmp/greenlet-*-py2.7-linux-x86_64.egg \
-                 /tmp/gevent-*-py2.7-linux-x86_64.egg \
-                 /tmp/mesos.scheduler-*-py2.7-linux-x86_64.egg \
-                 /tmp/mesos.executor-*-py2.7-linux-x86_64.egg \
-                 /tmp/mesos.native-*-py2.7.egg \
-                 /tmp/mesos.interface-*-py2.7.egg \
-                 /tmp/mesos-1.1.0-py2.7.egg
-
-# rely on persistent volume mapped to /opt containing cpp framework and executor binaries
-# in /opt/bin directory
-
-# set environment variables copy files
-RUN mkdir -p /urb/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
-ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
 RUN mkdir -p /urb/bin
-#COPY urb-core/dist/urb-*/share/examples/frameworks/python/*.py /urb/bin/
-#ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb-master.default:6379"]
-ENTRYPOINT ["/opt/bin/test_framework.py", "urb://urb-master.default:6379"]
+
+COPY urb-core/dist/urb-*/share/examples/frameworks/python/test_framework.py /urb/bin/
+ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb-master.default:6379"]
+
 

@@ -1,7 +1,7 @@
 kind: PersistentVolume
 apiVersion: v1
 metadata:
-  name: example-pv
+  name: urb-pv
   labels:
     type: local
 spec:
@@ -10,4 +10,4 @@ spec:
   accessModes:
     - ReadOnlyMany
   hostPath:
-    path: "/example"
+    path: "/urb"

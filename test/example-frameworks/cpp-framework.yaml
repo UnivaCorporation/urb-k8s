@@ -8,16 +8,17 @@ spec:
       name: cpp-framework
     spec:
       volumes:
-        - name: urb-pv-storage
+        - name: example-pv-storage
           persistentVolumeClaim:
-            claimName: urb-pvc
+            claimName: example-pvc
       containers:
         - name: urb-cpp-framework
           image: local/urb-cpp-framework
           imagePullPolicy: IfNotPresent
+          command: ["/opt/example/bin/example_framework.test"]
 #          command: ["/urb/bin/example_framework.test",  "50", "1", "1"]
 #          command: ["/bin/sh", "-c", "env; sleep infinity"]
           volumeMounts:
-            - mountPath: "/opt"
-              name: urb-pv-storage
+            - mountPath: "/opt/example"
+              name: example-pv-storage
       restartPolicy: Never
