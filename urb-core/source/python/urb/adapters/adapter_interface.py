@@ -118,6 +118,9 @@ class Adapter(object):
     def unregister_slave(self, request):
         self.logger.debug('Unregister slave: %s' % request)
 
+    @abc.abstractmethod
+    def config_update(self):
+        self.logger.debug('Update config')
 
 # Testing
 if __name__ == '__main__':

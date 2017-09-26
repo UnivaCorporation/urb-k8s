@@ -170,6 +170,7 @@ class MesosHandler(MessageHandler):
             if val is not None:
                 self.logger.info("Reconfigure framework: %s" % framework)
                 self.configure_framework(val)
+        self.adapter.config_update()
 
     def get_target_preprocessor(self, target):
         if self.event_db_interface is not None:
@@ -2415,7 +2416,6 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Submit executor runner, framework name: %s' % framework_name)
         scrubbed_framework_name = self.scrub_framework_name(framework_name)
 
-        cm = ConfigManager.get_instance()
         cf = ChannelFactory.get_instance()
         framework_env = {
             'URB_CONFIG_FILE' : self.executor_runner_config_file,
@@ -2429,11 +2429,13 @@ class MesosHandler(MessageHandler):
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
         executor_runner = framework_config.get('executor_runner', '')
+        persistent_volume_claims = framework_config.get('persistent_volume_claims', '')
         try:
             kwargs = {'job_class': job_class,
                       'job_submit_options': job_submit_options,
                       'resource_mapping': resource_mapping,
                       'executor_runner': executor_runner,
+                      'persistent_volume_claims': persistent_volume_claims,
                       'task': task}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
@@ -2561,7 +2563,8 @@ class MesosHandler(MessageHandler):
                     'initial_tasks' : 'num',
                     'job_class' : 'str',
                     'resource_mapping' : 'str,bool',
-                    'executor_runner' : 'str'
+                    'executor_runner' : 'str',
+                    'persistent_volume_claims' : 'str'
                     }.items():
             value = cm.get_config_option(framework_config_section, key)
             if not value:
