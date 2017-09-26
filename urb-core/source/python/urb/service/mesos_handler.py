@@ -2429,11 +2429,13 @@ class MesosHandler(MessageHandler):
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
         executor_runner = framework_config.get('executor_runner', '')
+        persistent_volume_claims = framework_config.get('persistent_volume_claims', '')
         try:
             kwargs = {'job_class': job_class,
                       'job_submit_options': job_submit_options,
                       'resource_mapping': resource_mapping,
                       'executor_runner': executor_runner,
+                      'persistent_volume_claims': persistent_volume_claims,
                       'task': task}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
@@ -2561,7 +2563,8 @@ class MesosHandler(MessageHandler):
                     'initial_tasks' : 'num',
                     'job_class' : 'str',
                     'resource_mapping' : 'str,bool',
-                    'executor_runner' : 'str'
+                    'executor_runner' : 'str',
+                    'persistent_volume_claims' : 'str'
                     }.items():
             value = cm.get_config_option(framework_config_section, key)
             if not value:
