@@ -18,17 +18,15 @@ FROM local/urb-python-base
 RUN yum update -y; yum install -y java-1.8.0-openjdk-headless python-pip; yum clean all
 
 # install Python kubernetes client
-#RUN easy_install kubernetes==2.0.0 # temporary indicate stable version
 RUN pip install kubernetes
 
-# set environment variables required by URB service and copy configuration files
-ENV URB_ROOT=/urb
+# set environment variables required by URB executor runner and copy configuration file
+#ENV URB_ROOT=/urb
 RUN mkdir -p $URB_ROOT/etc
-#ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
-#COPY etc/urb.conf $URB_CONFIG_FILE
 COPY etc/urb.executor_runner.conf $URB_ROOT/etc
 
+# copy fetcher and command executor
 RUN mkdir -p $URB_ROOT/bin
 COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
      urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/command-executor \
@@ -37,10 +35,4 @@ COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/fetcher \
 # Java home
 ENV JAVA_HOME=/etc/alternatives/jre_openjdk
 
-# for testing purposes
-#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
-#COPY urb-core/dist/urb-*/share/examples/frameworks/python/test_executor.py /urb/bin/
-
 ENTRYPOINT ["/usr/bin/urb-executor-runner"]
-#ENTRYPOINT ["/bin/sh", "-c", "env; ls -lFa /; ls -lFa /opt; sleep infinity"]
-

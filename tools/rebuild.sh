@@ -19,19 +19,28 @@ set -x
 # remove docker image
 rmi() {
   local nm=$1
-  local img=$(docker images | awk "/$nm/ {print \$3}")
+  # add space to get unique name
+  local img=$(docker images | awk "/$nm / {print \$3}")
   if [ ! -z "$img" ]; then
     local containers=$(docker ps -a | awk "/$img/ {print \$1}")
     if [ ! -z "$containers" ]; then
       docker rm $containers
       local containers_left=$(docker ps -a | awk "/$img/ {print \$1}")
       if [ ! -z "$containers_left" ]; then
+        set -e
         docker rm -f $containers_left
+        set +e
       fi
     fi
     docker rmi $img
     if [ $? -ne 0 ]; then
       docker rmi -f $img
+      if [ $? -ne 0 ]; then
+        rmi_dep $img
+        set -e
+        docker rmi -f $img
+        set +e
+      fi
     fi
   fi
 }
@@ -42,9 +51,20 @@ rmi_none() {
   if [ ! -z "$im" ]; then
     docker rmi $im
     if [ $? -ne 0 ]; then
+      set -e
       docker rmi -f $(docker images | awk "/^<none>/ {print \$3}")
+      set +e
     fi
   fi
+}
+
+rmi_dep() {
+  local im=$1
+  for ii in $(docker images -q); do
+    if docker history $i | grep -q $im; then
+      docker rmi $ii
+    fi
+  done
 }
 
 # set minikube docker environment
@@ -85,8 +105,10 @@ if [ $# -eq 0 ]; then
   URB_SERVICE=1
   URB_REDIS=1
   URB_EXECUTOR_RUNNER=1
-  RB_CPP=1
-  URB_PYTHON=1
+  CPP_EXAMPLE=1
+  PYTHON_EXAMPLE=1
+  URB_BIN_BASE=1
+  URB_PYTHON_BASE=1
 else
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -102,12 +124,20 @@ else
       URB_EXECUTOR_RUNNER=1
       shift
       ;;
-    "urb-cpp-framework")
-      URB_CPP=1
+    "cpp-framework")
+      CPP_EXAMPLE=1
       shift
       ;;
-    "urb-cpp-framework")
-      URB_PYTHON=1
+    "python-framework")
+      PYTHON_EXAMPLE=1
+      shift
+      ;;
+    "urb-bin-base")
+      URB_BIN_BASE=1
+      shift
+      ;;
+    "urb-python-base")
+      URB_PYTHON_BASE=1
       shift
       ;;
     *)
@@ -119,28 +149,35 @@ fi
 set_minikube_env
 
 # clean
-kubectl delete job cpp-framework python-framework urb-exec
-kubectl delete deployment,service urb-master
+kubectl delete job cpp-framework python-framework urb-exec spark spark-driver
+kubectl delete deployment,service urb-master marathonsvc
 delete_wait jobs urb-exec
 kubectl get pods -a
 delete_wait pods urb-exec
 
+rmi "local\/spark"
+rmi "local\/spark-driver"
 if [ ! -z "$URB_SERVICE" ]; then
   rmi "local\/urb-service"
 fi
 if [ ! -z "$URB_REDIS" ]; then
   rmi "local\/urb-redis"
 fi
-if [ ! -z "$URB_CPP" ]; then
-  rmi "local\/urb-cpp-framework"
+if [ ! -z "$CPP_EXAMPLE" ]; then
+  rmi "local\/cpp-framework"
 fi
-if [ ! -z "$URB_PYTHON" ]; then
-  rmi "local\/urb-python-framework"
+if [ ! -z "$PYTHON_EXAMPLE" ]; then
+  rmi "local\/python-framework"
 fi
 if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
   rmi "local\/urb-executor-runner"
 fi
-
+if [ ! -z "$URB_BIN_BASE" ]; then
+  rmi "local\/urb-bin-base"
+fi
+if [ ! -z "$URB_PYTHON_BASE" ]; then
+  rmi "local\/urb-python-base"
+fi
 rmi_none
 
 # rebuild URB artifacts
@@ -158,14 +195,20 @@ fi
 if [ ! -z "$URB_REDIS" ]; then
   make urb-redis
 fi
-if [ ! -z "$URB_CPP" ]; then
-  make rb-cpp-framework
+if [ ! -z "$CPP_EXAMPLE" ]; then
+  make cpp-framework
 fi
-if [ ! -z "$URB_PYTHON" ]; then
-  make urb-python-framework
+if [ ! -z "$PYTHON_EXAMPLE" ]; then
+  make python-framework
 fi
 if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
   make urb-executor-runner
+fi
+if [ ! -z "$URB_BIN_BASE" ]; then
+  make urb-bin-base
+fi
+if [ ! -z "$URB_PYTHON_BASE" ]; then
+  make urb-python-base
 fi
 
 # create URB configuration

@@ -12,8 +12,8 @@ spec:
           persistentVolumeClaim:
             claimName: example-pvc
       containers:
-        - name: urb-cpp-framework
-          image: local/urb-cpp-framework
+        - name: cpp-framework
+          image: local/cpp-framework
           imagePullPolicy: IfNotPresent
           command: ["/opt/example/bin/example_framework.test"]
 #          command: ["/urb/bin/example_framework.test",  "50", "1", "1"]

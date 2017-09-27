@@ -21,11 +21,7 @@ RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(aw
 RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
 
 # set environment variables, copy binaries
-RUN mkdir -p /urb/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* /urb/lib/
-ENV LD_LIBRARY_PATH=/urb/lib:$LD_LIBRARY_PATH
-
-
-# for testing purposes add redis command line tool
-#RUN mkdir -p /urb/bin
-#COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /urb/bin/
+ENV URB_ROOT=/urb
+RUN mkdir -p $URB_ROOT/lib
+COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* $URB_ROOT/lib/
+ENV LD_LIBRARY_PATH=$URB_ROOT/lib:$LD_LIBRARY_PATH

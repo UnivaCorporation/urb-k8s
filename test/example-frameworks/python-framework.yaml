@@ -8,8 +8,7 @@ spec:
       name: python-framework
     spec:
       containers:
-        - name: urb-python-framework
-          image: local/urb-python-framework
+        - name: python-framework
+          image: local/python-framework
           imagePullPolicy: IfNotPresent
-#          command: [/urb/bin/test_framework.py", "urb://urb.default:30379",  "1"]
       restartPolicy: Never

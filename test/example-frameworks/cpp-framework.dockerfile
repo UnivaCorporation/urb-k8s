@@ -21,15 +21,3 @@
 FROM local/urb-bin-base
 
 ENV URB_MASTER=urb://urb-master.default:6379
-
-#RUN mkdir -p /urb/bin
-#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /urb/bin/
-#RUN mkdir -p /opt/bin
-#COPY urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_*.test /opt/bin/
-
-# for testing purposes add redis command line tool
-#COPY urb-core/dist/urb-*-linux-x86_64/bin/linux-x86_64/redis-cli /urb/bin/
-
-#ENTRYPOINT ["/urb/bin/example_framework.test"]
-#ENTRYPOINT ["/opt/bin/example_framework.test"]
-#ENTRYPOINT ["/opt/urb/bin/example_framework.test"]

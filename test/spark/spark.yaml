@@ -8,9 +8,6 @@ spec:
       name: spark
     spec:
       volumes:
-        - name: urb-pv-storage
-          persistentVolumeClaim:
-            claimName: urb-pvc
         - name: spark-pv-storage
           persistentVolumeClaim:
             claimName: spark-pvc
@@ -22,11 +19,7 @@ spec:
           env:
             - name: SPARK_HOME
               value: /opt/spark-2.1.0-bin-hadoop2.7
-            - name: MESOS_NATIVE_JAVA_LIBRARY
-              value: /opt/urb/lib/liburb.so
           volumeMounts:
-            - mountPath: "/opt/urb"
-              name: urb-pv-storage
-            - mountPath: "/opt"
+            - mountPath: "/opt/spark-2.1.0-bin-hadoop2.7"
               name: spark-pv-storage
       restartPolicy: Never

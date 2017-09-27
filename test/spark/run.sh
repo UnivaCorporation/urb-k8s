@@ -67,10 +67,10 @@ clean() {
 
 # create URB persistent volume
 create_urb_pv() {
-  local mount_cmd="minikube mount --msize 1048576 /tmp/urb-k8s-volume/urb:/urb"
-  pkill -f "$mount_cmd"
+  local mount_cmd_beg="minikube mount --msize 1048576 /tmp/urb-k8s-volume"
+  local mount_cmd="${mount_cmd_beg}/urb:/urb"
+  pkill -f "$mount_cmd_beg"
   $mount_cmd &
-  mount_pid=$!
 
   kubectl create -f test/urb-pv.yaml
   kubectl create -f test/urb-pvc.yaml
@@ -78,10 +78,10 @@ create_urb_pv() {
 
 # create persistent volume
 create_spark_pv() {
-  local mount_cmd="minikube mount --msize 1048576 /tmp/spark-k8s-volume/spark-2.1.0-bin-hadoop2.7:/spark-2.1.0-bin-hadoop2.7"
-  pkill -f "$mount_cmd"
+  local mount_cmd_beg="minikube mount --msize 1048576 /tmp/spark-k8s-volume"
+  local mount_cmd="${mount_cmd_beg}/spark-2.1.0-bin-hadoop2.7:/spark-2.1.0-bin-hadoop2.7"
+  pkill -f "$mount_cmd_beg"
   $mount_cmd &
-  mount_pid=$!
 
   kubectl create -f test/spark/pv.yaml
   kubectl create -f test/spark/pvc.yaml
@@ -89,10 +89,10 @@ create_spark_pv() {
 
 # create persistent volume
 create_scratch_pv() {
-  local mount_cmd="minikube mount --msize 1048576 /tmp/scratch-k8s-volume:/scratch"
-  pkill -f "$mount_cmd"
+  local mount_cmd_beg="minikube mount --msize 1048576 /tmp/scratch-k8s-volume"
+  local mount_cmd="${mount_cmd_beg}:/scratch"
+  pkill -f "$mount_cmd_beg"
   $mount_cmd &
-  mount_pid=$!
 
   kubectl create -f test/spark/scratch-pv.yaml
   kubectl create -f test/spark/scratch-pvc.yaml
@@ -110,11 +110,11 @@ configmap() {
 cd test/spark
 docker build --rm -t local/spark -f spark.dockerfile .
 cd -
-prepare_urb_pv
+#prepare_urb_pv
 prepare_spark_pv
 prepare_scratch_pv
 clean
-create_urb_pv
+#create_urb_pv
 create_spark_pv
 create_scratch_pv
 

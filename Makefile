@@ -26,7 +26,7 @@ dist:
 	cd source/python && make dist
 
 urb-service: urb-python-base
-	cd source; docker build --rm -t local/urb-service -f urb-service.dockerfile .
+	docker build --rm -t local/urb-service -f urb-service.dockerfile .
 
 urb-redis:
 	cd source; docker build --rm -t local/urb-redis -f redis.dockerfile .
@@ -34,11 +34,11 @@ urb-redis:
 urb-executor-runner: urb-python-base
 	docker build --rm -t local/urb-executor-runner -f urb-executor-runner.dockerfile .
 
-urb-cpp-framework: urb-bin-base
-	docker build --rm -t local/urb-cpp-framework -f cpp-framework.dockerfile .
+cpp-framework: urb-bin-base
+	cd test/example-frameworks; docker build --rm -t local/cpp-framework -f cpp-framework.dockerfile .
 
-urb-python-framework: urb-python-base
-	docker build --rm -t local/urb-python-framework -f python-framework.dockerfile .
+python-framework: urb-python-base
+	docker build --rm -t local/python-framework -f python-framework.dockerfile .
 
 urb-python-executor-runner: urb-python-base
 	docker build --rm -t local/urb-python-executor-runner -f python-executor-runner.dockerfile .
@@ -48,10 +48,8 @@ urb-python-base: urb-bin-base
 
 urb-bin-base:
 	docker build --rm -t local/urb-bin-base -f urb-bin-base.dockerfile .
-#urb-pv:
-#	docker build --rm -t local/urb-pv -f urb-pv.dockerfile .
 
-images: urb-service urb-redis urb-executor-runner urb-cpp-framework urb-python-framework # urb-pv
+images: urb-service urb-redis urb-executor-runner cpp-framework python-framework
 
 
 gimages:

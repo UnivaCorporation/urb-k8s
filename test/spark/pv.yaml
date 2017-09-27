@@ -10,4 +10,4 @@ spec:
   accessModes:
     - ReadOnlyMany
   hostPath:
-    path: "/spark"
+    path: "/spark-2.1.0-bin-hadoop2.7"

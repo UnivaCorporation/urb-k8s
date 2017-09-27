@@ -26,10 +26,13 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/redis-*-py2.7.egg \
                  /tmp/pymongo-*-py2.7-linux-x86_64.egg \
                  /tmp/greenlet-*-py2.7-linux-x86_64.egg \
+                 /tmp/inotifyx-*-py2.7-linux-x86_64.egg \
                  /tmp/gevent-*-py2.7-linux-x86_64.egg \
+                 /tmp/gevent_inotifyx-*-py2.7.egg \
                  /tmp/mesos.scheduler-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.executor-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.native-*-py2.7.egg \
                  /tmp/mesos.interface-*-py2.7.egg \
-                 /tmp/mesos-1.1.0-py2.7.egg
+                 /tmp/mesos-1.1.0-py2.7.egg \
+                 /tmp/urb-*-py2.7.egg
  

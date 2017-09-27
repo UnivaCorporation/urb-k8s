@@ -20,10 +20,10 @@ RUN yum update -y; yum install -y python-pip; yum clean all
 #RUN easy_install kubernetes
 RUN pip install kubernetes
 
-# copy urb-core and k8s adapter Python eggs 
-COPY python/dist/k8s_adapter-*-py2.7.egg /tmp/
+# copy k8s adapter Python egg
+COPY source/python/dist/k8s_adapter-*-py2.7.egg /tmp/
 
-# install all required Python dependencies, Mesos and URB eggs
+# install URB and k8s adapter
 RUN easy_install /tmp/k8s_adapter-*-py2.7.egg
 
 # set environment variables required by URB service and copy configuration files

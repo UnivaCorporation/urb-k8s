@@ -17,3 +17,4 @@ FROM local/urb-bin-base
 RUN yum update -y && yum install -y java-1.8.0-openjdk-headless && yum clean all
 
 ENV JAVA_HOME=/etc/alternatives/jre_openjdk
+ENV MESOS_NATIVE_JAVA_LIBRARY=$URB_ROOT/lib/liburb.so
