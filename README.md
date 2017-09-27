@@ -247,7 +247,7 @@ It should produce an output which includes _Pi_ number estimate similar to:
 Pi is roughly 3.140806
 ```
 
-Alternatively, the Spark _wordcount_ example can be run without relying on persistent volume to keep Spark deployment but using custom framework [test/spark/spark-driver.dockerfile](test/spark/spark-driver.dockerfile) and executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) docker images containing Spark run time files with and corresponding Kubernetes job [test/spark/spark-driver.yaml](test/spark/spark-driver.yaml) which will be used to run driver side of the Spark _wordcount_ application. This example requires some input text file (for example current `README.md` file) which will be located on separate persistent volume [test/spark/scratch-pv.yaml](test/spark/scratch-pv.yaml) (created in previous example by `test/spark/run.sh` script). The `spark-submit` command will have `--name CustomWordCount` parameter so `Custom*FrameworkConfig` framework configuration section of [etc/urb.conf](etc/urb.conf) file has to be configured for persistent volume claim `scratch-pvc` and custom executor runner docker image `local/spark-exec` with:
+Alternatively, the Spark _wordcount_ example can be run without relying on persistent volume to keep Spark deployment but using custom framework [test/spark/spark-driver.dockerfile](test/spark/spark-driver.dockerfile) and executor runner [test/spark/spark-exec.dockerfile](test/spark/spark-exec.dockerfile) docker images containing Spark run time files with corresponding Kubernetes job [test/spark/spark-driver.yaml](test/spark/spark-driver.yaml) which will be used to run driver side of the Spark _wordcount_ application. This example requires some input text file (for example current `README.md` file) which will be located on separate persistent volume [test/spark/scratch-pv.yaml](test/spark/scratch-pv.yaml) (created in previous example by `test/spark/run.sh` script). The `spark-submit` command will have `--name CustomWordCount` parameter so `Custom*FrameworkConfig` framework configuration section of [etc/urb.conf](etc/urb.conf) file has to be configured for persistent volume claim `scratch-pvc` and custom executor runner docker image `local/spark-exec` with:
 
 ```
 executor_runner = local/spark-exec
@@ -277,6 +277,20 @@ kubectl exec spark-driver-7g14w -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-
 ```
 
 It should produce an output with the list of the words and a number of occurances in `README.md` file.
+
+
+Following command will start Python Spark Shell with 4 as a total amount of cores which can be used by all executors for this interactive session:
+
+```
+kubectl exec spark-driver-7g14w -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/pyspark --master mesos://urb://urb-master:6379 --total-executor-cores 4
+```
+
+Python Spark Shell uses `PySparkShell` framework name to register, thus taking configuration from `PySparkShellFrameworkConfig` section of URB configuration file [etc/urb.conf](etc/urb.conf) and being able to access persistent volume `scratch-pc` for data store. Now some simple Spark action can be executed, for example:
+
+```
+>>> rdd = sc.textFile('/scratch/README.md')
+>>> rdd.collect()
+```
 
 
 ## Updating URB configuration
