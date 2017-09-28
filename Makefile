@@ -14,48 +14,43 @@
 
 
 SUBDIRS=urb-core source/python
+IMAGES=urb-service urb-executor-runner python-framework python-executor-runner urb-python-base urb-bin-base
+GIMAGES=$(addprefix g-,$(IMAGES)) g-urb-redis g-cpp-framework
+IMAGES-clean=$(addsuffix -clean,$(IMAGES)) urb-redis-clean cpp-framework-clean
+
+.PHONY: $(IMAGES) urb-redis cpp-framework $(IMAGES) $(IMAGES-clean)
+
 PROJECT_ID=$(shell gcloud config get-value project 2> /dev/null)
 REGISTRY=gcr.io
 REPOSITORY=${REGISTRY}/${PROJECT_ID}
 
 include urb-core/util/include.mk 
 
-# 
 dist:
 	cd urb-core && make dist
 	cd source/python && make dist
 
-urb-service: urb-python-base
-	docker build --rm -t local/urb-service -f urb-service.dockerfile .
+$(IMAGES):
+	docker build --rm -t local/$@ -f $@.dockerfile .
 
 urb-redis:
-	cd source; docker build --rm -t local/urb-redis -f redis.dockerfile .
-
-urb-executor-runner: urb-python-base
-	docker build --rm -t local/urb-executor-runner -f urb-executor-runner.dockerfile .
+	cd source; docker build --rm -t local/urb-redis -f urb-redis.dockerfile .
 
 cpp-framework: urb-bin-base
 	cd test/example-frameworks; docker build --rm -t local/cpp-framework -f cpp-framework.dockerfile .
 
-python-framework: urb-python-base
-	docker build --rm -t local/python-framework -f python-framework.dockerfile .
+images: $(IMAGES) urb-redis cpp-framework
 
-python-executor-runner: urb-executor-runner
-	docker build --rm -t local/python-executor-runner -f python-executor-runner.dockerfile .
+$(GIMAGES):
+	make $(subst g-,,$@)-clean
+	im=$(subst g-,,$@); gim=${REPOSITORY}/$$im; docker tag local/$$im $$gim && gcloud docker -- push $$gim
 
-urb-python-base: urb-bin-base
-	docker build --rm -t local/urb-python-base -f urb-python-base.dockerfile .
+gimages: $(GIMAGES)
 
-urb-bin-base:
-	docker build --rm -t local/urb-bin-base -f urb-bin-base.dockerfile .
+$(IMAGES-clean):
+	im=${REPOSITORY}/$(subst -clean,,$(subst g-,,$@)); gcloud container images delete -q $$im; for hh in $$(gcloud compute instances list | awk '/gke/ {print $$1}'); do gcloud compute --project ${PROJECT_ID} ssh $$hh -- docker rmi $$im; done
 
-images: urb-service urb-redis urb-executor-runner cpp-framework python-framework
-
-
-gimages:
-	docker build --rm -t ${REPOSITORY}/urb-service -f urb-service.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-service
-	docker build --rm -t ${REPOSITORY}/urb-executor-runner -f urb-executor-runner.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-executor-runner
-	docker build --rm -t ${REPOSITORY}/urb-redis -f redis.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-redis
-	docker build --rm -t ${REPOSITORY}/urb-cpp-framework -f cpp-framework.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-cpp-framework
-	docker build --rm -t ${REPOSITORY}/urb-python-framework -f python-framework.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-python-framework
-#	docker build --rm -t ${REPOSITORY}/urb-pv -f urb-pv.dockerfile . && gcloud docker -- push ${REPOSITORY}/urb-pv
+echo:
+	@echo "IMAGES: $(IMAGES)"
+	@echo "GIMAGES: $(GIMAGES)"
+	@echo "IMAGES-clean: $(IMAGES-clean)"
