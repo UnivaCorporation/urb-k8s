@@ -40,8 +40,8 @@ cpp-framework: urb-bin-base
 python-framework: urb-python-base
 	docker build --rm -t local/python-framework -f python-framework.dockerfile .
 
-urb-python-executor-runner: urb-python-base
-	docker build --rm -t local/urb-python-executor-runner -f python-executor-runner.dockerfile .
+python-executor-runner: urb-executor-runner
+	docker build --rm -t local/python-executor-runner -f python-executor-runner.dockerfile .
 
 urb-python-base: urb-bin-base
 	docker build --rm -t local/urb-python-base -f urb-python-base.dockerfile .
