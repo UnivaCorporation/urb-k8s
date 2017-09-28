@@ -93,7 +93,7 @@ In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or
 ### Run Mesos Framework Inside a Kubernetes Cluster
 
 The framework has to be "dockerized" and associated with the corresponding Kubernetes object like pod, deployment, service, etc.
-The following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set (see for example [C++ example framework](test/example-frameworks/cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile), [Marathon](test/marathon/marathon.dockerfile)) and URB URI specified as `urb://urb-master.default:6379` (see for example [Marathon](test/marathon/marathon.yaml) service).
+The following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set,  and URB URI specified as `urb://urb-master.default:6379` (see for example [Marathon](test/marathon/marathon.yaml) service). There are two docker images which can be used as a base for creating custom framework images [urb-bin-base.dockerfile](urb-bin-base.dockerfile) with URB binary dependencies specified above and [urb-python-base.dockerfile](urb-python-base.dockerfile) with added Python dependencies. They are used in following examples: [C++ example framework](test/example-frameworks/cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile).
 
 ### Run Mesos Framework From Outside of the Kubernetes Cluster
 
@@ -103,8 +103,7 @@ The URB service can be accessible from outside of the cluster at port `30379`. I
 
 In many situations, to access global data or when a framework uses a custom executor or an executor requires a massive run time bundle that is shared by the framework scheduler and executor it is convenient to have a common run time located on a persistent volume that is accessible from both the executor runner and the framework. Persistent volume claims to be used by framework's executor can be configured with `persistent_volume_claims` configuration option in URB configuration file [etc/urb.conf](etc/urb.conf) on per framework basis or in `DefaultFrameworkConfig` section as default value for all frameworks. It allows to place framework or other data files on shared volume within the cluster.
 
-Alternatively, all framework and executor files can be located in corresponding self contained docker images. Such frameworks has to be configured in [etc/urb.conf](etc/urb.conf) with `executor_runner` framework configuration option for custom executor runner docker image which can be based on generic URB executor runner image [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile). See Python test  framework [python-framework.dockerfile](python-framework.dockerfile) for example. There are two more useful URB base images ([urb-bin-base.dockerfile](urb-bin-base.dockerfile) with URB binary dependencies and [urb-python-base.dockerfile](urb-python-base.dockerfile) with added Python dependencies) which should be used for creating framework images. 
-
+Alternatively, all framework and executor files can be located in corresponding self contained docker images. Such frameworks has to be configured in [etc/urb.conf](etc/urb.conf) with `executor_runner` framework configuration option for custom executor runner docker image which can be based on generic URB executor runner image [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile). See custom executor runner docker image for Python test framework [python-executor-runner.dockerfile](python-executor-runner.dockerfile) for example. 
 
 ## Run Mesos Example Frameworks
 
@@ -114,7 +113,7 @@ Examples below will demonstrate different options for running Mesos frameworks:
 
 - C++ framework runs inside kubernetes cluster, framework executable and custom executor located on shared persistent volume 
 - C++ framework executable located and runs outside of the kubernetes cluster and custom executor located on shared persistent volume
-- Python framework and custom executors located in self contained docker images
+- Python framework and custom executor located in self contained docker images
 
 ### C++ Example Framework
 
@@ -135,7 +134,7 @@ kubectl create -f test/example-frameworks/cpp-framework.yaml
 The output from the framework can be examined with (the pod name has to be replaced with actual name from your environment):
 
 ```
-    kubectl logs cpp-framework-ck8zz
+kubectl logs cpp-framework-ck8zz
 ```
 
 
@@ -144,35 +143,35 @@ This is an example of how to run the C++ example framework from outside of the K
 - Get the URB service URI:
 
 ```
-    minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
+minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
 ```
 - Login to build machine:
 
 ```
-    cd urb-core/vagrant; vagrant ssh
+cd urb-core/vagrant; vagrant ssh
 ```
-- Create a directory to contain C++ framework binary which matches the path `/opt/example/bin/example_framework.test` in the Kubernetes persistent volume created in minikube by test/example-frameworks/run.sh in the previous example:
+- Create a directory to contain C++ framework binary which matches the path `/opt/example/bin/example_framework.test` in the Kubernetes persistent volume created in minikube by `test/example-frameworks/run.sh` in the previous example:
 
 ```
-    sudo mkdir -p /opt/example/bin
+sudo mkdir -p /opt/example/bin
 ```
 - Copy the C++ framework executable:
 
 ```
-    sudo cp /scratch/urb/urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_framework.test /opt/example/bin
+sudo cp /scratch/urb/urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_framework.test /opt/example/bin
 ```
 - Run the C++ framework (substitute `<URB_URI>` with an actual URI determined in the first step from the host machine)
 
 ```
-    cd /scratch/urb
-    LD_LIBRARY_PATH=$(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64:$LD_LIBRARY_PATH URB_MASTER=<URB_URI> /opt/example/bin/example_framework.test
+cd /scratch/urb
+LD_LIBRARY_PATH=$(pwd)/urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64:$LD_LIBRARY_PATH URB_MASTER=<URB_URI> /opt/example/bin/example_framework.test
 ```
 
 Framework tasks will be submitted to Kubernetes cluster in a same way as in previous example.
 
 ### Python Example Framework
 
-With Python example framework both framework scheduler and custom executor will run in self contained docker containers with no relying on the persistent volume. Python framework `test_framework.py` file is added in `/urb/bin` directory in docker image [python-framework.dockerfile](python-framework.dockerfile) based on [urb-python-base.dockerfile](urb-python-base.dockerfile) which includes all required URB binary and Python dependencies. Python example framework job is defined in [test/example-frameworks/python-framework.yaml](test/example-frameworks/python-framework.yaml). Similarly, custom executor runner docker image [python-executor-runner.dockerfile](python-executor-runner.dockerfile) contains custom executor `test_executor.py` file on the same path (`/urb/bin`). This image is based on [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile). And framework configurtion section `TestFrameworkPy*FrameworkConfig` for Python example framework in [etc/urb.conf](etc/urb.conf) has `executor_runner = local/urb-python-executor-runner` configuration option which points to custom executor docker image.
+With Python example framework both framework scheduler and custom executor will run in self contained docker containers with no relying on the persistent volume. Python framework `test_framework.py` file is added in `/urb/bin` directory in docker image [python-framework.dockerfile](python-framework.dockerfile) based on [urb-python-base.dockerfile](urb-python-base.dockerfile) which includes all required URB binary and Python dependencies. Python example framework job is defined in [test/example-frameworks/python-framework.yaml](test/example-frameworks/python-framework.yaml). Similarly, custom executor runner docker image [python-executor-runner.dockerfile](python-executor-runner.dockerfile) contains custom executor `test_executor.py` file on the same path (`/urb/bin`). This image is based on generic [urb-executor-runner.dockerfile](urb-executor-runner.dockerfile). And framework configurtion section `TestFrameworkPy*FrameworkConfig` for Python example framework in [etc/urb.conf](etc/urb.conf) has `executor_runner = local/python-executor-runner` configuration option which points to custom executor docker image.
 
 Run Python framework example with following command:
 
@@ -183,7 +182,7 @@ kubectl create -f test/example-frameworks/python-framework.yaml
 The output from the framework can be examined with (the pod name has to be replaced with actual name from your environment):
 
 ```
-    kubectl logs python-framework-ck8zz
+kubectl logs python-framework-ck8zz
 ```
 
 
@@ -200,14 +199,14 @@ kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml
 kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-service.yaml
 ```
 
-Create Marathon Docker image:
+Create Marathon Docker image. This image is based on mesosphere/marathon image thus URB binary dependencies has to be installed directly with package manager in [test/marathon/marathon.dockerfile](test/marathon/marathon.dockerfile). 
 
 ```
 cd test/marathon
 docker build --rm -t local/marathon -f marathon.dockerfile .
 ```
 
-Create Marathon service and deployment:
+Create Marathon Kubernetes service and deployment with [test/marathon/marathon.yaml](test/marathon/marathon.yaml). It relies on persistent volume `urb-pvc` with URB installation located in `/opt/urb` created by helper script in first C++ example.
 
 ```
 kubectl create -f marathon.yaml
@@ -223,7 +222,7 @@ Marathon jobs will be dispatched to minikube Kubernetes cluster.
 
 ### Spark
 
-In this section Python _Pi_, _wordcount_ examples and _Spark Shell_ from the [Spark](https://spark.apache.org) data processing framework will be demonstrated.
+In this section Python _Pi_, _wordcount_ examples and _PySpark Shell_ from the [Spark](https://spark.apache.org) data processing framework will be demonstrated.
 
 #### Spark Python _Pi_ example
 
@@ -269,7 +268,7 @@ docker build --rm -t local/spark-exec -f spark-exec.dockerfile .
 Create Spark driver job in Kubernetes cluster from the root of the project:
 
 ```
-kubectl create -f test/spark/spark-driver.yaml
+kubectl create -f spark-driver.yaml
 ```
 
 Determine a Spark driver pod name with `kubectl get pods | grep spark-driver`.
