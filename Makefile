@@ -54,7 +54,7 @@ $(GIMAGES):
 gimages: $(GIMAGES)
 
 $(IMAGES-clean):
-	im=${REPOSITORY}/$(subst -clean,,$(subst g-,,$@)); gcloud container images delete -q $$im; for hh in $$(gcloud compute instances list | awk '/gke/ {print $$1}'); do gcloud compute --project ${PROJECT_ID} ssh $$hh -- docker rmi $$im; done
+	-im=${REPOSITORY}/$(subst -clean,,$(subst g-,,$@)); gcloud container images delete -q $$im; for hh in $$(gcloud compute instances list | awk '/gke/ {print $$1}'); do gcloud compute --project ${PROJECT_ID} ssh $$hh -- docker rmi -f $$im; done
 
 echo:
 	@echo "IMAGES: $(IMAGES)"

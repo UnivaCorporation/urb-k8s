@@ -90,10 +90,6 @@ class K8SAdapter(object):
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes'
             config.load_incluster_config()
 
-    def __configure_pvc(self):
-        for pvc, path in self.cm.get_config_items("PersistentVolumeClaims"):
-            self.logger.debug("persistent volume claim: %s, path: %s" % (pvc, path))
-
     # override default executor runner command (for testing purposes)
     def set_command(self, cmd = ["/bin/sh", "-c", "env; sleep 1"]):
         self.job['spec']['template']['spec']['containers'][0]['command'] = cmd
