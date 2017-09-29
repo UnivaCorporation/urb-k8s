@@ -37,9 +37,6 @@ rmi() {
       docker rmi -f $img
       if [ $? -ne 0 ]; then
         rmi_dep $img
-        set -e
-        docker rmi -f $img
-        set +e
       fi
     fi
   fi
@@ -61,8 +58,11 @@ rmi_none() {
 rmi_dep() {
   local im=$1
   for ii in $(docker images -q); do
-    if docker history $i | grep -q $im; then
+    if docker history $ii | grep -q $im; then
       docker rmi $ii
+      if [ $? -ne 0 ]; then
+        docker rmi -f $ii
+      fi
     fi
   done
 }

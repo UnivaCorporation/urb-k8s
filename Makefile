@@ -18,7 +18,7 @@ IMAGES=urb-service urb-executor-runner python-framework python-executor-runner u
 GIMAGES=$(addprefix g-,$(IMAGES)) g-urb-redis g-cpp-framework
 IMAGES-clean=$(addsuffix -clean,$(IMAGES)) urb-redis-clean cpp-framework-clean
 
-.PHONY: $(IMAGES) urb-redis cpp-framework $(IMAGES) $(IMAGES-clean)
+.PHONY: $(IMAGES) urb-redis cpp-framework $(GIMAGES) $(IMAGES-clean)
 
 PROJECT_ID=$(shell gcloud config get-value project 2> /dev/null)
 REGISTRY=gcr.io
@@ -32,6 +32,12 @@ dist:
 
 $(IMAGES):
 	docker build --rm -t local/$@ -f $@.dockerfile .
+
+urb-service urb-executor-runner python-framework : urb-python-base
+
+python-executor-runner: urb-executor-runner
+
+urb-python-base: urb-bin-base
 
 urb-redis:
 	cd source; docker build --rm -t local/urb-redis -f urb-redis.dockerfile .
