@@ -60,8 +60,11 @@ class AdapterManager(object):
             raise ConfigurationError(
                 'Adapter parameter %s missing from config file: %s' 
                 % (adapter_option_name, cm.get_config_file()))
-        self.adapter_module = adapter_config.split('.')[0]
-        self.adapter_constructor = adapter_config.split('.')[1]
+        dot_pos = adapter_config.find('.')
+        if dot_pos == -1:
+            raise ConfigurationError("Incorrect adapter format: should be in form <handlername>_adapter=adapter_module.AdapterClass(arg1, arg2, ...)")
+        self.adapter_module = adapter_config[:dot_pos]
+        self.adapter_constructor = adapter_config[dot_pos+1:]
         self.logger.trace('adapter_module=%s, adapter_constructor=%s' % (self.adapter_module, self.adapter_constructor))
         try:
             self.adapter_class = self.adapter_constructor.split('(')[0]
