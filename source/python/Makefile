@@ -27,8 +27,6 @@ all: build dist
 .PHONY:deps install clean dist egg distclean test
 deps install test:
 
-#urb/__init__.py : urb-core/util/params.mk
-
 $(K8S_ADAPTER_INIT) : $(TOP)/util/params.mk
 	echo "__version__ = '$(VERSION)'" > $@
 
@@ -52,7 +50,7 @@ test: $(K8S_ADAPTER_INIT)
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" == "PONG" ]; then echo -e "flushdb\nshutdown\nquit\n" | $(REDIS_BIN)/redis-cli; fi
 
 clean:
-	rm -rf build *.egg-info `find . -name '*.pyc'` urb/__init__.py
+	rm -rf build *.egg-info `find . -name '*.pyc'` $(K8S_ADAPTER_INIT)
 
 tidy: clean
 	rm -rf dist
