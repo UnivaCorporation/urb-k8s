@@ -52,6 +52,7 @@ DIST_TARGET_3RDPARTY_LICENSES=$(BASE_DIR)/3rdparty_licenses
 DIST_TARGET_3RDPARTY_LICENSES_CPP=$(DIST_TARGET_3RDPARTY_LICENSES)/cpp
 DIST_TARGET_3RDPARTY_LICENSES_PYTHON=$(DIST_TARGET_3RDPARTY_LICENSES)/python
 DIST_TARGET_3RDPARTY_LICENSES_README=$(DIST_TARGET_3RDPARTY_LICENSES)/README
+DIST_TARGET_3RDPARTY_LICENSES_CSV=$(DIST_TARGET_3RDPARTY_LICENSES)/licenses.csv
 
 # Liburb stuff
 LIBURB_DIR=source/cpp/liburb
@@ -203,7 +204,17 @@ $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON): all $(DIST_DIR)/../.dummy $(LIBURB_TARG
 	  fi \
 	done
 
-$(DIST_TARGET_3RDPARTY_LICENSES_README): $(DIST_TARGET_3RDPARTY_LICENSES_CPP) $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON)
+$(DIST_TARGET_3RDPARTY_LICENSES_CSV):
+	cd $$(dirname $@); \
+	for proj in $$(find python cpp -mindepth 1 -maxdepth 1 -type d); do \
+	  echo -n "$$proj" >> $@; \
+	  find $$proj -mindepth 1 -maxdepth 1 -exec echo -n ";{}" \; >> $@; \
+	  echo >> $@; \
+	done
+
+$(DIST_TARGET_3RDPARTY_LICENSES_README): $(DIST_TARGET_3RDPARTY_LICENSES_CPP) \
+                                         $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON) \
+                                         $(DIST_TARGET_3RDPARTY_LICENSES_CSV)
 	mkdir -p $$(dirname $@)
 	echo "The files in this directory hierarchy reference all third party components and" > $@
 	echo "software modules which are used by the Universal Resource Broker product with" >> $@
