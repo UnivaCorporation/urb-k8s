@@ -23,5 +23,6 @@ RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clea
 # set environment variables, copy binaries
 ENV URB_ROOT=/urb
 RUN mkdir -p $URB_ROOT/lib
-COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb.* $URB_ROOT/lib/
+COPY urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64/liburb*.so.*.*.* $URB_ROOT/lib/
+RUN cd $URB_ROOT/lib; for l in liburb*; do ll=${l}_; ln -s $l ${ll/.[0-9].[0-9]_/}; ln -s $l ${l/.[0-9].[0-9].[0-9]/}; done
 ENV LD_LIBRARY_PATH=$URB_ROOT/lib:$LD_LIBRARY_PATH
