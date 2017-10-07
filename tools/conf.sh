@@ -19,6 +19,7 @@ set -x
 mkdir -p urb-core/vagrant/.minikube
 cp ~/.minikube/apiserver.* urb-core/vagrant/.minikube
 cp ~/.minikube/ca.* urb-core/vagrant/.minikube
+cp ~/.minikube/client.* urb-core/vagrant/.minikube
 cp ~/.minikube/cert.pem urb-core/vagrant/.minikube
 mkdir -p urb-core/vagrant/.kube
 cp ~/.kube/config urb-core/vagrant/.kube/config.orig
