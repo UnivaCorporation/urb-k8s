@@ -155,7 +155,7 @@ for comp in ${COMPONENTS[@]}; do
     curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -  
     ;;
   "urb-chronos")
-    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
     ;;
   "urb-marathon")
     curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
