@@ -16,7 +16,8 @@
 
 THISSCRIPT=$(basename $0)
 #URB_K8S_GITHUB=github.com/UnivaCorporation/urb-k8s/blob/master
-URB_K8S_GITHUB=https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master
+URB_K8S_GITHUB=https://raw.githubusercontent.com/sutasu/urb-k8s/master
+#URB_K8S_GITHUB=https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master
 DOCKER_HUB_REPO=univa
 REPO=$DOCKER_HUB_REPO
 
@@ -42,6 +43,9 @@ Options:
                        urb-chronos
                        urb-marathon
                        urb-spark
+                       urb-zoo (optional: installed automatically as
+                         dependency)
+   --remove        : Remove components (comma-separated list as above)
    --HA            : Install in highly available mode.
    --verbose       : Turn on verbose output
 EOF
@@ -56,18 +60,71 @@ urb_configmap() {
   fi
 }
 
+
+urb() {
+  curl $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
+  urb_configmap
+  curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -  
+}
+
 zookeeper() {
-  if [ -z "$ZOO_INSTALLED" ]; then
+  if [ -z "$REMOVE" ]; then
+    if [ -z "$ZOO_INSTALLED" ]; then
+      if [ -z "$HA" ]; then
+        curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl create -f -
+        curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl create -f -
+      else
+        echo "Zookeper HA not implemented"
+        exit 1
+      fi
+      ZOO_INSTALLED=1
+    fi
+  else
     if [ -z "$HA" ]; then
-      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl create -f -
-      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl create -f -
+      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl delete -f -
+      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl delete -f -
     else
-      echo "Not implemented"
+      echo "Zookeper HA not implemented"
       exit 1
     fi
-    ZOO_INSTALLED=1
   fi
 }
+
+chronos() {
+  if [ -z "$REMOVE" ]; then
+    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
+  else
+    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
+  fi
+}
+
+marathon() {
+  if [ -z "$REMOVE" ]; then
+    curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+  else
+    curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+  fi
+}
+
+spark() {
+  if [ -z "$REMOVE" ]; then
+#    SPARK_PVC=$(curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
+#    echo "Spark expects persistent volume with persistent volume claim $SPARK_PVC"
+#    echo "to be available in the cluster which will be mounted to /scratch"
+#    echo "directory inside the driver and executor containers for user's data"
+#    if ! kubectl get pvc | grep $SPARK_PVC ; then
+#      echo "No persistent volume claim $SPARK_PVC found"
+#      echo "Spark will not be installed"
+#      #exit 1
+#    fi
+    cat curl $URB_K8S_GITHUB/test/spark/spark.conf | sed "s|local/spark-exec|$REPO/spark-exec|" >> urb.conf
+    curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+  else
+    curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+  fi
+}
+
+
 
 COMPONENTS=()
 IMAGES=()
@@ -111,6 +168,10 @@ while [ $# -gt 0 ]; do
     IFS=$oIFS
     shift
     ;;
+  "--remove")
+    shift
+    REMOVE=1
+    ;;
   "--HA")
     shift
     HA=1
@@ -122,7 +183,8 @@ while [ $# -gt 0 ]; do
   *)
     Usage
     echo "" >&2
-    Fail "Unknown command-line option $1"
+    echo "Unknown command-line option $1" >&2
+    exit 1
     ;;
   esac
 done
@@ -144,33 +206,22 @@ fi
 
 
 if [ ! -z "$ZOO" ]; then
-  zookeeper
+  inst_zookeeper
 fi
 
 for comp in ${COMPONENTS[@]}; do
   case "$comp" in
   "urb")
-    curl $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
-    urb_configmap
-    curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -  
+    urb
     ;;
   "urb-chronos")
-    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
+    chronos
     ;;
   "urb-marathon")
-    curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    marathon
     ;;
   "spark")
-    SPARK_PVC=$(curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
-    echo "Spark expects persistent volume with persistent volume claim $SPARK_PVC"
-    echo "to be available in the cluster which will be mounted to /scratch"
-    echo "directory inside the driver and executor containers for user's data"
-    if ! kubectl get pvc | grep $SPARK_PVC ; then
-      echo "No persistent volume claim $SPARK_PVC found"
-      exit 1
-    fi
-    cat curl $URB_K8S_GITHUB/test/spark/spark.conf | sed "s|local/spark-exec|$REPO/spark-exec|" >> urb.conf
-    curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    spark
     ;;
   *)
     echo "Invalid component: $comp" >&2

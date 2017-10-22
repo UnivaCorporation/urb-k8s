@@ -1,0 +1,12 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: scratch-pvc
+spec:
+  # next line seems to be workaround for a problem with minikube (https://github.com/kubernetes/minikube/issues/1239)
+  #storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi

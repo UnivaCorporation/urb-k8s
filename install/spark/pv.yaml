@@ -1,0 +1,13 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: scratch-pv
+  labels:
+    type: gcePersistentDisk
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  pdName: scratch-disk
+  fsType: ext4

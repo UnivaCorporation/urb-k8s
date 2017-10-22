@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marathonsvc
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      nodePort: 32080
+  selector:
+    app: marathonsvc
+#  clusterIP: None
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: marathonsvc
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: marathonsvc
+    spec:
+      volumes:
+        - name: urb-pv-storage
+          persistentVolumeClaim:
+            claimName: urb-pvc
+      containers:
+        - image: local/marathon
+          name: marathonsvc
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master.default:6379 --zk zk://zoo-svc:2181/marathon"]
+#          command: ["/bin/sh", "-c", "sleep infinity"]
+          env:
+            - name: MESOS_NATIVE_JAVA_LIBRARY
+              value: /opt/urb/lib/liburb.so
+#            - name: URB_LOGLEVEL
+#              value: 0
+#            - name: GLOG_v
+#              value: 2
+          volumeMounts:
+            - mountPath: "/opt/urb"
+              name: urb-pv-storage
+          ports:
+            - containerPort: 8080
+              name: marathonsvc

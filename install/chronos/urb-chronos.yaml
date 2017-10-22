@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: urb-chronos
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 4040
+      nodePort: 32040
+  selector:
+    app: urb-chronos
+#  clusterIP: None
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: urb-chronos
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: urb-chronos
+    spec:
+      containers:
+      - image: local/urb-chronos
+        name: urb-chronos
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c", "java -jar /usr/bin/chronos --master urb://urb-master.default:6379 --zk_hosts zoo-svc:2181 --http_port 4040"]
+        env:
+        - name: MESOS_NATIVE_JAVA_LIBRARY
+          value: /urb/lib/liburb_big.so
+        ports:
+        - containerPort: 4040
+          name: urb-chronos
