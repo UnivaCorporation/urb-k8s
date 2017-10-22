@@ -92,23 +92,23 @@ zookeeper() {
 
 chronos() {
   if [ -z "$REMOVE" ]; then
-    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
+    curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
   else
-    curl $URB_K8S_GITHUB/test/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
+    curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
   fi
 }
 
 marathon() {
   if [ -z "$REMOVE" ]; then
-    curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
   else
-    curl $URB_K8S_GITHUB/test/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
 }
 
 spark() {
   if [ -z "$REMOVE" ]; then
-#    SPARK_PVC=$(curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
+#    SPARK_PVC=$(curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
 #    echo "Spark expects persistent volume with persistent volume claim $SPARK_PVC"
 #    echo "to be available in the cluster which will be mounted to /scratch"
 #    echo "directory inside the driver and executor containers for user's data"
@@ -117,10 +117,10 @@ spark() {
 #      echo "Spark will not be installed"
 #      #exit 1
 #    fi
-    cat curl $URB_K8S_GITHUB/test/spark/spark.conf | sed "s|local/spark-exec|$REPO/spark-exec|" >> urb.conf
-    curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    curl $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/spark-exec|$REPO/spark-exec|" >> urb.conf
+    curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
   else
-    curl $URB_K8S_GITHUB/test/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
 }
 

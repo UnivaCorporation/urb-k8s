@@ -13,7 +13,7 @@ spec:
 #            claimName: scratch-pvc
       containers:
         - name: spark
-          image: local/spark-driver
+          image: local/urb-spark-driver
           imagePullPolicy: IfNotPresent
           command: [ "/bin/sh", "-c", "env; sleep infinity" ]
 #          volumeMounts:
