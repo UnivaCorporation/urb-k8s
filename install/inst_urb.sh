@@ -45,7 +45,7 @@ Options:
                        urb-spark
                        urb-zoo (optional: installed automatically as
                          dependency)
-   --remove        : Remove components (comma-separated list as above)
+   --remove        : Remove components specified with --components option
    --HA            : Install in highly available mode.
    --verbose       : Turn on verbose output
 EOF
@@ -62,9 +62,16 @@ urb_configmap() {
 
 
 urb() {
-  curl $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
-  urb_configmap
-  curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -  
+  if [ -z "$REMOVE" ]; then
+    curl $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
+    urb_configmap
+    curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+  else
+    kubectl delete service urb-master
+    kubectl delete deployment urb-master
+    kubectl delete configmap urb-config
+    mv urb.conf urb.conf.removed
+  fi
 }
 
 zookeeper() {
@@ -93,6 +100,7 @@ zookeeper() {
 chronos() {
   if [ -z "$REMOVE" ]; then
     curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
+    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
     curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
   fi
@@ -101,6 +109,7 @@ chronos() {
 marathon() {
   if [ -z "$REMOVE" ]; then
     curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
     curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
@@ -117,10 +126,12 @@ spark() {
 #      echo "Spark will not be installed"
 #      #exit 1
 #    fi
-    curl $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/spark-exec|$REPO/spark-exec|" >> urb.conf
+    curl $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
     curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
-    curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    kubectl delete job spark-driver
+    #curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
 }
 
@@ -147,7 +158,7 @@ while [ $# -gt 0 ]; do
     oIFS=$IFS
     IFS=","
     for c in $co; do
-      if [ "$c" == "spark" ]; then
+      if [ "$c" == "urb-spark" ]; then
         IMAGES+=("spark-driver")
         IMAGES+=("spark-exec")
       else
@@ -220,7 +231,7 @@ for comp in ${COMPONENTS[@]}; do
   "urb-marathon")
     marathon
     ;;
-  "spark")
+  "urb-spark")
     spark
     ;;
   *)
