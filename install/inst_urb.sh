@@ -21,6 +21,8 @@ URB_K8S_GITHUB=https://raw.githubusercontent.com/sutasu/urb-k8s/master
 DOCKER_HUB_REPO=univa
 REPO=$DOCKER_HUB_REPO
 
+CURL="curl -s"
+
 Usage() {
    cat >&2 <<EOF
 Univa Universal Resource Broker on Kubernetes installation script.
@@ -60,12 +62,37 @@ urb_configmap() {
   fi
 }
 
+get_uri() {
+  local fr=$1
+  local sp='/-\|'
+  local n=${#sp}
+  local max=60
+  local cnt=0
+  local ip=""
+  local port=""
+  EXTERNAL_URI=""
+  echo "Waiting for external ip address to be available for ${fr}..."
+  while [ $cnt -le $max ]; do
+    ip=$(kubectl get service $ft | awk "/$fr/ {print \$3}")
+    if [[ "$ip" == *"."*"."*"."* ]]; then
+      port=$(kubectl get service $ft | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
+      EXTERNAL_URI="${ip}:${port}"
+      return
+    fi
+    let cnt=cnt+1
+    sleep 1
+    printf "%s\r" "$cnt ${sp:cnt%n:1}"
+  done
+  if [ $cnt -ge $max ]; then
+    echo "Timed out"
+  fi
+}
 
 urb() {
   if [ -z "$REMOVE" ]; then
-    curl $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
+    $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
     urb_configmap
-    curl $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
   else
     kubectl delete service urb-master
     kubectl delete deployment urb-master
@@ -78,8 +105,8 @@ zookeeper() {
   if [ -z "$REMOVE" ]; then
     if [ -z "$ZOO_INSTALLED" ]; then
       if [ -z "$HA" ]; then
-        curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl create -f -
-        curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl create -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl create -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl create -f -
       else
         echo "Zookeper HA not implemented"
         exit 1
@@ -87,37 +114,44 @@ zookeeper() {
       ZOO_INSTALLED=1
     fi
   else
-    if [ -z "$HA" ]; then
-      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl delete -f -
-      curl $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl delete -f -
-    else
-      echo "Zookeper HA not implemented"
-      exit 1
+    if [ -z "$ZOO_DELETED" ]; then
+      if [ -z "$HA" ]; then
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl delete -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl delete -f -
+      else
+        echo "Zookeper HA not implemented"
+        exit 1
+      fi
     fi
+    ZOO_DELETED=1
   fi
 }
 
 chronos() {
   if [ -z "$REMOVE" ]; then
-    curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
+    $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
-    curl $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
+    kubectl delete service urb-chronos
+    kubectl delete deployment urb-chronos
+    #$CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
   fi
 }
 
 marathon() {
   if [ -z "$REMOVE" ]; then
-    curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    $CURL $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
-    curl $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    kubectl delete service marathonsvc
+    kubectl delete deployment marathonsvc
+    #$CURL $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
 }
 
 spark() {
   if [ -z "$REMOVE" ]; then
-#    SPARK_PVC=$(curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
+#    SPARK_PVC=$($CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
 #    echo "Spark expects persistent volume with persistent volume claim $SPARK_PVC"
 #    echo "to be available in the cluster which will be mounted to /scratch"
 #    echo "directory inside the driver and executor containers for user's data"
@@ -126,12 +160,12 @@ spark() {
 #      echo "Spark will not be installed"
 #      #exit 1
 #    fi
-    curl $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
-    curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
+    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
     kubectl delete job spark-driver
-    #curl $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    #$CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
   fi
 }
 
@@ -169,9 +203,10 @@ while [ $# -gt 0 ]; do
       else
         COMPONENTS+=($c)
       fi
+#      echo ${COMPONENTS[@]}
     done
     if [ $urb -eq 1 ]; then
-      COMPONENTS=("urb" $COMPONENTS)
+      COMPONENTS=("urb" ${COMPONENTS[@]})
     fi
     if [[ "$co" == *"marathon"* ]] || [[ "$co" == *"chronos"* ]]; then
       ZOO=1
@@ -200,6 +235,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+
 if [ ${#COMPONENTS[@]} -eq 0 ]; then
   COMPONENTS=("urb")
   IMAGES=("urb-redis urb-service urb-executor-runner")
@@ -216,8 +252,8 @@ if [ $REPO != "univa" ]; then
 fi
 
 
-if [ ! -z "$ZOO" ]; then
-  inst_zookeeper
+if [ ! -z "$ZOO" ] && [ -z "$REMOVE" ]; then
+  zookeeper
 fi
 
 for comp in ${COMPONENTS[@]}; do
@@ -234,9 +270,28 @@ for comp in ${COMPONENTS[@]}; do
   "urb-spark")
     spark
     ;;
+  "urb-zoo")
+    # will not be installed second time
+    zookeeper
+    ;;
   *)
     echo "Invalid component: $comp" >&2
     ;;
   esac
 done
 
+if [ -z "$REMOVE" ]; then
+  for comp in urb-chronos urb-marathon; do
+    if [[ "${COMPONENTS[@]}" == *"$comp"* ]]; then
+      get_uri $comp
+      if [ ! -z "$EXTERNAL_URI" ]; then
+        echo "$comp is available at: $EXTERNAL_URI"
+      fi
+    fi
+  done
+fi
+
+# remove zookeeper at the end
+if [ ! -z "$ZOO" ] && [ ! -z "$REMOVE" ] && [[ "${COMPONENTS[@]}" == *"urb-zoo"* ]]; then
+  zookeeper
+fi
