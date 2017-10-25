@@ -46,7 +46,7 @@ Options:
                        urb-marathon
                        urb-spark
                        urb-zoo (optional: installed automatically as
-                         dependency)
+                         dependency if required)
    --remove        : Remove components specified with --components option
    --HA            : Install in highly available mode.
    --verbose       : Turn on verbose output
@@ -71,7 +71,7 @@ get_uri() {
   local ip=""
   local port=""
   EXTERNAL_URI=""
-  echo "Waiting for external ip address to be available for ${fr}..."
+  echo "Waiting for external ip address to become available for ${fr}..."
   while [ $cnt -le $max ]; do
     ip=$(kubectl get service $ft | awk "/$fr/ {print \$3}")
     if [[ "$ip" == *"."*"."*"."* ]]; then
@@ -129,6 +129,13 @@ zookeeper() {
 
 chronos() {
   if [ -z "$REMOVE" ]; then
+    if grep -i 'chronos.*FrameworkConfig]' urb.conf ; then
+      echo "WARNING: Some Chronos related framework configuration section[s] outlined above already present in urb.conf"
+      echo "The default one below will not be added:"
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
+    else
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> urb.conf
+    fi
     $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
@@ -140,7 +147,14 @@ chronos() {
 
 marathon() {
   if [ -z "$REMOVE" ]; then
-    $CURL $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    if grep -i 'marathon.*FrameworkConfig]' urb.conf ; then
+      echo "WARNING: Some Marathon related framework configuration section[s] outlined above already present in urb.conf"
+      echo "The default one below will not be added:"
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
+    else
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> urb.conf
+    fi
+    $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
     kubectl delete service marathonsvc
@@ -160,7 +174,13 @@ spark() {
 #      echo "Spark will not be installed"
 #      #exit 1
 #    fi
-    $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
+    if grep -i 'spark.*FrameworkConfig]' urb.conf ; then
+      echo "WARNING: Some Spark related framework configuration section[s] outlined above already present in urb.conf"
+      echo "The default ones below will not be added:"
+      $CURL $URB_K8S_GITHUB/install/spark/spark.conf
+    else
+      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
+    fi
     $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
   else
