@@ -9,11 +9,11 @@ Please see the [Universal Resource Broker core](https://github.com/UnivaCorporat
 ## Doing a Quick Trial
 
 In order to do a quick trial there is no need to clone and build a whole project.
-There is an installation script which can be downloaded with `curl -O https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master/install/inst_urb.sh && chmod a+x inst_urb.sh` and used to install URB on existing Kubernetes cluster from pre-built docker images hosted on [DockerHub](hub.docker.com/u/univa) and Kubernetes yaml files from this repository. In addtinion to URB service, several ready to use Mesos frameworks (run `./inst_urb.sh --help` for more information) can be installed as well. For example following command will install URB master service, Marathon and Chronos frameworks as well as Spark:
+There is an installation script which can be downloaded with `curl -O https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master/install/inst_urb.sh && chmod a+x inst_urb.sh` and used to install URB on existing Kubernetes cluster from pre-built docker images hosted on [DockerHub](https://hub.docker.com/u/univa) and Kubernetes yaml files from this repository. In addtinion to URB service, several ready to use Mesos frameworks (run `./inst_urb.sh --help` for more information) can be installed as well. For example following command will install URB master service, Marathon and Chronos frameworks as well as Spark:
 
 `./inst_urb.sh -c urb,urb-marathon,urb-chronos,urb-spark`
 
-Upon execution of the above command, Marathon and Chronos URLs will be displayed as well as Spark driver pod will become available (see more detailes on running Spark examples below). Local URB configuration file `urb.conf` with custom framework configuration sections for the installed Mesos frameworks can be modified and reloaded (see [Updating URB configuration](/Updating URB configuration/))
+Upon execution of the above command, Marathon and Chronos URLs will be displayed as well as Spark driver pod will become available (see more detailes on running Spark examples below). Local URB configuration file `urb.conf` with custom framework configuration sections for the installed Mesos frameworks can be modified and reloaded as described in _Updating URB configuration_ section.
 
 Above installation can be deleted with following command:
 
