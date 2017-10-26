@@ -6,7 +6,7 @@ spec:
   type: LoadBalancer
   ports:
     - port: 4040
-      nodePort: 32040
+#      targetPort: 4040
   selector:
     app: urb-chronos
 #  clusterIP: None

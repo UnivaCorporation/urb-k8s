@@ -6,7 +6,7 @@ spec:
   type: LoadBalancer
   ports:
     - port: 8080
-      nodePort: 32080
+#      targetPort: 8080
   selector:
     app: marathonsvc
 #  clusterIP: None

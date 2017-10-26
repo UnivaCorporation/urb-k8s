@@ -32,6 +32,9 @@ spec:
       - image: local/urb-service
         name: urb-service
         imagePullPolicy: IfNotPresent
+#        resources:
+#          requests:
+#            cpu: "1"
         ports:
         - containerPort: 6379
           name: urb-service

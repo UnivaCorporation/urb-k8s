@@ -17,9 +17,14 @@
 THISSCRIPT=$(basename $0)
 GITHUB_USER=${GITHUB_USER:-UnivaCorporation}
 DOCKERHUB_USER=${DOCKERHUB_USER:-univa}
-URB_K8S_GITHUB=https://raw.githubusercontent.com/$GITHUB_USER/urb-k8s/master
+if [ ! -z "$LOCAL_TEST" ]; then
+  URB_K8S_GITHUB=./
+  CURL="cat"
+else
+  URB_K8S_GITHUB=https://raw.githubusercontent.com/$GITHUB_USER/urb-k8s/master
+  CURL="curl -s"
+fi
 REPO=$DOCKERHUB_USER
-CURL="curl -s"
 
 Usage() {
    cat >&2 <<EOF
@@ -60,42 +65,63 @@ urb_configmap() {
   fi
 }
 
-get_uri() {
+get_service_uri() {
   local fr=$1
   local sp='/-\|'
   local n=${#sp}
-  local max=60
+  local max=120
   local cnt=0
   local ip=""
   local port=""
   EXTERNAL_URI=""
   echo "Waiting for external ip address to become available for ${fr}..."
   while [ $cnt -le $max ]; do
-    ip=$(kubectl get service $ft | awk "/$fr/ {print \$3}")
+    ip=$(kubectl get service $fr | awk "/$fr/ {print \$3}")
     if [[ "$ip" == *"."*"."*"."* ]]; then
-      port=$(kubectl get service $ft | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
+      port=$(kubectl get service $fr | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
       EXTERNAL_URI="${ip}:${port}"
       return
     fi
     let cnt=cnt+1
+    if [ $cnt -eq 5 ]; then
+      echo "It may take a couple of minutes... You can ^C and get it later with \"kubectl get service ${fr}\""
+    fi
     sleep 1
     printf "%s\r" "$cnt ${sp:cnt%n:1}"
   done
   if [ $cnt -ge $max ]; then
-    echo "Timed out"
+    echo "Timed out... You can try to obtain it later with \"kubectl get service ${fr}\""
+  fi
+}
+
+get_uri() {
+  local fr=$1
+  context_name=$(kubectl config get-contexts | awk "/^\*/ {print \$2}")
+  if [ "$context_name" == "minikube" ]; then
+    EXTERNAL_URI=$(minikube service $fr --url)
+  elif [ "$context_name" == "gke"* ]; then
+    get_service_uri $fr
+  else
+    get_service_uri $fr
   fi
 }
 
 urb() {
   if [ -z "$REMOVE" ]; then
-    $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
-    urb_configmap
+    if [ -f urb.conf ]; then
+      echo "WARNING: local urb.conf file (possibly with customizations) already exists. Will not overwrite..."
+    else
+      $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
+      urb_configmap
+    fi
     $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
   else
     kubectl delete service urb-master
     kubectl delete deployment urb-master
     kubectl delete configmap urb-config
-    mv urb.conf urb.conf.removed
+    if [ -f urb.conf ]; then
+      mv urb.conf urb.conf.removed
+    fi
   fi
 }
 
@@ -130,9 +156,9 @@ chronos() {
     if grep -i 'chronos.*FrameworkConfig]' urb.conf ; then
       echo "WARNING: Some Chronos related framework configuration section[s] outlined above already present in urb.conf"
       echo "The default one below will not be added:"
-      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
+      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
     else
-      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> urb.conf
+      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> urb.conf
     fi
     $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
     kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
@@ -301,7 +327,11 @@ done
 if [ -z "$REMOVE" ]; then
   for comp in urb-chronos urb-marathon; do
     if [[ "${COMPONENTS[@]}" == *"$comp"* ]]; then
-      get_uri $comp
+      if [ "$comp" == "urb-marathon" ]; then
+        get_uri marathonsvc
+      else
+        get_uri $comp
+      fi
       if [ ! -z "$EXTERNAL_URI" ]; then
         echo "$comp is available at: $EXTERNAL_URI"
       fi
