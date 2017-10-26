@@ -15,12 +15,10 @@
 # limitations under the License.
 
 THISSCRIPT=$(basename $0)
-#URB_K8S_GITHUB=github.com/UnivaCorporation/urb-k8s/blob/master
-URB_K8S_GITHUB=https://raw.githubusercontent.com/sutasu/urb-k8s/master
-#URB_K8S_GITHUB=https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master
-DOCKER_HUB_REPO=univa
-REPO=$DOCKER_HUB_REPO
-
+GITHUB_USER=${GITHUB_USER:-UnivaCorporation}
+DOCKERHUB_USER=${DOCKERHUB_USER:-univa}
+URB_K8S_GITHUB=https://raw.githubusercontent.com/$GITHUB_USER/urb-k8s/master
+REPO=$DOCKERHUB_USER
 CURL="curl -s"
 
 Usage() {
@@ -261,10 +259,10 @@ if [ ${#COMPONENTS[@]} -eq 0 ]; then
   IMAGES=("urb-redis urb-service urb-executor-runner")
 fi
 
-if [ $REPO != "univa" ]; then
+if [ "$REPO" != "$DOCKERHUB_USER" ]; then
   for im in ${IMAGES[@]}; do
-    docker pull univa/$im
-    docker tag univa/$im $REPO/$im
+    docker pull $DOCKERHUB_USER/$im
+    docker tag $DOCKERHUB_USER/$im $REPO/$im
     if [ $REPO != "local" ]; then
       docker push $REPO/$im
     fi
