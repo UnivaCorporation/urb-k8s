@@ -26,6 +26,7 @@ else
 fi
 REPO=$DOCKERHUB_USER
 KUBECTL=kubectl
+URB_CONF=urb.conf
 
 Usage() {
    cat >&2 <<EOF
@@ -62,9 +63,9 @@ EOF
 urb_configmap() {
   $KUBECTL get configmap urb-config > /dev/null 2>&1
   if [ $? -ne 0 ]; then
-    $KUBECTL create configmap urb-config --from-file=urb.conf
+    $KUBECTL create configmap urb-config --from-file=$URB_CONF
   else
-    $KUBECTL create configmap urb-config --from-file=urb.conf --dry-run -o yaml | $KUBECTL replace -f -
+    $KUBECTL create configmap urb-config --from-file=$URB_CONF --dry-run -o yaml | $KUBECTL replace -f -
   fi
 }
 
@@ -127,19 +128,19 @@ get_uri() {
 
 urb() {
   if [ -z "$REMOVE" ]; then
-    if [ -f urb.conf ]; then
-      echo "WARNING: local urb.conf file (possibly with customizations) already exists. Will not overwrite..."
+    if [ -f $URB_CONF ]; then
+      echo "WARNING: local $URB_CONF file (possibly with customizations) already exists. Will not overwrite..."
     else
-      $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
+      $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > $URB_CONF
       urb_configmap
     fi
-    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/" | $KUBECTL create -f -
   else
     $KUBECTL delete service urb-master
     $KUBECTL delete deployment urb-master
     $KUBECTL delete configmap urb-config
-    if [ -f urb.conf ]; then
-      mv urb.conf urb.conf.removed
+    if [ -f $URB_CONF ]; then
+      mv $URB_CONF ${URB_CONF}.removed
     fi
   fi
 }
@@ -172,12 +173,12 @@ zookeeper() {
 
 chronos() {
   if [ -z "$REMOVE" ]; then
-    if grep -i 'chronos.*FrameworkConfig]' urb.conf ; then
-      echo "WARNING: Some Chronos related framework configuration section[s] outlined above already present in urb.conf"
+    if grep -i 'chronos.*FrameworkConfig]' $URB_CONF ; then
+      echo "WARNING: Some Chronos related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
     else
-      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> urb.conf
+      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> $URB_CONF
     fi
     $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | $KUBECTL create -f -
     urb_configmap
@@ -190,12 +191,12 @@ chronos() {
 
 marathon() {
   if [ -z "$REMOVE" ]; then
-    if grep -i 'marathon.*FrameworkConfig]' urb.conf ; then
-      echo "WARNING: Some Marathon related framework configuration section[s] outlined above already present in urb.conf"
+    if grep -i 'marathon.*FrameworkConfig]' $URB_CONF ; then
+      echo "WARNING: Some Marathon related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
     else
-      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> urb.conf
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> $URB_CONF
     fi
     $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
     urb_configmap
@@ -217,12 +218,12 @@ spark() {
 #      echo "Spark will not be installed"
 #      #exit 1
 #    fi
-    if grep -i 'spark.*FrameworkConfig]' urb.conf ; then
-      echo "WARNING: Some Spark related framework configuration section[s] outlined above already present in urb.conf"
+    if grep -i 'spark.*FrameworkConfig]' $URB_CONF ; then
+      echo "WARNING: Some Spark related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default ones below will not be added:"
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf
     else
-      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
+      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
     $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
     urb_configmap
@@ -278,6 +279,7 @@ while [ $# -gt 0 ]; do
     NAMESPACE=$1
     shift
     KUBECTL+=" --namespace=$NAMESPACE"
+    URB_CONF+=".$NAMESPACE"
     ;;
   "--remove")
     shift
@@ -376,4 +378,9 @@ fi
 # remove zookeeper at the end
 if [ ! -z "$ZOO" ] && [ ! -z "$REMOVE" ] && [[ "${COMPONENTS[@]}" == *"urb-zoo"* ]]; then
   zookeeper
+fi
+
+if [ -z "$REMOVE" ]; then
+  echo "URB configuration file $URB_CONF can be modified and reloaded with:"
+  echo "$KUBECTL create configmap urb-config --from-file=$URB_CONF --dry-run -o yaml | kubectl replace -f -"
 fi
