@@ -27,7 +27,7 @@ spec:
       - image: local/urb-chronos
         name: urb-chronos
         imagePullPolicy: IfNotPresent
-        command: ["/bin/sh", "-c", "java -jar /usr/bin/chronos --master urb://urb-master.default:6379 --zk_hosts zoo-svc:2181 --http_port 4040"]
+        command: ["/bin/sh", "-c", "java -jar /usr/bin/chronos --master urb://urb-master:6379 --zk_hosts zoo-svc:2181 --http_port 4040"]
         env:
         - name: MESOS_NATIVE_JAVA_LIBRARY
           value: /urb/lib/liburb_big.so

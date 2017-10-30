@@ -20,4 +20,4 @@
 
 FROM local/urb-bin-base
 
-ENV URB_MASTER=urb://urb-master.default:6379
+ENV URB_MASTER=urb://urb-master:6379

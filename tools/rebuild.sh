@@ -16,6 +16,16 @@
 
 set -x
 
+if [ ! -z "$VERSION" ]; then
+  VERSION_PARAM="VERSION=$VERSION"
+fi
+if [ ! -z "$FULL_MESOS_LIB" ]; then
+  FULL_MESOS_LIB_PARAM="FULL_MESOS_LIB=1"
+fi
+if [ ! -z $STOCK_MESOS_DIR ]; then
+  STOCK_MESOS_DIR_PARAM="STOCK_MESOS_DIR=$STOCK_MESOS_DIR"
+fi
+
 # remove docker image
 rmi() {
   local nm=$1
@@ -168,6 +178,7 @@ if [ ! -z "$CPP_EXAMPLE" ]; then
 fi
 if [ ! -z "$PYTHON_EXAMPLE" ]; then
   rmi "local\/python-framework"
+  rmi "local\/python-executor-runner"
 fi
 if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
   rmi "local\/urb-executor-runner"
@@ -183,7 +194,9 @@ rmi_none
 # rebuild URB artifacts
 clear_minikube_env
 pushd urb-core/vagrant
-SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && make && make dist"
+set -e
+SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+set +e
 popd
 
 # create docker images
@@ -199,7 +212,7 @@ if [ ! -z "$CPP_EXAMPLE" ]; then
   make cpp-framework
 fi
 if [ ! -z "$PYTHON_EXAMPLE" ]; then
-  make python-framework
+  make python-framework python-executor-runner
 fi
 if [ ! -z "$URB_EXECUTOR_RUNNER" ]; then
   make urb-executor-runner

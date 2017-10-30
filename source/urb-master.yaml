@@ -6,12 +6,8 @@ spec:
   type: NodePort
   ports:
     - port: 6379
-      nodePort: 30379
-#  ports:
-#    - port: 6379
   selector:
     app: urb-master
-#  clusterIP: None
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -45,6 +41,10 @@ spec:
           value: $(URB_ROOT)/etc/urb.conf
         - name: URB_MASTER
           value: urb://urb-master:6379
+        - name: URB_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         volumeMounts:
         - mountPath: /urb/etc
           name: urb-config

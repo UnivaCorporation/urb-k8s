@@ -17,7 +17,7 @@ spec:
   ports:
   - name: client
     port: 2181
-    nodePort: 30181
+#    nodePort: 30181
     protocol: TCP
   selector:
     app: zoo

@@ -25,6 +25,7 @@ else
   CURL="curl -s"
 fi
 REPO=$DOCKERHUB_USER
+KUBECTL=kubectl
 
 Usage() {
    cat >&2 <<EOF
@@ -41,7 +42,7 @@ Options:
    --help|-h       : This output
    --repo|-r       : Docker repository used by Kubernetes cluster
                      URB images will be pulled to
-                     (i.e --repo gcr.io/projectname ).
+                     (i.e --repo gcr.io/projectname)
    --components|-c : Comma-separated components to install from
                      following list:
                        urb
@@ -51,17 +52,19 @@ Options:
                        urb-zoo (optional: installed automatically as
                          dependency if required)
    --remove        : Remove components specified with --components option
-   --HA            : Install in highly available mode.
+   --namespace     : Kubernetes namespace (will be created if doesn't exist)
+                     "default" is used by default
+   --HA            : Install in highly available mode (not implemented)
    --verbose       : Turn on verbose output
 EOF
 }
 
 urb_configmap() {
-  kubectl get configmap urb-config 2> /dev/null
+  $KUBECTL get configmap urb-config > /dev/null 2>&1
   if [ $? -ne 0 ]; then
-    kubectl create configmap urb-config --from-file=urb.conf
+    $KUBECTL create configmap urb-config --from-file=urb.conf
   else
-    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
+    $KUBECTL create configmap urb-config --from-file=urb.conf --dry-run -o yaml | $KUBECTL replace -f -
   fi
 }
 
@@ -76,27 +79,43 @@ get_service_uri() {
   EXTERNAL_URI=""
   echo "Waiting for external ip address to become available for ${fr}..."
   while [ $cnt -le $max ]; do
-    ip=$(kubectl get service $fr | awk "/$fr/ {print \$3}")
+    ip=$($KUBECTL get service $fr | awk "/$fr/ {print \$3}")
     if [[ "$ip" == *"."*"."*"."* ]]; then
-      port=$(kubectl get service $fr | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
+      port=$($KUBECTL get service $fr | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
       EXTERNAL_URI="${ip}:${port}"
       return
     fi
     let cnt=cnt+1
-    if [ $cnt -eq 5 ]; then
-      echo "It may take a couple of minutes... You can ^C and get it later with \"kubectl get service ${fr}\""
+    if [ $cnt -eq 6 ]; then
+      echo "It may take a couple of minutes... You can ^C and get it later with \"$KUBECTL get service ${fr}\""
     fi
     sleep 1
     printf "%s\r" "$cnt ${sp:cnt%n:1}"
   done
   if [ $cnt -ge $max ]; then
-    echo "Timed out... You can try to obtain it later with \"kubectl get service ${fr}\""
+    echo "Timed out... You can try to obtain it later with \"$KUBECTL get service ${fr}\""
+  fi
+}
+
+pod_wait() {
+  local name=$1
+  local max=${2:-60}
+  local cnt=0
+  local sp='/-\|'
+  local n=${#sp}
+  while ! kubectl get pods | grep "$name.*Running" && [ $cnt -le $max ]; do
+    let cnt=cnt+1
+    sleep 1
+    printf "%s\r" "$cnt ${sp:cnt%n:1}"
+  done
+  if [ $cnt -ge $max ]; then
+    echo "WARNING: Timeout waiting for $name pod to start"
   fi
 }
 
 get_uri() {
   local fr=$1
-  context_name=$(kubectl config get-contexts | awk "/^\*/ {print \$2}")
+  context_name=$($KUBECTL config get-contexts | awk "/^\*/ {print \$2}")
   if [ "$context_name" == "minikube" ]; then
     EXTERNAL_URI=$(minikube service $fr --url)
   elif [ "$context_name" == "gke"* ]; then
@@ -114,11 +133,11 @@ urb() {
       $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > urb.conf
       urb_configmap
     fi
-    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
+    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
   else
-    kubectl delete service urb-master
-    kubectl delete deployment urb-master
-    kubectl delete configmap urb-config
+    $KUBECTL delete service urb-master
+    $KUBECTL delete deployment urb-master
+    $KUBECTL delete configmap urb-config
     if [ -f urb.conf ]; then
       mv urb.conf urb.conf.removed
     fi
@@ -129,8 +148,8 @@ zookeeper() {
   if [ -z "$REMOVE" ]; then
     if [ -z "$ZOO_INSTALLED" ]; then
       if [ -z "$HA" ]; then
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl create -f -
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl create -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | $KUBECTL create -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | $KUBECTL create -f -
       else
         echo "Zookeper HA not implemented"
         exit 1
@@ -140,8 +159,8 @@ zookeeper() {
   else
     if [ -z "$ZOO_DELETED" ]; then
       if [ -z "$HA" ]; then
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | kubectl delete -f -
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | kubectl delete -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | $KUBECTL delete -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | $KUBECTL delete -f -
       else
         echo "Zookeper HA not implemented"
         exit 1
@@ -160,12 +179,12 @@ chronos() {
     else
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> urb.conf
     fi
-    $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl create -f -
-    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
+    $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | $KUBECTL create -f -
+    urb_configmap
   else
-    kubectl delete service urb-chronos
-    kubectl delete deployment urb-chronos
-    #$CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | kubectl delete -f -
+    $KUBECTL delete service urb-chronos
+    $KUBECTL delete deployment urb-chronos
+    #$CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | $KUBECTL delete -f -
   fi
 }
 
@@ -178,12 +197,12 @@ marathon() {
     else
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> urb.conf
     fi
-    $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
-    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
+    $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    urb_configmap
   else
-    kubectl delete service marathonsvc
-    kubectl delete deployment marathonsvc
-    #$CURL $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    $KUBECTL delete service marathonsvc
+    $KUBECTL delete deployment marathonsvc
+    #$CURL $URB_K8S_GITHUB/install/marathon/marathon.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL delete -f -
   fi
 }
 
@@ -193,7 +212,7 @@ spark() {
 #    echo "Spark expects persistent volume with persistent volume claim $SPARK_PVC"
 #    echo "to be available in the cluster which will be mounted to /scratch"
 #    echo "directory inside the driver and executor containers for user's data"
-#    if ! kubectl get pvc | grep $SPARK_PVC ; then
+#    if ! $KUBECTL get pvc | grep $SPARK_PVC ; then
 #      echo "No persistent volume claim $SPARK_PVC found"
 #      echo "Spark will not be installed"
 #      #exit 1
@@ -205,16 +224,16 @@ spark() {
     else
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> urb.conf
     fi
-    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl create -f -
-    kubectl create configmap urb-config --from-file=urb.conf --dry-run -o yaml | kubectl replace -f -
+    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    urb_configmap
   else
-    kubectl delete job spark-driver
-    #$CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | kubectl delete -f -
+    $KUBECTL delete job spark-driver
+    #$CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL delete -f -
   fi
 }
 
 
-
+URB_IN_COMPONENTS=0
 COMPONENTS=()
 IMAGES=()
 # Command-line parsing
@@ -231,7 +250,6 @@ while [ $# -gt 0 ]; do
     ;;
   "--components" | "-c")
     shift
-    urb=0
     co=$1
     oIFS=$IFS
     IFS=","
@@ -243,20 +261,23 @@ while [ $# -gt 0 ]; do
         IMAGES+=($c)
       fi
       if [ "$c" == "urb" ]; then
-        urb=1
+        URB_IN_COMPONENTS=1
       else
         COMPONENTS+=($c)
       fi
 #      echo ${COMPONENTS[@]}
     done
-    if [ $urb -eq 1 ]; then
-      COMPONENTS=("urb" ${COMPONENTS[@]})
-    fi
     if [[ "$co" == *"marathon"* ]] || [[ "$co" == *"chronos"* ]]; then
       ZOO=1
     fi
     IFS=$oIFS
     shift
+    ;;
+  "--namespace")
+    shift
+    NAMESPACE=$1
+    shift
+    KUBECTL+=" --namespace=$NAMESPACE"
     ;;
   "--remove")
     shift
@@ -280,9 +301,22 @@ while [ $# -gt 0 ]; do
 done
 
 
+if ! kubectl get namespaces | grep "^urb[ \t]" > /dev/null 2>&1 ; then
+  kubectl create namespace $NAMESPACE
+  kubectl label namespace $NAMESPACE name=urb
+fi
+
 if [ ${#COMPONENTS[@]} -eq 0 ]; then
   COMPONENTS=("urb")
   IMAGES=("urb-redis urb-service urb-executor-runner")
+else
+  if [ $URB_IN_COMPONENTS -eq 1 ]; then
+    if [ -z "$REMOVE" ]; then
+      COMPONENTS=("urb" ${COMPONENTS[@]})
+    else
+      COMPONENTS=(${COMPONENTS[@]} "urb")
+    fi
+  fi
 fi
 
 if [ "$REPO" != "$DOCKERHUB_USER" ]; then

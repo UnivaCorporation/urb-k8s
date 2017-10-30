@@ -53,6 +53,7 @@ class K8SAdapter(object):
             self.job = yaml.load(fj)
             if len(k8s_registry_path) != 0:
                 self.job['spec']['template']['spec']['containers'][0]['image'] = k8s_registry_path + "/" + K8SAdapter.URB_EXECUTOR_RUNNER
+
             # URB_MASTER environment variable has to be set in urb-master.yaml
             urb_master = os.environ.get('URB_MASTER')
             if not urb_master:
@@ -73,9 +74,11 @@ class K8SAdapter(object):
         self.batch_v1 = client.BatchV1Api()
 
     def configure(self):
+        # all jobs inherit URB master namespace passed via environment variable
+        self.namespace = os.environ.get('URB_NAMESPACE', 'default')
+        self.logger.info("K8s namespace: %s" % self.namespace)
+
         self.cm = ConfigManager.get_instance()
-        # we might want to get namespace from config or name it after framework
-        self.namespace = "default"
         # cover test environment
         if __name__ == '__main__' or \
           'KUBERNETES_SERVICE_HOST' not in os.environ or \
@@ -87,7 +90,7 @@ class K8SAdapter(object):
             # SSLError hostname '10.0.0.1' doesn't match either of 'kubernetes.default.svc.cluster.local', 'kubernetes.default.svc', 'kubernetes.default', 'kubernetes'
             # https://github.com/kubernetes-incubator/client-python/issues/254
             # has to set environment variable:
-            os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes'
+            os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
             config.load_incluster_config()
 
     # override default executor runner command (for testing purposes)
@@ -234,7 +237,7 @@ class K8SAdapter(object):
             if concurrent_tasks > 1:
                 job_name = job_name + "-%d" % i
             job['metadata']['name'] = job_name
-            self.logger.info("Submit k8s job: %s" % job['metadata']['name'])
+            self.logger.info("Submit k8s job %s in namespace %s" % (job['metadata']['name'], self.namespace))
             self.logger.trace("job body=%s" % job)
             job_resp = self.batch_v1.create_namespaced_job(body = job, namespace = self.namespace)
             self.logger.trace("job_resp: %s" % job_resp)

@@ -22,6 +22,6 @@ FROM local/urb-python-base
 RUN mkdir -p /urb/bin
 
 COPY urb-core/dist/urb-*/share/examples/frameworks/python/test_framework.py /urb/bin/
-ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb-master.default:6379"]
+ENTRYPOINT ["/urb/bin/test_framework.py", "urb://urb-master:6379"]
 
 
