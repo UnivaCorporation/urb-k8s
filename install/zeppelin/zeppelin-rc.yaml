@@ -1,0 +1,29 @@
+kind: ReplicationController
+apiVersion: v1
+metadata:
+  name: zeppelin-rc
+spec:
+  replicas: 1
+  selector:
+    component: zeppelin
+  template:
+    metadata:
+      labels:
+        component: zeppelin
+    spec:
+      containers:
+        - name: zeppelin
+          image: local/urb-zeppelin
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MASTER
+              value: mesos://urb://urb-master:6379
+#          env:
+#            - name: SPARK_SUBMIT_OPTIONS
+#              value: "--master mesos://urb://urb-master:6379 --conf spark.cores.max=6"
+#              value: "--conf spark.cores.max=6"
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
