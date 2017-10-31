@@ -1,18 +1,18 @@
 kind: ReplicationController
 apiVersion: v1
 metadata:
-  name: zeppelin-rc
+  name: urb-zeppelin-rc
 spec:
   replicas: 1
   selector:
-    component: zeppelin
+    component: urb-zeppelin
   template:
     metadata:
       labels:
-        component: zeppelin
+        component: urb-zeppelin
     spec:
       containers:
-        - name: zeppelin
+        - name: urb-zeppelin
           image: local/urb-zeppelin
           imagePullPolicy: IfNotPresent
           env:

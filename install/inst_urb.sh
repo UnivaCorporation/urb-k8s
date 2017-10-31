@@ -21,13 +21,11 @@ DOCKERHUB_USER=${DOCKERHUB_USER:-univa}
 if [ ! -z "$LOCAL_TEST" ]; then
   URB_K8S_GITHUB=./
   CURL="cat"
-  REPO=local
-  DOCKERHUB_USER=local
 else
   URB_K8S_GITHUB=https://raw.githubusercontent.com/$GITHUB_USER/urb-k8s/master
   CURL="curl -s"
-  REPO=$DOCKERHUB_USER
 fi
+REPO=$DOCKERHUB_USER
 KUBECTL=kubectl
 URB_CONF=urb.conf
 
@@ -82,7 +80,7 @@ get_service_uri() {
   local ip=""
   local port=""
   EXTERNAL_URI=""
-  echo "Waiting for external ip address to become available for ${fr}..."
+  echo "Waiting for public URL to become available for ${fr}..."
   while [ $cnt -le $max ]; do
     ip=$($KUBECTL get service $fr | awk "/$fr/ {print \$3}")
     if [[ "$ip" == *"."*"."*"."* ]]; then
@@ -92,7 +90,7 @@ get_service_uri() {
     fi
     let cnt=cnt+1
     if [ $cnt -eq 6 ]; then
-      echo "It may take a couple of minutes... You can ^C and get it later with \"$KUBECTL get service ${fr}\""
+      echo "It may take a couple of minutes... You can ^C and use command \"$KUBECTL get service ${fr}\" later"
     fi
     sleep 1
     printf "%s\r" "$cnt ${sp:cnt%n:1}"
@@ -109,7 +107,7 @@ pod_wait() {
   local cnt=0
   local sp='/-\|'
   local n=${#sp}
-  while ! kubectl get pods | grep "$name.*Running" && [ $cnt -le $max ]; do
+  while ! kubectl get pods | grep -q "$name.*Running" && [ $cnt -le $max ]; do
     let cnt=cnt+1
     sleep 1
     printf "%s\r" "$cnt ${sp:cnt%n:1}"
@@ -185,6 +183,7 @@ chronos() {
       echo "WARNING: Some Chronos related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
+      echo
     else
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> $URB_CONF
     fi
@@ -203,6 +202,7 @@ marathon() {
       echo "WARNING: Some Marathon related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
+      echo
     else
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> $URB_CONF
     fi
@@ -230,6 +230,7 @@ spark() {
       echo "WARNING: Some Spark related framework configuration section[s] outlined above already present in $URB_CONF"
       echo "The default ones below will not be added:"
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf
+      echo
     else
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
@@ -245,8 +246,9 @@ zeppelin() {
   if [ -z "$REMOVE" ]; then
     if grep -i 'ZeppelinFrameworkConfig]' $URB_CONF ; then
       echo "WARNING: Some Zeppelin related framework configuration section[s] outlined above already present in $URB_CONF"
-      echo "The default ones below will not be added:"
+      echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf
+      echo
     else
       $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
@@ -254,11 +256,12 @@ zeppelin() {
     $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-rc.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
     # have to wait
     echo "Waiting for Zeppelin to start"
-    pod_wait zeppelin-rc 60 "Zeppelin is huge, it may take a long time to pull an image for the first time"
+    pod_wait zeppelin-rc 360 "Zeppelin is huge, it may take a long time to pull an image for the first time..."
+    sleep 2
     $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-service.yaml | $KUBECTL create -f -
   else
-    $KUBECTL delete service zeppelin
-    $KUBECTL delete rc zeppelin-rc
+    $KUBECTL delete service urb-zeppelin
+    $KUBECTL delete rc urb-zeppelin-rc
   fi
 }
 
@@ -332,8 +335,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-
-if ! kubectl get namespaces | grep "^urb[ \t]" > /dev/null 2>&1 ; then
+if [ -z "$REMOVE" ] && [ ! -z "$NAMESPACE" ] && ! kubectl get namespaces | grep "^urb[ \t]" > /dev/null 2>&1 ; then
   kubectl create namespace $NAMESPACE
   kubectl label namespace $NAMESPACE name=urb
 fi
@@ -394,7 +396,7 @@ for comp in ${COMPONENTS[@]}; do
 done
 
 if [ -z "$REMOVE" ]; then
-  for comp in urb-chronos urb-marathon; do
+  for comp in urb-chronos urb-marathon urb-zeppelin; do
     if [[ "${COMPONENTS[@]}" == *"$comp"* ]]; then
       if [ "$comp" == "urb-marathon" ]; then
         get_uri marathonsvc

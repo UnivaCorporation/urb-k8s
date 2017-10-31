@@ -1,11 +1,12 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: zeppelin
+  name: urb-zeppelin
 spec:
   ports:
     - port: 80
       targetPort: 8080
   selector:
-    component: zeppelin
-  type: NodePort
+    component: urb-zeppelin
+#  type: NodePort
+  type: LoadBalancer
