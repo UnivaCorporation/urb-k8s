@@ -161,7 +161,7 @@ class K8SAdapter(object):
         return (job_ids, retry_label_selectors)
 
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
-        self.logger.debug("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
+        self.logger.info("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
                          (max_tasks, concurrent_tasks, framework_env, user, args, kwargs))
         job = copy.deepcopy(self.job)
         framework_name = framework_env['URB_FRAMEWORK_NAME'].lower()
@@ -224,7 +224,7 @@ class K8SAdapter(object):
                                 requests['cpu'] = str(int(resource['scalar']['value'])*mul)
 
                 if len(requests) > 0:
-                    self.logger.debug("Requests: %s" % requests)
+                    self.logger.info("Requests: %s" % requests)
                     req_key = {'requests' : requests }
                     job['spec']['template']['spec']['containers'][0]['resources'] = req_key
                     self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
