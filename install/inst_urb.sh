@@ -107,7 +107,7 @@ pod_wait() {
   local cnt=0
   local sp='/-\|'
   local n=${#sp}
-  while ! kubectl get pods | grep -q "$name.*Running" && [ $cnt -le $max ]; do
+  while ! $KUBECTL get pods | grep -q "$name.*Running" && [ $cnt -le $max ]; do
     let cnt=cnt+1
     sleep 1
     printf "%s\r" "$cnt ${sp:cnt%n:1}"
@@ -129,6 +129,36 @@ get_uri() {
     get_service_uri $fr
   else
     get_service_uri $fr
+  fi
+}
+
+add_config() {
+  local conf=$1
+  local max=60
+  local cnt=0
+  local sp='/-\|'
+  local n=${#sp}
+#  section=$($CURL $conf | tee -a $URB_CONF | grep FrameworkConfig | head -1)
+  section=$(cat | tee -a $URB_CONF | grep FrameworkConfig | head -1)
+  if [ -z "$section" ]; then
+    echo "ERROR: Empty section"
+  else
+    urb_configmap
+    URB_MASTER_POD=$($KUBECTL get pods | awk "/^urb-master/ {print \$1}")
+    pod_wait $URB_MASTER_POD
+#    while ! $KUBECTL exec $URB_MASTER_POD -c urb-service -- grep -q "$section" /urb/etc/urb.conf && [ $cnt -le $max ]; do
+    while ! $KUBECTL exec $URB_MASTER_POD -c urb-service -- cat /urb/etc/urb.conf | grep -q "$section" && [ $cnt -le $max ]; do
+#    while ! $KUBECTL describe configmap urb-config | grep -q "$section" && [ $cnt -le $max ]; do
+      if [ $cnt -eq 0 ]; then
+        echo "Waiting for URB configuration update for $section"
+      fi
+      let cnt=cnt+1
+      sleep 1
+      printf "%s\r" "$cnt ${sp:cnt%n:1}"
+    done
+    if [ $cnt -ge $max ]; then
+      echo "WARNING: Timeout waiting for URB configuration update for $section"
+    fi
   fi
 }
 
@@ -184,10 +214,11 @@ chronos() {
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
       echo
+      urb_configmap
     else
-      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf >> $URB_CONF
+      $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf | add_config
+#      add_config $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
     fi
-    urb_configmap
     $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | $KUBECTL create -f -
   else
     $KUBECTL delete service urb-chronos
@@ -203,10 +234,11 @@ marathon() {
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
       echo
+      urb_configmap
     else
-      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf >> $URB_CONF
+      $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf | add_config
+#      add_config $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
     fi
-    urb_configmap
     $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
   else
     $KUBECTL delete service marathonsvc
@@ -231,10 +263,11 @@ spark() {
       echo "The default ones below will not be added:"
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf
       echo
+      urb_configmap
     else
-      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
+      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" | add_config
+#      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
-    urb_configmap
     $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
   else
     $KUBECTL delete job spark-driver
@@ -249,10 +282,11 @@ zeppelin() {
       echo "The default one below will not be added:"
       $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf
       echo
+      urb_configmap
     else
-      $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
+      $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" | add_config
+#      $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
-    urb_configmap
     $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-rc.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
     # have to wait
     echo "Waiting for Zeppelin to start"
@@ -265,7 +299,12 @@ zeppelin() {
   fi
 }
 
-
+add_image() {
+  local im=$1
+  if [[ "${IMAGES[@]}" != *"$im"* ]]; then
+    IMAGES+=($im)
+  fi
+}
 
 URB_IN_COMPONENTS=0
 COMPONENTS=()
@@ -289,10 +328,13 @@ while [ $# -gt 0 ]; do
     IFS=","
     for c in $co; do
       if [ "$c" == "urb-spark" ]; then
-        IMAGES+=("spark-driver")
-        IMAGES+=("spark-exec")
+        add_image "urb-spark-driver"
+        add_image "urb-spark-exec"
+      elif [ "$c" == "urb-zeppelin" ]; then
+        add_image "urb-spark-exec"
+        add_image "$c"
       else
-        IMAGES+=($c)
+        add_image "$c"
       fi
       if [ "$c" == "urb" ]; then
         URB_IN_COMPONENTS=1
