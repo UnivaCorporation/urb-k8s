@@ -82,9 +82,9 @@ get_service_uri() {
   EXTERNAL_URI=""
   echo "Waiting for public URL to become available for ${fr}..."
   while [ $cnt -le $max ]; do
-    ip=$($KUBECTL get service $fr | awk "/$fr/ {print \$3}")
+    ip=$($KUBECTL get service $fr | awk "/$fr/ {print \$4}")
     if [[ "$ip" == *"."*"."*"."* ]]; then
-      port=$($KUBECTL get service $fr | awk "/$fr/ {print \$4}" | awk -F: "{print \$1}")
+      port=$($KUBECTL get service $fr | awk "/$fr/ {print \$5}" | awk -F: "{print \$1}")
       EXTERNAL_URI="${ip}:${port}"
       return
     fi
