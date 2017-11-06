@@ -52,6 +52,7 @@ DIST_TARGET_3RDPARTY_LICENSES=$(BASE_DIR)/3rdparty_licenses
 DIST_TARGET_3RDPARTY_LICENSES_CPP=$(DIST_TARGET_3RDPARTY_LICENSES)/cpp
 DIST_TARGET_3RDPARTY_LICENSES_PYTHON=$(DIST_TARGET_3RDPARTY_LICENSES)/python
 DIST_TARGET_3RDPARTY_LICENSES_README=$(DIST_TARGET_3RDPARTY_LICENSES)/README
+DIST_TARGET_3RDPARTY_LICENSES_CSV=$(DIST_TARGET_3RDPARTY_LICENSES)/licenses.csv
 
 # Liburb stuff
 LIBURB_DIR=source/cpp/liburb
@@ -159,15 +160,20 @@ $(DIST_TARGET_SDIST): all $(DIST_DIR)/../.dummy $(URB_EGG_DIR)/dist/$(URB_SDIST_
 
 $(DIST_TARGET_3RDPARTY_LICENSES_CPP): all $(DIST_DIR)/../.dummy $(LIBURB_TARGET)
 	mkdir -p $@
-	for lic_path in $$(find source/cpp/3rdparty \( -name COPYING -o -name COPYING\.txt -o \
-	                                               -name LICENSE -o -name LICENSE\.txt -o \
-	                                               -name AUTHORS -o -name AUTHORS\.txt \) -print); \
-	do \
-	  new_dir=$$(basename $$(dirname $$lic_path)); \
-	  mkdir -p $@/$$new_dir; \
-	  cp $$lic_path $@/$$new_dir; \
-	  find $$(dirname $$lic_path) \( -name \*\.cpp -o -name \*\.h -o -name \*\.hpp \) -exec grep "Copyright ([cC])" {} \; | sed "s|^.*Copyright ([cC])|Copyright (c)|" | sort -u > $@/$$new_dir/COPYRIGHT; \
-	  [ -s $@/$$new_dir/COPYRIGHT ] || rm $@/$$new_dir/COPYRIGHT; \
+	for thrd_dir in $$(find source/cpp/3rdparty -mindepth 1 -maxdepth 1 -type d); do \
+	  lic_paths=$$(find $$thrd_dir \( -name COPYING\* -o -name LICENSE\* -o -name AUTHORS\* \) -print); \
+	  if [ ! -z "$$lic_paths" ]; then \
+	    for lic_path in $$lic_paths; do \
+	      new_dir=$$(basename $$(dirname $$lic_path)); \
+	      mkdir -p $@/$$new_dir; \
+	      cp $$lic_path $@/$$new_dir; \
+	      find $$(dirname $$lic_path) \( -name \*\.cpp -o -name \*\.h -o -name \*\.hpp \) -exec grep "Copyright" {} \; | sed "s|^.*Copyright|Copyright|" | sort -u > $@/$$new_dir/COPYRIGHT; \
+	      [ -s $@/$$new_dir/COPYRIGHT ] || rm $@/$$new_dir/COPYRIGHT; \
+	    done \
+	  else \
+	    echo "No license found for 3rd party project: $$thrd_dir"; \
+	    exit 1; \
+	  fi \
 	done
 	mkdir -p $@/mesos
 	cp source/cpp/liburb/mesos/LICENSE $@/mesos
@@ -175,18 +181,40 @@ $(DIST_TARGET_3RDPARTY_LICENSES_CPP): all $(DIST_DIR)/../.dummy $(LIBURB_TARGET)
 
 $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON): all $(DIST_DIR)/../.dummy $(LIBURB_TARGET)
 	mkdir -p $@
-	for lic_path in $$(find source/python/3rdparty \( -name COPYING -o -name COPYING\.txt -o \
-	                                                  -name LICENSE -o -name LICENSE\.txt -o \
-	                                                  -name AUTHORS -o -name AUTHORS\.txt \) -print); \
-	do \
-	  new_dir=$$(basename $$(dirname $$lic_path)); \
-	  mkdir -p $@/$$new_dir; \
-	  cp $$lic_path $@/$$new_dir; \
-	  find $$(dirname $$lic_path) -name \*\.py -exec grep "Copyright" {} \; | sed "s|^.*Copyright|Copyright|" | sort -u > $@/$$new_dir/COPYRIGHT; \
-	  [ -s $@/$$new_dir/COPYRIGHT ] || rm $@/$$new_dir/COPYRIGHT; \
+	for thrd_dir in $$(find source/python/3rdparty/build -mindepth 1 -maxdepth 1 -type d); do \
+	  lic_paths=$$(find $$thrd_dir \( -name COPYING\* -o -name LICENSE\* -o -name AUTHORS\* \) -print); \
+	  if [ ! -z "$$lic_paths" ]; then \
+	    for lic_path in $$lic_paths; do \
+	      new_dir=$$(basename $$(dirname $$lic_path)); \
+	      mkdir -p $@/$$new_dir; \
+	      cp $$lic_path $@/$$new_dir; \
+	      find $$(dirname $$lic_path) \( -name \*\.cpp -o -name \*\.h -o -name \*\.hpp \) -exec grep "Copyright" {} \; | sed "s|^.*Copyright|Copyright|" | sort -u > $@/$$new_dir/COPYRIGHT; \
+	      [ -s $@/$$new_dir/COPYRIGHT ] || rm $@/$$new_dir/COPYRIGHT; \
+	    done \
+	  else \
+	    pkg_info=$$(find $$thrd_dir -mindepth 1 -maxdepth 1 -name PKG-INFO -print); \
+	    if [ ! -z "$$pkg_info" ]; then \
+	      new_dir=$$(basename $$(dirname $$pkg_info)); \
+	      mkdir -p $@/$$new_dir; \
+	      cp $$pkg_info $@/$$new_dir; \
+	    else \
+	      echo "No license found for 3rd party project: $$thrd_dir"; \
+	      exit 1; \
+	   fi \
+	  fi \
 	done
 
-$(DIST_TARGET_3RDPARTY_LICENSES_README): $(DIST_TARGET_3RDPARTY_LICENSES_CPP) $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON)
+$(DIST_TARGET_3RDPARTY_LICENSES_CSV):
+	cd $$(dirname $@); \
+	for proj in $$(find python cpp -mindepth 1 -maxdepth 1 -type d); do \
+	  echo -n "$$proj" >> $@; \
+	  find $$proj -mindepth 1 -maxdepth 1 -exec echo -n ";{}" \; >> $@; \
+	  echo >> $@; \
+	done
+
+$(DIST_TARGET_3RDPARTY_LICENSES_README): $(DIST_TARGET_3RDPARTY_LICENSES_CPP) \
+                                         $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON) \
+                                         $(DIST_TARGET_3RDPARTY_LICENSES_CSV)
 	mkdir -p $$(dirname $@)
 	echo "The files in this directory hierarchy reference all third party components and" > $@
 	echo "software modules which are used by the Universal Resource Broker product with" >> $@
@@ -197,7 +225,6 @@ $(DIST_TARGET_COMMON): all $(DIST_DIR)/../.dummy \
                        $(DIST_TARGET_ARCH) $(DIST_TARGET_NOARCH) $(DIST_TARGET_ARCH_BIN) $(DIST_TARGET_SDIST) \
                        $(DIST_TARGET_3RDPARTY_LICENSES_CPP) $(DIST_TARGET_3RDPARTY_LICENSES_PYTHON) \
                        $(DIST_TARGET_3RDPARTY_LICENSES_README)
-#	cp -f -r $(CONFIG_FILES)/* $(CONFIG_FILE_TARGET)
 	cp -f $(EXAMPLE_PYTHON_FRAMEWORK) $(EXAMPLE_PYTHON_FRAMEWORK_TARGET)
 	cp -r $(DIST_TARGET_3RDPARTY_LICENSES) $(INSTALLER_TARGET)
 	cp $(REDIS_UTIL_SRC)/*.* $(REDIS_UTIL_TARGET)

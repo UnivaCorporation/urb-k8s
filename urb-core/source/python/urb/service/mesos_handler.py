@@ -2545,7 +2545,7 @@ class MesosHandler(MessageHandler):
                     framework_config_section = re_section
                     break
 
-        self.logger.debug("Using framework config section %s for scrabbed framework %s" % (framework_config_section, scrubbed_framework_name))
+        self.logger.info("Using framework config section %s for scrabbed framework %s" % (framework_config_section, scrubbed_framework_name))
 
         default_config_section = 'DefaultFrameworkConfig'
         framework_config = {}

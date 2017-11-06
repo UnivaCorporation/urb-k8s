@@ -133,7 +133,9 @@ class ExecutorRunner:
         payload = {}
         payload['slave_id'] = self.slave_id
         payload['framework_id'] = self.framework_id
-        payload['host'] = socket.gethostname()
+        host = socket.gethostname()
+        # use ip address if in k8s pod
+        payload['host'] = host if not os.environ.get('KUBERNETES_SERVICE_HOST') else socket.gethostbyname(host)
         payload['port'] = 0
         payload['job_id'] = self.job_id
         payload['task_id'] = self.task_id
