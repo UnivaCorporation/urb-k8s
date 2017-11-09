@@ -58,6 +58,7 @@ Options:
    --namespace     : Kubernetes namespace (will be created if doesn't exist)
                      "default" is used by default
    --HA            : Install in highly available mode (not implemented)
+   --dot-progress  : display dots instead of spinning progress
    --verbose       : Turn on verbose output
 EOF
 }
@@ -71,21 +72,29 @@ urb_configmap() {
   fi
 }
 
+SPINNER='/-\|'
+SPINNER_LEN=${#SPINNER}
+
+progress() {
+  local cnt=$1
+  if [ -z $DOT_PROGRESS ]; then
+    printf "%s\r" "$cnt ${SPINNER:cnt%SPINNER_LEN:1}"
+  else
+    echo -n "."
+  fi
+}
+
 get_service_uri() {
   local fr=$1
-  local sp='/-\|'
-  local n=${#sp}
-  local max=120
+  local max=${2:-120}
   local cnt=0
-  local ip=""
-  local port=""
+  local url=""
   EXTERNAL_URI=""
   echo "Waiting for public URL to become available for ${fr}..."
   while [ $cnt -le $max ]; do
-    ip=$($KUBECTL get service $fr | awk "/$fr/ {print \$4}")
-    if [[ "$ip" == *"."*"."*"."* ]]; then
-      port=$($KUBECTL get service $fr | awk "/$fr/ {print \$5}" | awk -F: "{print \$1}")
-      EXTERNAL_URI="${ip}:${port}"
+    url=$($KUBECTL get service $fr -o=go-template='{{range .status.loadBalancer.ingress}}{{.ip}}:{{end}}{{range .spec.ports}}{{.port}}{{end}}')
+    if [[ "$url" == *"."*"."*"."*":"* ]]; then
+      EXTERNAL_URI="$url"
       return
     fi
     let cnt=cnt+1
@@ -93,7 +102,7 @@ get_service_uri() {
       echo "It may take a couple of minutes... You can ^C and use command \"$KUBECTL get service ${fr}\" later"
     fi
     sleep 1
-    printf "%s\r" "$cnt ${sp:cnt%n:1}"
+    progress $cnt
   done
   if [ $cnt -ge $max ]; then
     echo "Timed out... You can try to obtain it later with \"$KUBECTL get service ${fr}\""
@@ -105,12 +114,10 @@ pod_wait() {
   local max=${2:-60}
   local msg=${3:-}
   local cnt=0
-  local sp='/-\|'
-  local n=${#sp}
   while ! $KUBECTL get pods | grep -q "$name.*Running" && [ $cnt -le $max ]; do
     let cnt=cnt+1
     sleep 1
-    printf "%s\r" "$cnt ${sp:cnt%n:1}"
+    progress $cnt
     if [ ! -z "$msg" ] && [ $cnt -eq 6 ]; then
       echo "${msg}"
     fi
@@ -122,13 +129,14 @@ pod_wait() {
 
 get_uri() {
   local fr=$1
+  local timeout=${2:-180}
   context_name=$($KUBECTL config get-contexts | awk "/^\*/ {print \$2}")
   if [ "$context_name" == "minikube" ]; then
     EXTERNAL_URI=$(minikube service $fr --url)
   elif [ "$context_name" == "gke"* ]; then
-    get_service_uri $fr
+    get_service_uri $fr $timeout
   else
-    get_service_uri $fr
+    get_service_uri $fr $timeout
   fi
 }
 
@@ -136,8 +144,6 @@ add_config() {
   local conf=$1
   local max=60
   local cnt=0
-  local sp='/-\|'
-  local n=${#sp}
 #  section=$($CURL $conf | tee -a $URB_CONF | grep FrameworkConfig | head -1)
   section=$(cat | tee -a $URB_CONF | grep FrameworkConfig | head -1)
   if [ -z "$section" ]; then
@@ -154,7 +160,7 @@ add_config() {
       fi
       let cnt=cnt+1
       sleep 1
-      printf "%s\r" "$cnt ${sp:cnt%n:1}"
+      progress $cnt
     done
     if [ $cnt -ge $max ]; then
       echo "WARNING: Timeout waiting for URB configuration update for $section"
@@ -288,7 +294,7 @@ zeppelin() {
 #      $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
     $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-rc.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
-    # have to wait
+    # service fails to start if we dont wait here
     echo "Waiting for Zeppelin to start"
     pod_wait zeppelin-rc 360 "Zeppelin is huge, it may take a long time to pull an image for the first time..."
     sleep 2
@@ -364,6 +370,10 @@ while [ $# -gt 0 ]; do
     shift
     HA=1
     ;;
+  "--dot-progress")
+    shift
+    DOT_PROGRESS=1
+    ;;
   "--verbose")
     shift
     set -x
@@ -438,6 +448,12 @@ for comp in ${COMPONENTS[@]}; do
 done
 
 if [ -z "$REMOVE" ]; then
+  if [[ "${COMPONENTS[@]}" == *"spark"* ]]; then
+    pod_wait spark-driver 60
+    spark_driver=$($KUBECTL get pod | awk '/spark-driver.*Running/ {print $1}')
+    echo "Spark driver pod $spark_driver can be used to run Spark command line tools, for example:"
+    echo "kubectl exec $spark_driver -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name SparkPi --master mesos://urb://urb-master:6379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py"
+  fi
   for comp in urb-chronos urb-marathon urb-zeppelin; do
     if [[ "${COMPONENTS[@]}" == *"$comp"* ]]; then
       if [ "$comp" == "urb-marathon" ]; then
