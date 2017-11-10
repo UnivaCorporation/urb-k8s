@@ -475,5 +475,5 @@ fi
 
 if [ -z "$REMOVE" ]; then
   echo "URB configuration file $URB_CONF can be modified and reloaded with:"
-  echo "$KUBECTL create configmap urb-config --from-file=$URB_CONF --dry-run -o yaml | kubectl replace -f -"
+  echo "$KUBECTL create configmap urb-config --from-file=$URB_CONF --dry-run -o yaml | $KUBECTL replace -f -"
 fi
