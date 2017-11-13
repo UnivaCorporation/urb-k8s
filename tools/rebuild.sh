@@ -16,6 +16,9 @@
 
 set -x
 
+#if [ ! -z "$IM_VERSION" ]; then
+#  IMVERSION_PARAM="VERSION=$VERSION"
+#fi
 if [ ! -z "$VERSION" ]; then
   VERSION_PARAM="VERSION=$VERSION"
 fi
@@ -25,6 +28,7 @@ fi
 if [ ! -z $STOCK_MESOS_DIR ]; then
   STOCK_MESOS_DIR_PARAM="STOCK_MESOS_DIR=$STOCK_MESOS_DIR"
 fi
+
 
 # remove docker image
 rmi() {
@@ -122,6 +126,10 @@ if [ $# -eq 0 ]; then
 else
   while [ $# -gt 0 ]; do
     case "$1" in
+    "rebuild-bin")
+      REBUILD_BIN=1
+      shift
+      ;;
     "urb-service")
       URB_SERVICE=1
       shift
@@ -151,7 +159,8 @@ else
       shift
       ;;
     *)
-    ;;
+      shift
+      ;;
     esac
   done
 fi
@@ -195,7 +204,11 @@ rmi_none
 clear_minikube_env
 pushd urb-core/vagrant
 set -e
-SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+if [ -z "$REBUILD_BIN" ];then
+  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+else
+  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make clean && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+fi
 set +e
 popd
 
