@@ -30,6 +30,7 @@ import gevent
 import uuid
 import os
 import copy
+import re
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 import yaml
@@ -160,20 +161,77 @@ class K8SAdapter(object):
             job_ids.append(job_id)
         return (job_ids, retry_label_selectors)
 
+    def scrub_framework_name(self, framework_name):
+        scrubbed_framework_name = re.sub('[\s|(|)|(:)|(,)|(.)|(^)|($)|(+)|(?)|(\{)|(\})|(\[)|(\])|(\\)|(\()|(\))]+', '',
+            framework_name)
+        return scrubbed_framework_name
+
+    def __append_job_name(self, job_name, append, concurrent_tasks):
+        # do not exceed name limit of 63 bytes
+        jn = job_name
+        append = re.sub('[\s|(|)|(:)|(,)|(.)|(^)|($)|(+)|(?)|(\{)|(\})|(\[)|(\])|(\\)|(\()|(\))]+', '', append)
+        append = append.lower()
+        left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size - len(job_name)
+        if concurrent_tasks > 1:
+            l = len(str(concurrent_tasks)) + 1
+            left -= l
+        if len(append) > left:
+            jn += "-%s" % append[:left]
+        else:
+            jn += "-%s" % append
+        return jn
+
+    def __from_tasks(self, i, job_name, tasks, concurrent_tasks, resource_mapping):
+        req_key = None
+        tasks_len = len(tasks) if tasks else 0
+        jn = job_name
+        if tasks_len > 0:
+            indx = i if i < tasks_len else tasks_len - 1
+            task = tasks[indx]
+            self.logger.trace("task index: %d" % indx)
+            # create requests
+            resources = task.get('resources')
+            self.logger.trace("resource_mapping=%s" % resource_mapping)
+            if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
+                requests = {}
+                for rm in resource_mapping.split(";"):
+                    rm = rm.strip()
+                    for resource in resources:
+                        if resource['name'] == "mem":
+                            if rm == "mem" or rm == "true":
+                                requests['memory'] = str(resource['scalar']['value']) + "M"
+                            elif "mem" == rm[0:3]:
+                                mul = self.__scale_resource(rm)
+                                requests['memory'] = str(int(resource['scalar']['value'])*mul) + "M"
+                        elif resource['name'] == "cpus":
+                            if rm == "cpu" or rm == "true":
+                                requests['cpu'] = str(int(resource['scalar']['value']))
+                            elif "cpu" == rm[0:3]:
+                                mul = self.__scale_resource(rm)
+                                requests['cpu'] = str(int(resource['scalar']['value'])*mul)
+
+                if len(requests) > 0:
+                    self.logger.info("Requests: %s" % requests)
+                    req_key = {'requests' : requests }
+            task_name = task.get('name')
+            if task_name:
+                jn = self.__append_job_name(job_name, task_name, concurrent_tasks)
+            else:
+                task_id = task.get('task_id')
+                if task_id:
+                    jn = self.__append_job_name(job_name, task_id['value'], concurrent_tasks)
+            if concurrent_tasks > 1:
+                jn += "-%d" % i
+        elif concurrent_tasks > 1:
+            jn = "%s-%d" % (job_name, i)
+        return (jn, req_key)
+
     def submit_jobs(self, max_tasks, concurrent_tasks, framework_env, user=None, *args, **kwargs):
         self.logger.info("submit_jobs: max_tasks=%s, concurrent_tasks=%s, framework_env=%s, user=%s, args=%s, kwargs=%s" %
                          (max_tasks, concurrent_tasks, framework_env, user, args, kwargs))
         job = copy.deepcopy(self.job)
         framework_name = framework_env['URB_FRAMEWORK_NAME'].lower()
-        # do not exceed name limit of 63 bytes
-        if concurrent_tasks > 1:
-            add_len = len(str(concurrent_tasks)) + 1
-            left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size - add_len
-        else:
-            left = K8SAdapter.JOB_NAME_MAX_SIZE - self.job_name_template_size
-        if len(framework_name) > left:
-            framework_name = framework_name[:left]
-        job_name = "%s-%s-%s" % (self.job['metadata']['name'], framework_name, uuid.uuid1().hex[:K8SAdapter.UUID_SIZE])
+        job_name = self.__append_job_name(self.job['metadata']['name'], framework_name, concurrent_tasks)
 
         framework_id_env = {'name' : 'URB_FRAMEWORK_ID',
                             'value' : framework_env['URB_FRAMEWORK_ID'] }
@@ -200,43 +258,21 @@ class K8SAdapter(object):
                 path = lst[1]
                 self.__add_pv(job, pvc, path)
 
-        task = kwargs.get('task')
-        if task:
-            resources = task.get('resources')
-            resource_mapping = str(kwargs.get('resource_mapping')).lower()
-            self.logger.trace("resource_mapping=%s" % resource_mapping)
-            if resources is not None and len(resource_mapping) > 0 and resource_mapping != 'none' and resource_mapping != 'false':
-                requests = {}
-                for rm in resource_mapping.split(";"):
-                    rm = rm.strip()
-                    for resource in resources:
-                        if resource['name'] == "mem":
-                            if rm == "mem" or rm == "true":
-                                requests['memory'] = str(resource['scalar']['value']) + "M"
-                            elif "mem" == rm[0:3]:
-                                mul = self.__scale_resource(rm)
-                                requests['memory'] = str(int(resource['scalar']['value'])*mul) + "M"
-                        elif resource['name'] == "cpus":
-                            if rm == "cpu" or rm == "true":
-                                requests['cpu'] = str(int(resource['scalar']['value']))
-                            elif "cpu" == rm[0:3]:
-                                mul = self.__scale_resource(rm)
-                                requests['cpu'] = str(int(resource['scalar']['value'])*mul)
-
-                if len(requests) > 0:
-                    self.logger.info("Requests: %s" % requests)
-                    req_key = {'requests' : requests }
-                    job['spec']['template']['spec']['containers'][0]['resources'] = req_key
-                    self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
+        tasks = kwargs.get('tasks')
+        resource_mapping = str(kwargs.get('resource_mapping')).lower()
 
         # do two loops to allow more time for controller-uid to be generated
         label_selectors = []
+        # should have enough space for uuid part of the name
+        uid_suff = uuid.uuid1().hex[:K8SAdapter.UUID_SIZE]
         for i in range(0,concurrent_tasks):
             if i >= max_tasks:
                 break
-            if concurrent_tasks > 1:
-                job_name = job_name + "-%d" % i
-            job['metadata']['name'] = job_name
+            (jn, req_key) = self.__from_tasks(i, job_name, tasks, concurrent_tasks, resource_mapping)
+            if req_key:
+                job['spec']['template']['spec']['containers'][0]['resources'] = req_key
+            self.logger.trace("Container: %s" % job['spec']['template']['spec']['containers'][0])
+            job['metadata']['name'] = "%s-%s" % (jn, uid_suff)
             self.logger.info("Submit k8s job %s in namespace %s" % (job['metadata']['name'], self.namespace))
             self.logger.trace("job body=%s" % job)
             job_resp = self.batch_v1.create_namespaced_job(body = job, namespace = self.namespace)
