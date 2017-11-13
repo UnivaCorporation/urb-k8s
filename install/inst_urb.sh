@@ -111,7 +111,7 @@ get_service_uri() {
 
 pod_wait() {
   local name=$1
-  local max=${2:-60}
+  local max=${2:-120}
   local msg=${3:-}
   local cnt=0
   while ! $KUBECTL get pods | grep -q "$name.*Running" && [ $cnt -le $max ]; do
