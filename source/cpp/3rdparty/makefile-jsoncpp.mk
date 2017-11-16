@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-ROOT_DIR=./jsoncpp-20141023
+ROOT_DIR=./jsoncpp-1.8.3
 TARGET_DIR=$(ROOT_DIR)/build
 SUBDIRS=$(TARGET_DIR)
 
@@ -42,7 +42,7 @@ deps test: $(TARGET_DIR)/Makefile
 
 $(TARGET_DIR)/Makefile: $(ROOT_DIR)/CMakeLists.txt
 	mkdir -p $(TARGET_DIR)
-	cd $(TARGET_DIR) && $(CMAKE) -DJSONCPP_LIB_BUILD_SHARED=OFF -G "Unix Makefiles" ../
+	cd $(TARGET_DIR) && $(CMAKE) -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_STATIC_LIBS=ON -DBUILD_SHARED_LIBS=OFF -G "Unix Makefiles" ../ && make
 
 distclean:
 	rm -rf $(TARGET_DIR)
