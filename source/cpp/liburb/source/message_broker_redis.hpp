@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <redis3m/async_connection.h>
 #include <redis3m/async_connection_pool.h>
@@ -142,7 +143,8 @@ private:
     //Default async handler when we don't care about responses
     std::shared_ptr<BaseAsyncHandler> defaultHandler_;
     //Our broker unique endpoint id
-    long long endpointId_;
+//    long long endpointId_;
+    int64_t endpointId_;
     std::string endpointIdStr_;
     concurrent_queue<QueuedCommand> commands_;
     int redisPort_;
