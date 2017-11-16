@@ -9,4 +9,6 @@ build/
 venv
 vagrant/.vagrant
 mesos
-source/cpp/3rdparty/boost/boost-1.58.0
+source/cpp/3rdparty/boost/boost-*.*.*
+source/cpp/3rdparty/picojson/picojson-*.*.*
+source/cpp/3rdparty/googletest/googletest-release-1.8.0

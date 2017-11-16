@@ -149,7 +149,7 @@ public:
       // Launch tasks.
       vector<TaskInfo> tasks;
       while (tasksLaunched_ < totalTasks_ &&
-             remaining.flatten().contains(TASK_RESOURCES)) {
+             remaining.toUnreserved().contains(TASK_RESOURCES)) {
         int taskId = tasksLaunched_++;
 
         TaskInfo task = launchTask(offer, remaining, TASK_RESOURCES, taskId);
@@ -183,7 +183,7 @@ public:
           cout << curr_td() << "\t\t" << lostTasks_.size() << " tasks were definitely lost." << endl;
           for (auto it = lostTasks_.begin(); it != lostTasks_.end();) {
               cout << curr_td() << "\t\t\tTask " << *it << " lost...";
-              if (remaining.flatten().contains(TASK_RESOURCES)) {
+              if (remaining.toUnreserved().contains(TASK_RESOURCES)) {
                   cout << " relaunching." << endl;
                   tasks.push_back(launchTask(offer, remaining, TASK_RESOURCES, *it));
                   it = lostTasks_.erase(it);

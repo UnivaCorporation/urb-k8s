@@ -111,7 +111,7 @@ public:
       cout << "\tOffer Resources for slave: [" << offer.slave_id().value() << "]: " << remaining << endl;
 
       while (tasksLaunched < totalTasks &&
-              remaining.flatten().contains(TASK_RESOURCES)) {
+              remaining.toUnreserved().contains(TASK_RESOURCES)) {
         int taskId = tasksLaunched++;
 
         TaskInfo task = launchTask(offer, remaining, TASK_RESOURCES, taskId);
@@ -134,7 +134,7 @@ public:
           cout << "\t\t" << lostTasks.size() << " tasks were definitely lost." << endl;
           for(std::vector<int>::iterator it = lostTasks.begin(); it != lostTasks.end();) {
               cout << "\t\t\tTASK: " << *it << " lost....";
-              if (remaining.flatten().contains(TASK_RESOURCES)) {
+              if (remaining.toUnreserved().contains(TASK_RESOURCES)) {
                   cout << " relaunching." << endl;
                   tasks.push_back(launchTask(offer, remaining, TASK_RESOURCES, *it));
                   tasksInOffer = true;

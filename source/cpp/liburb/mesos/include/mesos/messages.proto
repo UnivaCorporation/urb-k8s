@@ -14,7 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+syntax = "proto2";
+
 import "mesos.proto";
+import "resource_provider.proto";
+//import "mesos/resource_provider/resource_provider.proto";
 
 package mesos.internal;
 
@@ -32,6 +36,11 @@ package mesos.internal;
  * passing it from the agent to the framework that spawned the task.
  *
  * See protobuf::createStatusUpdate.
+ *
+ * A task status update may be used for guaranteed delivery of some
+ * task-related information, e.g., task's health update. Such information
+ * may be shadowed by subsequent task status updates, that do not preserve
+ * fields of the previously sent message.
  */
 message StatusUpdate {
   required FrameworkID framework_id = 1;
@@ -266,13 +275,18 @@ message RescindInverseOfferMessage {
 
 
 /**
- * Removes all filters previously set by the scheduler.
+ * Removes filters for the specified role. If a role is not provided, then
+ * this is equivalent to passing all of the framework's subscribed roles.
  *
  * Used by the pre-Event/Call Mesos scheduler driver.
  * See scheduler::Call::Revive.
+ *
+ * NOTE: There is no `roles` field in V0 API as we will
+ * eventually move to V1 API.
  */
 message ReviveOffersMessage {
   required FrameworkID framework_id = 1;
+  repeated string roles = 2;
 }
 
 
@@ -371,16 +385,31 @@ message LostSlaveMessage {
 
 
 /**
- * Allows the scheduler to query the status for non-terminal tasks.
- * This causes the master to send back the latest task status for
- * each task in `statuses`, if possible. Tasks that are no longer
- * known will result in a `TASK_LOST` update. If `statuses` is empty,
- * then the master will send the latest status for each task
- * currently known.
+ * This message is used in two situations:
+ *
+ *   (a) schedulers can query masters about the master's view of the
+ *       state of one or more tasks. If the `statuses` field is empty
+ *       ("implicit reconciliation"), the master will respond with
+ *       status updates for all of the non-terminal tasks it knows
+ *       about.
+ *
+ *   (b) the master can query an agent about the agent's view of the
+ *       state of one or more tasks.
+ *
+ * In both cases, the response to this message is returned via zero or
+ * more status update messages with the `reason` field set to
+ * `REASON_RECONCILIATION`.
  */
 message ReconcileTasksMessage {
   required FrameworkID framework_id = 1;
   repeated TaskStatus statuses = 2; // Should be non-terminal only.
+
+  // Should only be set for reconciliation requests sent to agents by
+  // the master (case (b) above). This is necessary because the agent
+  // might not know anything about the framework, and the correct
+  // response to the reconciliation request might depend on the
+  // framework's capabilities (e.g., PARTITION_AWARE).
+  optional FrameworkInfo framework = 3;
 }
 
 
@@ -401,17 +430,28 @@ message FrameworkErrorMessage {
  * Failure conditions are documented inline in Master::registerSlave.
  */
 message RegisterSlaveMessage {
+  // NOTE: The `Resources` in `SlaveInfo` cannot contain reservation
+  // refinements. Therefore, `slave.resources` will always use the
+  // "pre-reservation-refinement" format.
   required SlaveInfo slave = 1;
 
   // Resources that are checkpointed by the agent (e.g., persistent
   // volume or dynamic reservation). Frameworks need to release
-  // checkpointed resources explicitly.
+  // checkpointed resources explicitly. If any of the checkpointed
+  // resources use reservation refinements, every resource in this field
+  // will be represented using the "post-reservation-refinement" format;
+  // otherwise, this field will be in "pre-reservation-refinement" format.
   repeated Resource checkpointed_resources = 3;
 
   // NOTE: This is a hack for the master to detect the agent's
   // version. If unset the agent is < 0.21.0.
   // TODO(bmahler): Do proper versioning: MESOS-986.
   optional string version = 2;
+
+  // This field allows an agent to advertise its set of
+  // capabilities (e.g., ability to launch tasks of 'multi-role'
+  // frameworks).
+  repeated SlaveInfo.Capability agent_capabilities = 4;
 }
 
 
@@ -427,11 +467,17 @@ message RegisterSlaveMessage {
  * Failure conditions are documented inline in Master::reregisterSlave.
  */
 message ReregisterSlaveMessage {
+  // NOTE: The `Resources` in `SlaveInfo` cannot contain reservation
+  // refinements. Therefore, `slave.resources` will always use the
+  // "pre-reservation-refinement" format.
   required SlaveInfo slave = 2;
 
   // Resources that are checkpointed by the agent (e.g., persistent
   // volume or dynamic reservation). Frameworks need to release
-  // checkpointed resources explicitly.
+  // checkpointed resources explicitly. If any of the checkpointed
+  // resources use reservation refinements, every resource in this field
+  // will be represented using the "post-reservation-refinement" format;
+  // otherwise, this field will be in "pre-reservation-refinement" format.
   repeated Resource checkpointed_resources = 7;
 
   repeated ExecutorInfo executor_infos = 4;
@@ -443,6 +489,11 @@ message ReregisterSlaveMessage {
   // version. If unset the agent is < 0.21.0.
   // TODO(bmahler): Do proper versioning: MESOS-986.
   optional string version = 6;
+
+  // This field allows an agent to advertise its set of
+  // capabilities (e.g., ability to launch tasks of 'multi-role'
+  // frameworks).
+  repeated SlaveInfo.Capability agent_capabilities = 9;
 }
 
 
@@ -463,9 +514,9 @@ message SlaveRegisteredMessage {
 message SlaveReregisteredMessage {
   required SlaveID slave_id = 1;
 
-  // Contains a list of non-terminal tasks that the master believes to
-  // be running on the agent.  The agent should respond `TASK_LOST` to
-  // any tasks that are unknown, so the master knows to remove those.
+  // Contains a list of non-terminal tasks that the master believes are
+  // running on the agent.  The agent should respond `TASK_DROPPED` to any
+  // tasks that are unknown, so the master knows to remove them.
   repeated ReconcileTasksMessage reconciliations = 2;
 
   optional MasterSlaveConnection connection = 3;
@@ -536,6 +587,9 @@ message UpdateFrameworkMessage {
 
   // See the comment on RunTaskMessage.pid.
   optional string pid = 2;
+
+  // Updated framework info.
+  optional FrameworkInfo framework_info = 3;
 }
 
 
@@ -552,11 +606,60 @@ message CheckpointResourcesMessage {
 /**
  * This message is sent by the agent to the master to inform the
  * master about the total amount of oversubscribed (allocated and
- * allocatable) resources.
+ * allocatable), or total resources.
  */
 message UpdateSlaveMessage {
   required SlaveID slave_id = 1;
+
+  // This message can contain one of `oversubscribed_resources` or
+  // `total_resources`. Callers are expected to set the `type` field
+  // to denote which field should be examined. For backwards
+  // compatibility we interpret an unset `type` field as if it was
+  // `OVERSUBSCRIBED`.
+  //
+  // It is suggested that callers use the `total_resources` field
+  // exclusively as the `oversubscribed_resources` field might be
+  // removed in the future.
+  enum Type {
+    UNKNOWN = 0;
+    OVERSUBSCRIBED = 1;
+    TOTAL = 2;
+  }
+
+  optional Type type = 3;
+
   repeated Resource oversubscribed_resources = 2;
+  repeated Resource total_resources = 4;
+}
+
+
+/**
+ * A wrapper message that is sent for a local resource provider Call
+ * by the agent to the master. The agent serves as a proxy between the
+ * local resource provider and the master.
+ */
+message ResourceProviderCallMessage {
+  required resource_provider.Call call = 1;
+
+  // This field will be set for the initial 'Subscribe' Call where the
+  // resource provider ID hasn't been assigned yet. This 'uuid' will
+  // be echoed back in the corresponding 'Subscribed' Event, allowing
+  // the agent to tell which resource provider the Event is for.
+  optional bytes uuid = 2;
+}
+
+
+/**
+ * A wrapper message that is sent for a local resource provider Event
+ * by the master to the agent. The agent serves as a proxy between the
+ * local resource provider and the master.
+ */
+message ResourceProviderEventMessage {
+  required ResourceProviderID resource_provider_id = 1;
+  required resource_provider.Event event = 2;
+
+  // See the comments in 'ResourceProviderCallMessage'.
+  optional bytes uuid = 3;
 }
 
 

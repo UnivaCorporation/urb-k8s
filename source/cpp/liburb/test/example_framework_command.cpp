@@ -83,7 +83,7 @@ public:
       // Launch tasks.
       vector<TaskInfo> tasks;
       while (tasksLaunched < totalTasks &&
-              remaining.flatten().contains(TASK_RESOURCES)) {
+              remaining.toUnreserved().contains(TASK_RESOURCES)) {
         int taskId = tasksLaunched++;
 
         cout << "Starting task " << taskId << " on "
