@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-ROOT_DIR=./protobuf-2.6.1
+ROOT_DIR=./protobuf-3.3.0
 SUBDIRS=$(ROOT_DIR)
 
 FILTER_GOALS=deps test distclean

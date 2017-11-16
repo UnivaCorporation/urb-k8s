@@ -8,3 +8,5 @@ build/
 **/*.rdb
 venv
 vagrant/.vagrant
+mesos
+source/cpp/3rdparty/boost/boost-1.58.0
