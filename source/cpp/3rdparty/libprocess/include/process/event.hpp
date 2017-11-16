@@ -21,6 +21,7 @@
 #include <process/socket.hpp>
 
 #include <stout/abort.hpp>
+#include <stout/json.hpp>
 #include <stout/lambda.hpp>
 
 namespace process {
@@ -81,35 +82,49 @@ struct Event
     }
     return *result;
   }
+
+  // JSON representation for an Event.
+  operator JSON::Object() const;
 };
 
 
 struct MessageEvent : Event
 {
-  explicit MessageEvent(Message* _message)
-    : message(_message) {}
+  explicit MessageEvent(Message&& _message)
+    : message(std::move(_message)) {}
 
-  MessageEvent(const MessageEvent& that)
-    : message(that.message == nullptr ? nullptr : new Message(*that.message)) {}
+  MessageEvent(
+      const UPID& from,
+      const UPID& to,
+      const std::string& name,
+      const char* data,
+      size_t length)
+    : message{name, from, to, std::string(data, length)} {}
 
-  virtual ~MessageEvent()
-  {
-    delete message;
-  }
+  MessageEvent(
+      const UPID& from,
+      const UPID& to,
+      std::string&& name,
+      const char* data,
+      size_t length)
+    : message{std::move(name), from, to, std::string(data, length)} {}
+
+  MessageEvent(const MessageEvent& that) = default;
+  MessageEvent(MessageEvent&& that) = default;
+
+  // Keep MessageEvent not assignable even though we made it
+  // copyable.
+  // Note that we are violating the "rule of three" here but it helps
+  // keep the fields const.
+  MessageEvent& operator=(const MessageEvent&) = delete;
+  MessageEvent& operator=(MessageEvent&&) = delete;
 
   virtual void visit(EventVisitor* visitor) const
   {
     visitor->visit(*this);
   }
 
-  Message* const message;
-
-private:
-  // Keep MessageEvent not assignable even though we made it
-  // copyable.
-  // Note that we are violating the "rule of three" here but it helps
-  // keep the fields const.
-  MessageEvent& operator=(const MessageEvent&);
+  const Message message;
 };
 
 
@@ -198,8 +213,8 @@ private:
 
 struct TerminateEvent : Event
 {
-  explicit TerminateEvent(const UPID& _from)
-    : from(_from) {}
+  TerminateEvent(const UPID& _from, bool _inject)
+    : from(_from), inject(_inject) {}
 
   virtual void visit(EventVisitor* visitor) const
   {
@@ -207,12 +222,67 @@ struct TerminateEvent : Event
   }
 
   const UPID from;
+  const bool inject;
 
 private:
   // Not copyable, not assignable.
   TerminateEvent(const TerminateEvent&);
   TerminateEvent& operator=(const TerminateEvent&);
 };
+
+
+inline Event::operator JSON::Object() const
+{
+  JSON::Object object;
+
+  struct Visitor : EventVisitor
+  {
+    explicit Visitor(JSON::Object* _object) : object(_object) {}
+
+    virtual void visit(const MessageEvent& event)
+    {
+      object->values["type"] = "MESSAGE";
+
+      const Message& message = event.message;
+
+      object->values["name"] = message.name;
+      object->values["from"] = stringify(message.from);
+      object->values["to"] = stringify(message.to);
+      object->values["body"] = message.body;
+    }
+
+    virtual void visit(const HttpEvent& event)
+    {
+      object->values["type"] = "HTTP";
+
+      const http::Request& request = *event.request;
+
+      object->values["method"] = request.method;
+      object->values["url"] = stringify(request.url);
+    }
+
+    virtual void visit(const DispatchEvent& event)
+    {
+      object->values["type"] = "DISPATCH";
+    }
+
+    virtual void visit(const ExitedEvent& event)
+    {
+      object->values["type"] = "EXITED";
+    }
+
+    virtual void visit(const TerminateEvent& event)
+    {
+      object->values["type"] = "TERMINATE";
+    }
+
+    JSON::Object* object;
+  } visitor(&object);
+
+  visit(&visitor);
+
+  return object;
+}
 
 } // namespace process {
 

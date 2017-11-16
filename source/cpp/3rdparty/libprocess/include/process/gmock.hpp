@@ -24,11 +24,6 @@
 #include <stout/nothing.hpp>
 #include <stout/synchronized.hpp>
 
-// NOTE: The gmock library relies on std::tr1::tuple. The gmock
-// library provides multiple possible 'tuple' implementations but it
-// still uses std::tr1::tuple as the "type" name, hence our use of it
-// in this file.
-
 
 #define FUTURE_MESSAGE(name, from, to)          \
   process::FutureMessage(name, from, to)
@@ -74,7 +69,7 @@ ACTION_TEMPLATE(PromiseArg,
   // WillRepeatedly). We won't be able to set it a second time but at
   // least we won't get a segmentation fault. We could also consider
   // warning users if they attempted to set it more than once.
-  promise->set(std::tr1::get<k>(args));
+  promise->set(std::get<k>(args));
   delete promise;
 }
 
@@ -98,7 +93,7 @@ ACTION_TEMPLATE(PromiseArgField,
   // WillRepeatedly). We won't be able to set it a second time but at
   // least we won't get a segmentation fault. We could also consider
   // warning users if they attempted to set it more than once.
-  promise->set(*(std::tr1::get<k>(args).*field));
+  promise->set(*(std::get<k>(args).*field));
   delete promise;
 }
 
@@ -111,6 +106,32 @@ PromiseArgFieldActionP2<index, Field, process::Promise<T>*> FutureArgField(
   process::Promise<T>* promise = new process::Promise<T>();
   *future = promise->future();
   return PromiseArgField<index>(field, promise);
+}
+
+
+ACTION_TEMPLATE(PromiseArgNotPointerField,
+                HAS_1_TEMPLATE_PARAMS(int, k),
+                AND_2_VALUE_PARAMS(field, promise))
+{
+  // TODO(benh): Use a shared_ptr for promise to defend against this
+  // action getting invoked more than once (e.g., used via
+  // WillRepeatedly). We won't be able to set it a second time but at
+  // least we won't get a segmentation fault. We could also consider
+  // warning users if they attempted to set it more than once.
+  promise->set(std::get<k>(args).*field);
+  delete promise;
+}
+
+
+template <int index, typename Field, typename T>
+PromiseArgNotPointerFieldActionP2<index, Field, process::Promise<T>*>
+FutureArgNotPointerField(
+    Field field,
+    process::Future<T>* future)
+{
+  process::Promise<T>* promise = new process::Promise<T>();
+  *future = promise->future();
+  return PromiseArgNotPointerField<index>(field, promise);
 }
 
 
@@ -323,10 +344,10 @@ private:
 
 MATCHER_P3(MessageMatcher, name, from, to, "")
 {
-  const MessageEvent& event = ::std::tr1::get<0>(arg);
-  return (testing::Matcher<std::string>(name).Matches(event.message->name) &&
-          testing::Matcher<UPID>(from).Matches(event.message->from) &&
-          testing::Matcher<UPID>(to).Matches(event.message->to));
+  const MessageEvent& event = ::std::get<0>(arg);
+  return (testing::Matcher<std::string>(name).Matches(event.message.name) &&
+          testing::Matcher<UPID>(from).Matches(event.message.from) &&
+          testing::Matcher<UPID>(to).Matches(event.message.to));
 }
 
 
@@ -335,21 +356,21 @@ MATCHER_P3(MessageMatcher, name, from, to, "")
 // https://developers.google.com/protocol-buffers/docs/techniques#union.
 MATCHER_P4(UnionMessageMatcher, message, unionType, from, to, "")
 {
-  const process::MessageEvent& event = ::std::tr1::get<0>(arg);
+  const process::MessageEvent& event = ::std::get<0>(arg);
   message_type message;
 
   return (testing::Matcher<std::string>(message.GetTypeName()).Matches(
-              event.message->name) &&
-          message.ParseFromString(event.message->body) &&
+              event.message.name) &&
+          message.ParseFromString(event.message.body) &&
           testing::Matcher<unionType_type>(unionType).Matches(message.type()) &&
-          testing::Matcher<process::UPID>(from).Matches(event.message->from) &&
-          testing::Matcher<process::UPID>(to).Matches(event.message->to));
+          testing::Matcher<process::UPID>(from).Matches(event.message.from) &&
+          testing::Matcher<process::UPID>(to).Matches(event.message.to));
 }
 
 
 MATCHER_P2(DispatchMatcher, pid, method, "")
 {
-  const DispatchEvent& event = ::std::tr1::get<0>(arg);
+  const DispatchEvent& event = ::std::get<0>(arg);
   return (testing::Matcher<UPID>(pid).Matches(event.pid) &&
           event.functionType.isSome() &&
           *event.functionType.get() == typeid(method));
@@ -358,7 +379,7 @@ MATCHER_P2(DispatchMatcher, pid, method, "")
 
 MATCHER_P3(HttpMatcher, message, path, deserializer, "")
 {
-  const HttpEvent& event = ::std::tr1::get<0>(arg);
+  const HttpEvent& event = ::std::get<0>(arg);
 
   Try<message_type> message_ = deserializer(event.request->body);
   if (message_.isError()) {
@@ -373,7 +394,7 @@ MATCHER_P3(HttpMatcher, message, path, deserializer, "")
 // "union" trick.
 MATCHER_P4(UnionHttpMatcher, message, unionType, path, deserializer, "")
 {
-  const HttpEvent& event = ::std::tr1::get<0>(arg);
+  const HttpEvent& event = ::std::get<0>(arg);
 
   Try<message_type> message_ = deserializer(event.request->body);
   if (message_.isError()) {
@@ -445,7 +466,7 @@ Future<Message> FutureMessage(Name name, From from, To to, bool drop = false)
   synchronized (filter->mutex) {
     EXPECT_CALL(filter->mock, filter(testing::A<const MessageEvent&>()))
       .With(MessageMatcher(name, from, to))
-      .WillOnce(testing::DoAll(FutureArgField<0>(
+      .WillOnce(testing::DoAll(FutureArgNotPointerField<0>(
                                    &MessageEvent::message,
                                    &future),
                                testing::Return(drop)))
@@ -467,7 +488,7 @@ Future<process::Message> FutureUnionMessage(
   synchronized (filter->mutex) {
     EXPECT_CALL(filter->mock, filter(testing::A<const MessageEvent&>()))
       .With(UnionMessageMatcher(message, unionType, from, to))
-      .WillOnce(testing::DoAll(FutureArgField<0>(
+      .WillOnce(testing::DoAll(FutureArgNotPointerField<0>(
                                    &MessageEvent::message,
                                    &future),
                                testing::Return(drop)))
