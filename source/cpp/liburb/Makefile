@@ -115,13 +115,13 @@ PBTJ_LIB=$(PBTJ_BASE)/libjson_protobuf.a
 
 ## hiredis
 HIREDIS_BASE=$(CPP_BASE)/3rdparty/hiredis-20141015
+## redis
+REDIS_VER=4.0.2
+REDIS_BASE=$(CPP_BASE)/3rdparty/redis
+REDIS_BIN=$(REDIS_BASE)/build/redis-$(REDIS_VER)/src
 #TODO: If we fix the callback we won't need this include
 HIREDIS_INC=-I$(HIREDIS_BASE)
 HIREDIS_LIB=$(HIREDIS_BASE)/libhiredis.a
-
-## redis
-REDIS_BASE=$(CPP_BASE)/3rdparty/redis
-REDIS_BIN=$(REDIS_BASE)/build/redis-2.8.18/src
 
 ## stout
 STOUT_BASE=$(CPP_BASE)/3rdparty
