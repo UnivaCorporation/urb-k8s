@@ -18,7 +18,7 @@ ifeq ($(shell uname -s),SunOS)
 SETUP_ENV=PYCC_CC=gcc
 endif
 
-REDIS_BIN=../cpp/3rdparty/redis/build/redis-2.8.18/src
+REDIS_BIN=../cpp/3rdparty/redis/build/redis-4.0.2/src
 
 include ../../util/include.mk
 
@@ -51,7 +51,7 @@ sdist: urb/__init__.py
 
 test: urb/__init__.py
 	-qconf -djc TestFramework_`hostname`
-	if [ "`$(REDIS_BIN)/redis-cli ping`" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
+	if [ "`$(REDIS_BIN)/redis-cli ping`" != "PONG" ]; then $(REDIS_BIN)/redis-server --protected-mode no& fi
 	$(SETUP_ENV) URB_CONFIG_FILE=`pwd`/test/urb.conf $(PYTHON) setup.py nosetests -w test
 	if [ "`$(REDIS_BIN)/redis-cli ping`" = "PONG" ]; then $(REDIS_BIN)/redis-cli flushdb; $(REDIS_BIN)/redis-cli shutdown; fi
 
