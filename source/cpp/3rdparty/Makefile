@@ -19,8 +19,8 @@ SUBMAKEFILES = makefile-boost.mk \
                makefile-libb64.mk\
                makefile-jsoncpp.mk \
                makefile-protobuf-to-jsoncpp.mk \
-               makefile-redis3m.mk \
                makefile-redis.mk \
+               makefile-redis3m.mk \
                makefile-picojson.mk \
                makefile-googletest.mk
 
