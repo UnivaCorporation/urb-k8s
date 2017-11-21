@@ -113,13 +113,14 @@ PBTJ_BASE=$(CPP_BASE)/3rdparty/protobuf-to-jsoncpp-r11
 PBTJ_INC=-I$(PBTJ_BASE)
 PBTJ_LIB=$(PBTJ_BASE)/libjson_protobuf.a
 
-## hiredis
-HIREDIS_BASE=$(CPP_BASE)/3rdparty/hiredis-20141015
 ## redis
 REDIS_VER=4.0.2
 REDIS_BASE=$(CPP_BASE)/3rdparty/redis
 REDIS_BIN=$(REDIS_BASE)/build/redis-$(REDIS_VER)/src
+
+## hiredis - use redis dependency
 #TODO: If we fix the callback we won't need this include
+HIREDIS_BASE=$(REDIS_BASE)/build/redis-$(REDIS_VER)/deps/hiredis
 HIREDIS_INC=-I$(HIREDIS_BASE)
 HIREDIS_LIB=$(HIREDIS_BASE)/libhiredis.a
 
