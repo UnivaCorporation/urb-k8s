@@ -882,7 +882,7 @@ class MesosHandler(MessageHandler):
                     concurrent_tasks = int(framework_config.get('concurrent_tasks',1))
                     self.logger.debug("Scaling up for slave: %s" % slave_id['value'])
                     # This is our 'big scale' based on a known need.  Step up in concurrent tasks.
-                    job_id = self.scale_up(framework, scale_count=concurrent_tasks, task=t)
+                    job_id = self.scale_up(framework, tasks=[t], scale_count=concurrent_tasks)
                     if len(job_id) > 0:
                         task_record['job_id'] = sorted(job_id)[0][0]
                     else:
@@ -2369,7 +2369,7 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Sending executor registered message via channel %s: %s' % (executor_channel.name, message))
         executor_channel.write(message.to_json())
 
-    def scale_up(self, framework, scale_count = None, task = None):
+    def scale_up(self, framework, tasks = None, scale_count = None):
         framework_config = framework['config']
         if not scale_count:
             scale_count = int(framework_config.get('scale_count', 1))
@@ -2386,7 +2386,7 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Only launching %d tasks since there is less headroom than scale level %d" %
                     (job_headroom, scale_count))
             scale_count = job_headroom
-        job_ids = self.submit_executor_runner(framework, scale_count, task)
+        job_ids = self.submit_executor_runner(framework, scale_count, tasks)
 
         # Add the new ids to the job monitor...
         for j in job_ids:
@@ -2407,7 +2407,7 @@ class MesosHandler(MessageHandler):
         scale_count = scale_count * -1
         self.adapter.scale(framework,scale_count)
 
-    def submit_executor_runner(self, framework, concurrent_tasks, task = None):
+    def submit_executor_runner(self, framework, concurrent_tasks, tasks = None):
         framework_name = framework['name']
         framework_config = framework['config']
         framework_id = framework['id']
@@ -2436,7 +2436,7 @@ class MesosHandler(MessageHandler):
                       'resource_mapping': resource_mapping,
                       'executor_runner': executor_runner,
                       'persistent_volume_claims': persistent_volume_claims,
-                      'task': task}
+                      'tasks': tasks}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
         except Exception, ex:
