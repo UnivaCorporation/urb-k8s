@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include ../../../util/include.mk
 
-ROOT_DIR=./googletest/googletest-release-1.8.0
+GOOGLETEST_TARGZ=$(shell $(FIND) . -maxdepth 2 -name googletest*-[0-9]\*tar.gz -exec basename {} \;)
+GOOGLETEST_VER_DIR=$(shell basename $(GOOGLETEST_TARGZ) .tar.gz)
+ROOT_DIR=./googletest/$(GOOGLETEST_VER_DIR)
 TARGET_DIR=$(ROOT_DIR)/build
 SUBDIRS=$(TARGET_DIR)
 
@@ -33,11 +36,20 @@ all: $(TARGET_DIR)/Makefile
 
 deps test: $(TARGET_DIR)/Makefile
 
-$(TARGET_DIR)/Makefile: $(ROOT_DIR)/CMakeLists.txt
+#$(TARGET_DIR)/Makefile: $(ROOT_DIR)/CMakeLists.txt
+$(TARGET_DIR)/Makefile:
+	cd googletest && $(TAR) xzf $(GOOGLETEST_TARGZ)
 	mkdir -p $(TARGET_DIR)
-	cd $(TARGET_DIR) && $(CMAKE) -DBUILD_GTEST=ON -DBUILD_GMOCK=OFF -G "Unix Makefiles" ../
+	cd $(TARGET_DIR) && $(CMAKE) -DBUILD_GTEST=ON -DBUILD_GMOCK=OFF -G "Unix Makefiles" ../ && make
 
 distclean:
 	rm -rf $(TARGET_DIR)
 
-include ../../../util/include.mk
+env:
+	@echo "GOOGLETEST_TARGZ=$(GOOGLETEST_TARGZ)"
+	@echo "GOOGLETEST_VER_DIR=$(GOOGLETEST_VER_DIR)"
+	@echo "ROOT_DIR=$(ROOT_DIR)"
+	@echo "TARGET_DIR=$(TARGET_DIR)"
+
+
+#include ../../../util/include.mk
