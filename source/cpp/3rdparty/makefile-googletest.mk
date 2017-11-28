@@ -43,7 +43,7 @@ $(TARGET_DIR)/Makefile:
 	cd $(TARGET_DIR) && $(CMAKE) -DBUILD_GTEST=ON -DBUILD_GMOCK=OFF -G "Unix Makefiles" ../ && make
 
 clean:
-	cd $(TARGET_DIR) && make clean
+	if [ -d $(TARGET_DIR) ]; then cd $(TARGET_DIR) && make clean; fi
 
 distclean:
 	rm -rf $(TARGET_DIR)
