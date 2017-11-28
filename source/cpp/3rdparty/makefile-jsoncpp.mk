@@ -22,6 +22,12 @@ BASE_FILTER_GOALS=deps test distclean
 export CC=gcc
 export CXX=g++
 
+ifneq ($(DEBUG_BUILD),)
+CMAKEBUILDTYPE=-DCMAKE_BUILD_TYPE=Debug
+else
+CMAKEBUILDTYPE=-DCMAKE_BUILD_TYPE=Release
+endif
+
 # If we don't have a build dir addtionally filter clean targets
 ifeq ($(wildcard $(TARGET_DIR)/Makefile),)
 FILTER_GOALS=$(BASE_FILTER_GOALS) distclean clean
@@ -42,7 +48,7 @@ deps test: $(TARGET_DIR)/Makefile
 
 $(TARGET_DIR)/Makefile: $(ROOT_DIR)/CMakeLists.txt
 	mkdir -p $(TARGET_DIR)
-	cd $(TARGET_DIR) && $(CMAKE) -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_STATIC_LIBS=ON -DBUILD_SHARED_LIBS=OFF -G "Unix Makefiles" ../ && make
+	cd $(TARGET_DIR) && $(CMAKE) $(CMAKEBUILDTYPE) -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_STATIC_LIBS=ON -DBUILD_SHARED_LIBS=OFF -G "Unix Makefiles" ../ && make
 
 distclean:
 	rm -rf $(TARGET_DIR)

@@ -16,11 +16,17 @@
 ROOT_DIR=./protobuf-3.3.0
 SUBDIRS=$(ROOT_DIR)
 
+ifneq ($(DEBUG_BUILD),)
+export CONFIGURE_ENV+=CXXFLAGS="-g3 -O0 -UNDEBUG -DDEBUG -Wno-unused-local-typedefs"
+else
+export CONFIGURE_ENV+=CXXFLAGS="-O2 -Wno-unused-local-typedefs"
+endif
+
 FILTER_GOALS=deps test distclean
 export MAKE
-
 # All needs to be first
 all:
+	mkdir -p $(ROOT_DIR)/build
 	$(MAKE) -C $(ROOT_DIR) dist
 
 test:
@@ -28,4 +34,4 @@ test:
 distclean:
 	$(MAKE) -C $(ROOT_DIR) clean
 
-include ../../../util/include.mk
+#include ../../../util/include.mk
