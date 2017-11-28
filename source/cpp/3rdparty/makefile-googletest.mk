@@ -42,6 +42,9 @@ $(TARGET_DIR)/Makefile:
 	mkdir -p $(TARGET_DIR)
 	cd $(TARGET_DIR) && $(CMAKE) -DBUILD_GTEST=ON -DBUILD_GMOCK=OFF -G "Unix Makefiles" ../ && make
 
+clean:
+	cd $(TARGET_DIR) && make clean
+
 distclean:
 	rm -rf $(TARGET_DIR)
 

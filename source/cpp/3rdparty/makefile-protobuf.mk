@@ -31,7 +31,10 @@ all:
 
 test:
 
-distclean:
+clean:
 	$(MAKE) -C $(ROOT_DIR) clean
+
+distclean:
+	rm -rf $(ROOT_DIR)/build
 
 #include ../../../util/include.mk
