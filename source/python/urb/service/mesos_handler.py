@@ -2130,24 +2130,25 @@ class MesosHandler(MessageHandler):
         if 'custom_resources' in framework_config:
             slave['custom_resources'] = copy.deepcopy(framework_config['custom_resources'])
 
+    # role excluded with Mesos 1.4.0
     def __build_resources(self, cpus=1, mem=4096, disk=10000, ports=[(31000,32000)], custom_resources=None):
         resource_cpu = {}
         resource_cpu['name'] = "cpus"
         resource_cpu['scalar'] = { 'value': cpus }
         resource_cpu['type'] = "SCALAR"
-        resource_cpu['role'] = "*"
+        #resource_cpu['role'] = "*"
 
         resource_mem = {}
         resource_mem['name'] = "mem"
         resource_mem['scalar'] = { 'value': mem }
         resource_mem['type'] = "SCALAR"
-        resource_mem['role'] = "*"
+        #resource_mem['role'] = "*"
 
         resource_disk = {}
         resource_disk['name'] = "disk"
         resource_disk['scalar'] = { 'value': disk }
         resource_disk['type'] = "SCALAR"
-        resource_disk['role'] = "*"
+        #resource_disk['role'] = "*"
 
         resource_ports = {}
         resource_ports['name'] = "ports"
@@ -2156,7 +2157,7 @@ class MesosHandler(MessageHandler):
             ranges.append({'begin': begin, 'end':end })
         resource_ports['ranges'] = { 'range': ranges}
         resource_ports['type'] = "RANGES"
-        resource_ports['role'] = "*"
+        #resource_ports['role'] = "*"
 
         resources = [resource_cpu, resource_mem, resource_disk, resource_ports]
 
@@ -2179,7 +2180,7 @@ class MesosHandler(MessageHandler):
                     continue
                     #resource_dict['text'] = { 'value': val }
                     #resource_dict['type'] = "TEXT"
-                resource_dict['role'] = "*"
+                #resource_dict['role'] = "*"
                 self.logger.debug("Custom resource: %s" % resource_dict)
                 resources.append(resource_dict)
 
