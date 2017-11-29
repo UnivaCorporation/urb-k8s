@@ -37,7 +37,7 @@ $(BUILDDIR)/.dummy:
 
 $(BUILDDIR)/$(REDIS_NAME)/src/redis-server: $(REDIS_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
-	sed -i 's/^JEMALLOC_CFLAGS.*$$/JEMALLOC_CFLAGS+=$$(CFLAGS)/' $(BUILDDIR)/$(REDIS_NAME)/deps/Makefile
+	$(SED) -i 's/^JEMALLOC_CFLAGS.*$$/JEMALLOC_CFLAGS+=$$(CFLAGS)/' $(BUILDDIR)/$(REDIS_NAME)/deps/Makefile
 	cd $(BUILDDIR)/$(REDIS_NAME) && $(REDIS_DEBUG_ENV) $(MAKE) REDIS_LDFLAGS="-lrt"
 	
 dist: $(DIST_DIR)/.dummy $(BUILDDIR)/.dummy $(DIST_DIR)/bin/redis-server
