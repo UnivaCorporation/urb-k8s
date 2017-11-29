@@ -20,7 +20,7 @@ ifeq ($(DEBUG_BUILD),)
 # disable debug flags by setting empty variable, jmalloc flags taken from underlying makefile
 REDIS_DEBUG_ENV= DEBUG_FLAGS= JEMALLOC_CFLAGS="-std=gnu99 -Wall -pipe -O3 -funroll-loops $(CFLAGS)"
 else
-JEMALLOC_CFLAGS="-std=gnu99 -Wall -pipe -g3 -O3 -funroll-loops $(CFLAGS)"
+REDIS_DEBUG_ENV= JEMALLOC_CFLAGS="-std=gnu99 -Wall -pipe -g3 -O3 -funroll-loops $(CFLAGS)" CFLAGS="-g3 -O0 $(CFLAGS)"
 endif
 
 distclean: clean
