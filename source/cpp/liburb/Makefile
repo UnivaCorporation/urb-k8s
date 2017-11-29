@@ -161,7 +161,7 @@ $(EXT_MESOS_SRC_DIR)/build/3rdparty/zookeeper-*/src/c/.libs/libzookeeper_mt.a  \
 $(EXT_MESOS_SRC_DIR)/build/3rdparty/libprocess/.libs/libprocess.a \
 $(EXT_MESOS_SRC_DIR)/build/src/.libs/liblog.a \
 -Wl,-no-whole-archive  \
-$(EXT_MESOS_SRC_DIR)/build/3rdparty/leveldb-1.4/libleveldb.a
+$(EXT_MESOS_SRC_DIR)/build/3rdparty/leveldb-*/out-static/libleveldb.a
 
 LIBS=$(EXT_LIB) -lev -lz -luuid
 ifeq ($(shell uname -s),SunOS)
