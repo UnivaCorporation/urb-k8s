@@ -31,7 +31,7 @@ class URBMongoClient(object):
     def __init__(self, db_uri='mongodb://localhost:27017/', db_name=DB_NAME, expire=TTL_MONTHS):
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
         try:
-            self.client = MongoClient(db_uri,use_greenlets=True)
+            self.client = MongoClient(db_uri)
             self.db = self.client[db_name]
             self.expire = expire
         except Exception, ex:
