@@ -49,6 +49,10 @@ endif
 include ../../../../util/include.mk
 -include $(URB_PYTHON_INCLUDES)
 
+ifeq ($(EGG_PYV),2.6)
+  VENV_FLAGS = --system-site-packages --no-download
+endif
+
 #Include an built makefile that provides include and lib paths
 
 # Build everthing
@@ -89,7 +93,7 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(VIRTUALENV)/.built:
-	virtualenv $(VIRTUALENV)
+	virtualenv $(VENV_FLAGS) $(VIRTUALENV)
 	touch $@
 
 # There is a system limitation (BINPRM_BUF_SIZE = 128) for the lenth of the interpreter path in a
@@ -150,4 +154,5 @@ env:
 	@echo PYTHONEGG_SCHEDULER=$(PYTHONEGG_SCHEDULER)
 	@echo EXT_MESOS_VERSION=$(EXT_MESOS_VERSION)
 	@echo CFLAGS=$(CFLAGS)
-
+	@echo VENV_FLAGS=$(VENV_FLAGS)
+	@echo EGG_PYV=$(EGG_PYV)
