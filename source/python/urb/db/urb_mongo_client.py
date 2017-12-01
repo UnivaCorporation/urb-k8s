@@ -32,6 +32,7 @@ class URBMongoClient(object):
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
         try:
             self.client = MongoClient(db_uri)
+            self.logger.info("Connected to Mongo DB: %s" % db_uri)
             self.db = self.client[db_name]
             self.expire = expire
         except Exception, ex:
