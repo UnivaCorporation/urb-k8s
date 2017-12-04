@@ -24,7 +24,6 @@ import uuid
 import os
 import base64
 import copy
-from gevent import event
 from gevent import lock
 
 import platform
@@ -139,11 +138,11 @@ class MesosHandler(MessageHandler):
             self.logger.info("Waiting for URB configuration change events")
             events = inotify.get_events(nfd)
             self.logger.info("URB configuration changes: events: %s" % events)
-            for event in set(events):
-                self.logger.info("Config event: %s" % event)
-                if event.mask & inotify.IN_CLOSE_WRITE:
+            for ev in set(events):
+                self.logger.info("Config event: %s" % ev)
+                if ev.mask & inotify.IN_CLOSE_WRITE:
                     self.__reload_config()
-                if event.mask & inotify.IN_DELETE_SELF:
+                if ev.mask & inotify.IN_DELETE_SELF:
                     # give some time for new file to be created
                     gevent.sleep(1)
                     self.__reload_config()
@@ -173,7 +172,7 @@ class MesosHandler(MessageHandler):
         self.adapter.config_update()
 
     def get_target_preprocessor(self, target):
-        if self.event_db_interface is not None:
+        if self.event_db_interface is not None and self.event_db_interface.is_active():
             return self.update_event_db
         return None
 
@@ -340,7 +339,7 @@ class MesosHandler(MessageHandler):
             framework['job_accounting'] = existing_accounting
 
             # Make sure db gets updated here
-            if self.framework_db_interface is not None:
+            if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                 self.framework_db_interface.update_framework(framework_id)
         else:
             self.logger.debug("Cannot update accounting info. Framework does not exist for id: %s" % framework_id)
@@ -559,7 +558,7 @@ class MesosHandler(MessageHandler):
             try:
                 framework = FrameworkTracker.get_instance().get(framework_id['value'])
                 if framework is None:
-                    if self.framework_db_interface is not None:
+                    if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                         self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
                     self.logger.info("Framework id %s is not active, exiting offer loop" %(framework_id['value']))
                     break
@@ -1925,7 +1924,7 @@ class MesosHandler(MessageHandler):
             self.send_slave_shutdown_message(channel_id)
             # if framework terminated without sending unregister message it is left in active status in db
             # here we can mark it finally as inactive
-            if self.framework_db_interface is not None:
+            if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                 self.framework_db_interface.set_framework_summary_status_inactive(framework_id_value)
             if self.__scheduled_shutdowns.get(slave_id_value):
                 # Also delete the job...
@@ -2237,7 +2236,7 @@ class MesosHandler(MessageHandler):
         framework['offers'] = offers
 
         # Update db
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             self.framework_db_interface.update_offer_summary(offer)
         return offer
 
@@ -2668,7 +2667,7 @@ class MesosHandler(MessageHandler):
             self.channel_monitor.start_channel_monitoring(channel_name)
 
     def update_event_db(self, request):
-        if self.event_db_interface is None:
+        if self.event_db_interface is None or not self.event_db_interface.is_active():
             return
         event_id = request.get('message_id')
         target = request.get('target')
@@ -2690,13 +2689,13 @@ class MesosHandler(MessageHandler):
 
     def update_framework_db(self, request):
         framework_id = FrameworkTracker.get_instance().retrieve_and_forget_request_framework_id(request)
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             self.logger.debug('Updating framework db for message id %s' % request.get('message_id'))
             self.framework_db_interface.update_framework(framework_id)
         return framework_id
 
     def update_completed_executor_summary_db(self, slave):
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             slave_id = slave['id']['value']
             executor_id = 'executor-%s' % slave_id
             self.logger.debug('Updating executor summary db after shutdown for slave id %s' % slave_id)

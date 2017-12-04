@@ -16,6 +16,7 @@
 
 
 from pymongo import MongoClient
+import gevent
 from urb.log.log_manager import LogManager
 from urb.exceptions.db_error import DBError
 
@@ -27,6 +28,8 @@ class URBMongoClient(object):
     DB_NAME = 'urb'
     # clean old data after number of specified months (0 - never expire)
     TTL_MONTHS = 0
+    MAX_ENABLE_SLEEP_SEC = 60*60
+    INITIAL_ENABLE_SLEEP = 60*2
 
     def __init__(self, db_uri='mongodb://localhost:27017/', db_name=DB_NAME, expire=TTL_MONTHS):
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
@@ -35,6 +38,8 @@ class URBMongoClient(object):
             self.logger.info("Connected to Mongo DB: %s" % db_uri)
             self.db = self.client[db_name]
             self.expire = expire
+            self.active = True
+            self.enable_sleep = URBMongoClient.INITIAL_ENABLE_SLEEP
         except Exception, ex:
             self.logger.warn('Cannot connect to Mongo DB: %s' % ex)
             raise DBError(exception=ex)
@@ -69,6 +74,23 @@ class URBMongoClient(object):
 
     def get_index_information(self, collection):
         return self.db[collection].index_information()
+
+    def set_active(self, flag=True):
+        self.logger.info("Mongo DB: set active flag to %s, was: %s" % (flag, self.active))
+        self.active = flag
+        if self.enable_sleep < URBMongoClient.MAX_ENABLE_SLEEP_SEC:
+            self.logger.debug("Mongo DB: spawning enable")
+            gevent.spawn(self.__enable)
+            self.enable_sleep *= 2
+
+    def __enable(self):
+        self.logger.debug("Mongo DB: active flag will be enabled after %d min" % self.enable_sleep/60)
+        gevent.sleep(self.enable_sleep)
+        self.active = True
+        self.logger.info("Mongo DB: active flag enabled after %d min" % self.enable_sleep/60)
+
+    def is_active(self):
+        return self.active
 
 # Testing
 if __name__ == '__main__':

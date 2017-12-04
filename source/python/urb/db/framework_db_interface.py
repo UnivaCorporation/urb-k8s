@@ -91,6 +91,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot set status to false in framework summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
+            self.db_client.set_active(False)
 
         try:
             self.logger.debug('Setting active state for framework id %s for dependent tasks in database to false' % framework_id)
@@ -102,6 +103,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot set status to false in task summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
+            self.db_client.set_active(False)
 
         try:
             self.logger.debug('Setting active state for framework id %s for dependent executors in database to false' % framework_id)
@@ -113,6 +115,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot set status to false in executor summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
+            self.db_client.set_active(False)
             
 
     def update_framework_summary(self, framework_id, db_framework):
@@ -165,17 +168,22 @@ class FrameworkDBInterface(object):
             # Assume no active tasks
             executor_running = True
             if not executor_dict.has_key(executor_id):
-                db_executor_summary = self.find_executor_summary(executor_id)
-                if db_executor_summary is not None:
-                    executor_running = db_executor_summary['running']
-                    if db_executor_summary['running'] == True:
-                        self.logger.trace("Executor summary from db: %s" % db_executor_summary)
-                        db_executor_summary['active_task'] = 0
-                        db_executor_summary['cpu_alloc'] = 0
-                        db_executor_summary['mem_alloc'] = 0
-                        executor_dict[executor_id] = db_executor_summary
-                else:
-                    self.logger.trace("Could not find executor summary for %s" % executor_id)
+                try:
+                    db_executor_summary = self.find_executor_summary(executor_id)
+                    if db_executor_summary is not None:
+                        executor_running = db_executor_summary['running']
+                        if db_executor_summary['running'] == True:
+                            self.logger.trace("Executor summary from db: %s" % db_executor_summary)
+                            db_executor_summary['active_task'] = 0
+                            db_executor_summary['cpu_alloc'] = 0
+                            db_executor_summary['mem_alloc'] = 0
+                            executor_dict[executor_id] = db_executor_summary
+                    else:
+                        self.logger.trace("Could not find executor summary for %s" % executor_id)
+                except Exception, ex:
+                    self.logger.error('Cannot find executor summary %s: %s', (executor_id, ex))
+                    self.db_client.set_active(False)
+                    return
 
             if task_state == 'TASK_RUNNING':
                 active_tasks.append(task)
@@ -256,6 +264,7 @@ class FrameworkDBInterface(object):
             except Exception, ex:
                 self.logger.error('Cannot store task summary: %s', ex)
                 self.logger.debug('Troubled task: %s', task)
+                self.db_client.set_active(False)
 
         # Update executor summaries
         for (executor_id, executor_summary) in executor_dict.items():
@@ -281,6 +290,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot store framework summary: %s', ex)
             self.logger.debug('Troubled framework: %s', framework)
+            self.db_client.set_active(False)
 
     def update_framework(self, framework_id):
         self.logger.debug('Updating framework id %s:' % framework_id)
@@ -292,10 +302,15 @@ class FrameworkDBInterface(object):
         self.logger.trace(framework)
 
         # Get existing framework
-        db_framework = self.find_framework(framework_id)
-        if db_framework is None:
-            db_framework = {}
-        self.logger.trace('Existing DB framework id %s: %s' % (framework_id, db_framework))
+        try:
+            db_framework = self.find_framework(framework_id)
+            if db_framework is None:
+                db_framework = {}
+            self.logger.trace('Existing DB framework id %s: %s' % (framework_id, db_framework))
+        except Exception, ex:
+            self.logger.error('Cannot find framework %s: %s', (framework_id, ex))
+            self.db_client.set_active(False)
+            return
 
         # Filter out the 'unstorable' items from the framework
         filter_keys = ['channel','slave_dict','task_dict','lock','lock_acquired', 'offer_event']
@@ -369,6 +384,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot store framework: %s', ex)
             self.logger.debug('Troubled framework: %s',framework)
+            self.db_client.set_active(False)
 
         # Update summary
         self.update_framework_summary(framework_id, db_framework)
@@ -384,6 +400,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot store executor summary: %s', ex)
             self.logger.debug('Troubled executor summary: %s', executor_summary)
+            self.db_client.set_active(False)
 
     def update_offer_summary(self, offer):
         offer_summary = {}
@@ -407,7 +424,7 @@ class FrameworkDBInterface(object):
         except Exception, ex:
             self.logger.error('Cannot store offer summary: %s', ex)
             self.logger.debug('Troubled offer: %s', offer)
-
+            self.db_client.set_active(False)
 
     def analyze_job_status_for_host(self, job_id, host):
         self.logger.debug("Analyzing job status for job %s on host %s" % (job_id, host))
@@ -497,14 +514,20 @@ class FrameworkDBInterface(object):
     def update_completed_executor_summary(self, executor_id):
         # Get existing executor summary if needed
         # Assume no active tasks
-        executor_id = executor_id.replace('.', '_')  
-        db_executor_summary = self.find_executor_summary(executor_id, True)
-        if db_executor_summary is not None:
-            self.logger.debug('Marking executor %s as done in db' % executor_id)
-            db_executor_summary['active_task'] = 0
-            db_executor_summary['running'] = False
-            db_executor_summary['stopped'] = time.time()
-            self.update_executor_summary(db_executor_summary)
-        else:
-            self.logger.debug('Could not find executor %s to mark as done in db' % executor_id)
+        executor_id = executor_id.replace('.', '_')
+        try:
+            db_executor_summary = self.find_executor_summary(executor_id, True)
+            if db_executor_summary is not None:
+                self.logger.debug('Marking executor %s as done in db' % executor_id)
+                db_executor_summary['active_task'] = 0
+                db_executor_summary['running'] = False
+                db_executor_summary['stopped'] = time.time()
+                self.update_executor_summary(db_executor_summary)
+            else:
+                self.logger.debug('Could not find executor %s to mark as done in db' % executor_id)
+        except Exception, ex:
+            self.logger.error('Cannot find executor summary %s: %s', (executor_id, ex))
+            self.db_client.set_active(False)
 
+    def is_active(self):
+        return self.db_client.is_active()
