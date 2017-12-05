@@ -31,7 +31,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       shell.inline = "/opt/puppetlabs/bin/puppet apply /vagrant/puppet/default.pp"
     end
     app.vm.provider "docker" do |d|
-      d.image = "urb-build"
+      if ENV['DOCKER_IMAGE']
+        d.image = ENV['DOCKER_IMAGE']
+      else
+        d.image = "urb-build"
+      end
       d.name = vm_name
       if ENV['DOCKER_SUFFIX']
         d.name += ENV['DOCKER_SUFFIX']
