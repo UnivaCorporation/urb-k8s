@@ -137,6 +137,7 @@ $(DIST_TARGET_ARCH_BIN): all $(DIST_DIR)/../.dummy $(LIBURB_TARGET) $(LIBURB_BIG
 $(DIST_TARGET_NOARCH): all $(DIST_DIR)/../.dummy $(URB_EGG_TARGET) $(LIBURB_PYTHON_NOARCH_BINDINGS)
 	mkdir -p $(@D)
 	cp -f $(THIRDPARTY_EGG_DIR)/*$(PYVERS).egg $(EGG_DIR_NOARCH)
+	find $(THIRDPARTY_EGG_DIR) -mindepth 1 -maxdepth 1 -name *-none-*.whl -exec cp -f {} $(EGG_DIR_NOARCH) \;
 	cp -f $(LIBURB_PYTHON_NOARCH_BINDINGS) $(EGG_DIR_NOARCH)
 	cd $(BASE_DIR)/$(DEP_NOARCH) && $(TAR) czvf $@ .
 
