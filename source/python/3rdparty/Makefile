@@ -123,8 +123,10 @@ $(DIST_DIR)/$(PYMONGO_EGG): $(PYMONGO_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(PYMONGO_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
+# protobuf 3.0.0 has incorrect egg-info files permissions
 $(DIST_DIR)/$(PROTOBUF_EGG): $(PROTOBUF_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
+	chmod go+r $(BUILDDIR)/$(PROTOBUF_NAME)/protobuf.egg-info/*
 	cd $(BUILDDIR)/$(PROTOBUF_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
 $(DIST_DIR)/$(ARGPARSE_EGG): $(ARGPARSE_ARCHIVE)
