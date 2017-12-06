@@ -16,7 +16,7 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.boot_timeout = 10
+  config.vm.boot_timeout = 30
   config.ssh.insert_key = false
   if ENV['SYNCED_FOLDER']
     synced_folder = ENV['SYNCED_FOLDER']
