@@ -131,6 +131,13 @@ exec { "install_xmltodict":
    require => Package['python-setuptools']
 }
 
+exec { "install_gevent_inotifyx":
+   unless => "/usr/bin/env python -c 'import gevent_inotifyx'",
+   command => "/usr/bin/easy_install gevent_inotifyx",
+   timeout => 600,
+   require => Package['python-setuptools']
+}
+
 exec { "install_redis":
    unless => "/usr/bin/env python -c 'import redis'",
    command => "/usr/bin/easy_install redis",

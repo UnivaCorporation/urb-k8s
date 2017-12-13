@@ -52,6 +52,11 @@ const int PORTS_BASE = 31000;
 const int TOTAL_TASKS = 50; // default number of tasks
 const int TASK_SLEEP_TIME = 1; // sleep time for task
 
+constexpr char EXECUTOR_BINARY[] = "example_executor.test";
+constexpr char EXECUTOR_NAME[] = "Test Executor (C++)";
+constexpr char FRAMEWORK_NAME[] = "Test Framework (C++)";
+//constexpr char FRAMEWORK_PRINCIPAL[] = "test-framework-cpp";
+
 std::string curr_td() {
   char buffer[26];
   int millisec;
@@ -121,7 +126,18 @@ public:
         task.mutable_slave_id()->MergeFrom(offer.slave_id());
         task.mutable_executor()->MergeFrom(executor_);
 
-        Option<Resources> resources = remaining.find(TASK_RESOURCES);
+//        Option<Resources> resources = remaining.find(TASK_RESOURCES);
+        Option<Resources> resources = [&]() {
+          if (role_ == "*") {
+            return remaining.find(TASK_RESOURCES);
+          }
+
+          Resource::ReservationInfo reservation;
+          reservation.set_type(Resource::ReservationInfo::STATIC);
+          reservation.set_role(role_);
+
+          return remaining.find(TASK_RESOURCES.pushReservation(reservation));
+        }();
         CHECK_SOME(resources);
         task.mutable_resources()->MergeFrom(resources.get());
         remaining -= resources.get();
@@ -134,22 +150,25 @@ public:
     cout << curr_td() << "example_framework: Offer contains: " << offers.size() << " offers" << endl;
     cout << curr_td() << "example_framework: Tasks launched=" << tasksLaunched_ << endl;
     static const auto cust = (customResource_.isNone()) ? "" : ";" + customResource_.get();
-    static const Resources TASK_RESOURCES = Resources::parse(
+//    static const Resources TASK_RESOURCES = Resources::parse(
+    Resources TASK_RESOURCES = Resources::parse(
         "cpus:" + stringify(CPUS_PER_TASK) +
         ";mem:" + stringify(MEM_PER_TASK) +
         cust).get();
+// reservation refinement
+//    TASK_RESOURCES.allocate(role_);
     bool reconcile = true;
 
     for (size_t offer_cnt = 0; offer_cnt < offers.size(); offer_cnt++) {
       const Offer& offer = offers[offer_cnt];
-
+      //cout << curr_td() << "offer" << offer.resources() << endl;
       Resources remaining = offer.resources();
       cout << curr_td() << "\tOffer [" << offer.id().value() << "] resources for slave: [" << offer.slave_id().value() << "]: " << remaining << endl;
 
       // Launch tasks.
       vector<TaskInfo> tasks;
       while (tasksLaunched_ < totalTasks_ &&
-             remaining.flatten().contains(TASK_RESOURCES)) {
+             remaining.toUnreserved().contains(TASK_RESOURCES)) {
         int taskId = tasksLaunched_++;
 
         TaskInfo task = launchTask(offer, remaining, TASK_RESOURCES, taskId);
@@ -183,7 +202,7 @@ public:
           cout << curr_td() << "\t\t" << lostTasks_.size() << " tasks were definitely lost." << endl;
           for (auto it = lostTasks_.begin(); it != lostTasks_.end();) {
               cout << curr_td() << "\t\t\tTask " << *it << " lost...";
-              if (remaining.flatten().contains(TASK_RESOURCES)) {
+              if (remaining.toUnreserved().contains(TASK_RESOURCES)) {
                   cout << " relaunching." << endl;
                   tasks.push_back(launchTask(offer, remaining, TASK_RESOURCES, *it));
                   it = lostTasks_.erase(it);
@@ -354,7 +373,7 @@ int main(int argc, char** argv)
 
     // Find this executable's directory to locate executor.
     string path = os::realpath(Path(argv[0]).dirname()).get();
-    string uri = path + "/example_executor.test";
+    string uri = path::join(path, EXECUTOR_BINARY);
     Option<string> master = os::getenv("URB_MASTER");
     if (master.isNone()) {
         master = "urb://localhost";
@@ -364,7 +383,7 @@ int main(int argc, char** argv)
     ExecutorInfo executor;
     executor.mutable_executor_id()->set_value("default");
     executor.mutable_command()->set_value(uri);
-    executor.set_name("Test Executor (C++)");
+    executor.set_name(EXECUTOR_NAME);
     executor.set_source("cpp_test");
     Environment* environment = executor.mutable_command()->mutable_environment();
     Environment_Variable* variableUrblog = environment->add_variables();
@@ -391,17 +410,17 @@ int main(int argc, char** argv)
     TestScheduler scheduler(executor, "*", tasks, customResource);
 
     FrameworkInfo framework;
-    framework.set_user("");
-    framework.set_name("Test Framework (C++)");
+    framework.set_user(""); // Have Mesos fill in the current user.
+    framework.set_name(FRAMEWORK_NAME);
     framework.set_role("*");
+//    framework.add_capabilities()->set_type(
+//      FrameworkInfo::Capability::RESERVATION_REFINEMENT);
 
     // Create the scheduler driver from the liburb library
     MesosSchedulerDriver* driver;
     driver = new MesosSchedulerDriver(
         &scheduler, framework, master.get());
        // &scheduler, framework, "urb://ha://localhost/mymaster");
-
-    //system("python test/simple_master.py one_shot &");
 
     int status = driver->run() == DRIVER_STOPPED ? 0 : 1;
     cout << curr_td() << "example_framework: driver->run() exited with status: " << status << endl;

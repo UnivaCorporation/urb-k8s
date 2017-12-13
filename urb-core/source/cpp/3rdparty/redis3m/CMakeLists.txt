@@ -30,7 +30,7 @@ endif()
 find_package(Boost)
 
 # Library
-include_directories("${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/../hiredis-20141015" ${PROJECT_SOURCE_DIR}/.. ${Boost_INCLUDE_DIRS} "/usr/include/libev")
+include_directories("${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/../redis/build/redis-4.0.2/deps/hiredis" ${PROJECT_SOURCE_DIR}/.. ${Boost_INCLUDE_DIRS} "/usr/include/libev")
 file(GLOB SRC_FILES "src/*.cpp" "src/utils/*.cpp" "src/patterns/*.cpp")
 file(GLOB INCLUDE_FILES "include/redis3m/*.h*" "include/redis3m/utils/*.h" "include/redis3m/patterns/*.h*")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/utils/datadir.cpp.in

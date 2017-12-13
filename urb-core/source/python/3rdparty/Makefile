@@ -70,6 +70,11 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
           $(DIST_DIR)/$(GOOGLECOMMON_EGG)
 
+# some packages can be used directly as prebuild eggs or wheels
+SIX_ARCHIVE=$(shell ls six-*.whl)
+
+DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE)
+
 ifeq ($(shell uname -s),SunOS)
   SETUP_ENV=PYCC_CC=gcc
 else
@@ -118,8 +123,10 @@ $(DIST_DIR)/$(PYMONGO_EGG): $(PYMONGO_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(PYMONGO_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
+# protobuf 3.0.0 has incorrect egg-info files permissions
 $(DIST_DIR)/$(PROTOBUF_EGG): $(PROTOBUF_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
+	chmod go+r $(BUILDDIR)/$(PROTOBUF_NAME)/protobuf.egg-info/*
 	cd $(BUILDDIR)/$(PROTOBUF_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
 $(DIST_DIR)/$(ARGPARSE_EGG): $(ARGPARSE_ARCHIVE)
@@ -140,7 +147,12 @@ $(DIST_DIR)/$(GEVENTINOTIFYX_EGG): $(GEVENTINOTIFYX_ARCHIVE)
 	cd $(BUILDDIR); $(PATCH) -p1 < ../$(GEVENTINOTIFYX_NAME).patch
 	cd $(BUILDDIR)/$(GEVENTINOTIFYX_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
-dist: $(BUILDDIR)/.dummy $(DIST_DIR)/.dummy $(DIST_EGGS)
+$(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_PREBUILT): $(DIST_DIR)/$(SIX_ARCHIVE)
+
+dist: $(BUILDDIR)/.dummy $(DIST_DIR)/.dummy $(DIST_EGGS) $(DIST_PREBUILT)
 
 test:
 	@echo "Skipping recursive test of thirdparty eggs."
@@ -167,3 +179,5 @@ env:
 	@echo XMLTODICT_NAME=$(XMLTODICT_NAME)
 	@echo XMLTODICT_ARCHIVE=$(XMLTODICT_ARCHIVE)
 	@echo DIST_EGGS=$(DIST_EGGS)
+	@echo SIX_ARCHIVE=$(SIX_ARCHIVE)
+	@echo DIST_PREBUILT=$(DIST_PREBUILT)

@@ -19,15 +19,15 @@
 #ifndef __MESOS_VERSION_HPP__
 #define __MESOS_VERSION_HPP__
 
-#define MESOS_VERSION "1.1.0"
+#define MESOS_VERSION "1.4.0"
 
 // TODO(zhitao): Change the string-valued macros to use integers
 // after a deprecation cycle started with 1.1.
 #define MESOS_MAJOR_VERSION "1"
 #define MESOS_MAJOR_VERSION_NUM 1
 
-#define MESOS_MINOR_VERSION "1"
-#define MESOS_MINOR_VERSION_NUM 1
+#define MESOS_MINOR_VERSION "4"
+#define MESOS_MINOR_VERSION_NUM 4
 
 #define MESOS_PATCH_VERSION "0"
 #define MESOS_PATCH_VERSION_NUM 0

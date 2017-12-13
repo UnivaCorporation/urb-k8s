@@ -24,7 +24,6 @@ import uuid
 import os
 import base64
 import copy
-from gevent import event
 from gevent import lock
 
 import platform
@@ -91,7 +90,7 @@ class MesosHandler(MessageHandler):
     SLAVE_GRACE_PERIOD = 120
     DEFAULT_FRAMEWORK_MAX_TASKS = 10
     # Actual Mesos version has to be set by the build procedure
-    MESOS_VERSION = "1.1.0"
+    MESOS_VERSION = "1.4.0"
 
     def __init__(self, channel_name, initial_retry_interval, max_retry_count):
         MessageHandler.__init__(self, channel_name)
@@ -139,11 +138,11 @@ class MesosHandler(MessageHandler):
             self.logger.info("Waiting for URB configuration change events")
             events = inotify.get_events(nfd)
             self.logger.info("URB configuration changes: events: %s" % events)
-            for event in set(events):
-                self.logger.info("Config event: %s" % event)
-                if event.mask & inotify.IN_CLOSE_WRITE:
+            for ev in set(events):
+                self.logger.info("Config event: %s" % ev)
+                if ev.mask & inotify.IN_CLOSE_WRITE:
                     self.__reload_config()
-                if event.mask & inotify.IN_DELETE_SELF:
+                if ev.mask & inotify.IN_DELETE_SELF:
                     # give some time for new file to be created
                     gevent.sleep(1)
                     self.__reload_config()
@@ -173,7 +172,7 @@ class MesosHandler(MessageHandler):
         self.adapter.config_update()
 
     def get_target_preprocessor(self, target):
-        if self.event_db_interface is not None:
+        if self.event_db_interface is not None and self.event_db_interface.is_active():
             return self.update_event_db
         return None
 
@@ -340,7 +339,7 @@ class MesosHandler(MessageHandler):
             framework['job_accounting'] = existing_accounting
 
             # Make sure db gets updated here
-            if self.framework_db_interface is not None:
+            if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                 self.framework_db_interface.update_framework(framework_id)
         else:
             self.logger.debug("Cannot update accounting info. Framework does not exist for id: %s" % framework_id)
@@ -559,7 +558,7 @@ class MesosHandler(MessageHandler):
             try:
                 framework = FrameworkTracker.get_instance().get(framework_id['value'])
                 if framework is None:
-                    if self.framework_db_interface is not None:
+                    if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                         self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
                     self.logger.info("Framework id %s is not active, exiting offer loop" %(framework_id['value']))
                     break
@@ -1925,7 +1924,7 @@ class MesosHandler(MessageHandler):
             self.send_slave_shutdown_message(channel_id)
             # if framework terminated without sending unregister message it is left in active status in db
             # here we can mark it finally as inactive
-            if self.framework_db_interface is not None:
+            if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                 self.framework_db_interface.set_framework_summary_status_inactive(framework_id_value)
             if self.__scheduled_shutdowns.get(slave_id_value):
                 # Also delete the job...
@@ -2130,24 +2129,25 @@ class MesosHandler(MessageHandler):
         if 'custom_resources' in framework_config:
             slave['custom_resources'] = copy.deepcopy(framework_config['custom_resources'])
 
+    # role excluded with Mesos 1.4.0
     def __build_resources(self, cpus=1, mem=4096, disk=10000, ports=[(31000,32000)], custom_resources=None):
         resource_cpu = {}
         resource_cpu['name'] = "cpus"
         resource_cpu['scalar'] = { 'value': cpus }
         resource_cpu['type'] = "SCALAR"
-        resource_cpu['role'] = "*"
+        #resource_cpu['role'] = "*"
 
         resource_mem = {}
         resource_mem['name'] = "mem"
         resource_mem['scalar'] = { 'value': mem }
         resource_mem['type'] = "SCALAR"
-        resource_mem['role'] = "*"
+        #resource_mem['role'] = "*"
 
         resource_disk = {}
         resource_disk['name'] = "disk"
         resource_disk['scalar'] = { 'value': disk }
         resource_disk['type'] = "SCALAR"
-        resource_disk['role'] = "*"
+        #resource_disk['role'] = "*"
 
         resource_ports = {}
         resource_ports['name'] = "ports"
@@ -2156,7 +2156,7 @@ class MesosHandler(MessageHandler):
             ranges.append({'begin': begin, 'end':end })
         resource_ports['ranges'] = { 'range': ranges}
         resource_ports['type'] = "RANGES"
-        resource_ports['role'] = "*"
+        #resource_ports['role'] = "*"
 
         resources = [resource_cpu, resource_mem, resource_disk, resource_ports]
 
@@ -2179,7 +2179,7 @@ class MesosHandler(MessageHandler):
                     continue
                     #resource_dict['text'] = { 'value': val }
                     #resource_dict['type'] = "TEXT"
-                resource_dict['role'] = "*"
+                #resource_dict['role'] = "*"
                 self.logger.debug("Custom resource: %s" % resource_dict)
                 resources.append(resource_dict)
 
@@ -2236,7 +2236,7 @@ class MesosHandler(MessageHandler):
         framework['offers'] = offers
 
         # Update db
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             self.framework_db_interface.update_offer_summary(offer)
         return offer
 
@@ -2667,7 +2667,7 @@ class MesosHandler(MessageHandler):
             self.channel_monitor.start_channel_monitoring(channel_name)
 
     def update_event_db(self, request):
-        if self.event_db_interface is None:
+        if self.event_db_interface is None or not self.event_db_interface.is_active():
             return
         event_id = request.get('message_id')
         target = request.get('target')
@@ -2689,13 +2689,13 @@ class MesosHandler(MessageHandler):
 
     def update_framework_db(self, request):
         framework_id = FrameworkTracker.get_instance().retrieve_and_forget_request_framework_id(request)
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             self.logger.debug('Updating framework db for message id %s' % request.get('message_id'))
             self.framework_db_interface.update_framework(framework_id)
         return framework_id
 
     def update_completed_executor_summary_db(self, slave):
-        if self.framework_db_interface is not None:
+        if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             slave_id = slave['id']['value']
             executor_id = 'executor-%s' % slave_id
             self.logger.debug('Updating executor summary db after shutdown for slave id %s' % slave_id)

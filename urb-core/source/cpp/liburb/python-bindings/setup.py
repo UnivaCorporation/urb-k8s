@@ -18,7 +18,7 @@ import os
 if os.environ.get('USER','') == 'vagrant':
     del os.link
 
-mesos_version= os.environ.get('EXT_MESOS_VERSION', '1.1.0')
+mesos_version= os.environ.get('EXT_MESOS_VERSION', '1.4.0')
 
 config = {
     'name': 'mesos',

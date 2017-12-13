@@ -39,9 +39,11 @@ PROTO_INC=-I$(PROTO_BASE)/src
 PROTO_LIB=-L$(PROTO_BASE)/src/.libs -lprotobuf
 PROTOC=$(CPP_BASE)/3rdparty/$(PROTO_NAME)/$(BUILDDIR)/$(PROTO_NAME)/src/protoc
 
-JSONCPP_BASE=$(CPP_BASE)/3rdparty/jsoncpp-20141023
+#JSONCPP_BASE=$(CPP_BASE)/3rdparty/jsoncpp-20141023
+JSONCPP_BASE=$(CPP_BASE)/3rdparty/jsoncpp-1.8.3
 JSONCPP_INC=-I$(JSONCPP_BASE)/include
-JSONCPP_LIB=-L$(JSONCPP_BASE)/build/lib -ljsoncpp
+#JSONCPP_LIB=-L$(JSONCPP_BASE)/build/lib -ljsoncpp
+JSONCPP_LIB=-L$(JSONCPP_BASE)/build/src/lib_json -ljsoncpp
 
 B64_BASE=$(CPP_BASE)/3rdparty/libb64-1.2.1
 B64_INC=-I$(B64_BASE)/include

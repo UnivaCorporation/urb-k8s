@@ -276,6 +276,7 @@ void UrbSchedulerProcess::setPayload(const google::protobuf::Message& gmessage,
                                      liburb::message_broker::Message& message) {
     Json::Value json;
     json_protobuf::convert_to_json(gmessage, json);
+    VLOG(4) << "UrbSchedulerProcess::setPayload: " << json;
     message.getPayloadAsJson()[gmessage.GetTypeName()] = json;
 }
 
@@ -772,6 +773,7 @@ void UrbSchedulerProcess::launchTasks(const vector<OfferID>& offerIds,
     vector<TaskInfo> result;
 
     for (const TaskInfo& task: tasks) {
+      VLOG(3) << "UrbSchedulerProcess::launchTasks(): task_id=" << task.task_id().value();
       // Check that each TaskInfo has either an ExecutorInfo or a
       // CommandInfo but not both.
       if (task.has_executor() == task.has_command()) {
