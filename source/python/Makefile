@@ -17,7 +17,7 @@ SETUP_ENV=PYCC_CC=gcc
 endif
 
 K8S_ADAPTER_INIT=k8s_adapter/__init__.py
-REDIS_BIN=../../urb-core/source/cpp/3rdparty/redis/build/redis-2.8.18/src
+REDIS_BIN=../../urb-core/source/cpp/3rdparty/redis/build/redis-4.0.2/src
 
 include ../../urb-core/util/include.mk
 
