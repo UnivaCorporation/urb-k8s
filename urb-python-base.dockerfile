@@ -33,6 +33,6 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/mesos.executor-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.native-*-py2.7.egg \
                  /tmp/mesos.interface-*-py2.7.egg \
-                 /tmp/mesos-1.1.0-py2.7.egg \
+                 /tmp/mesos-*-py2.7.egg \
                  /tmp/urb-*-py2.7.egg
  
