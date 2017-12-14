@@ -45,7 +45,7 @@ sdist: $(K8S_ADAPTER_INIT)
 
 test: $(K8S_ADAPTER_INIT)
 	sudo pip install kubernetes
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server --protected-mode no& fi
 	$(SETUP_ENV) URB_CONFIG_FILE=$$(pwd)/test/urb.conf $(PYTHON) setup.py nosetests
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" == "PONG" ]; then echo -e "flushdb\nshutdown\nquit\n" | $(REDIS_BIN)/redis-cli; fi
 
