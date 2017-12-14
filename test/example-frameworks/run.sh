@@ -145,7 +145,7 @@ kubectl create -f test/example-frameworks/cpp-framework.yaml
 #kubectl create -f test/example-frameworks/python-framework.yaml
 
 #framework_wait python-framework "exiting with status 0" 60
-framework_wait cpp-framework "example_framework: ~TestScheduler()" 60
+framework_wait cpp-framework "example_framework: ~TestScheduler()" 90
 
 #if [ ! -z "$mount_pid" ]; then
 #  kill $mount_pid
