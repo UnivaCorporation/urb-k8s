@@ -36,7 +36,7 @@ The following steps need to be done to perform a project build:
 
 ## Start `minikube`
 
-_Requires Virtualbox or another supported minikube backend to be installed_
+_Requires Virtualbox or another supported minikube backend to be installed_. _By default minikube virtual machine is configured for 2Gb of memory, which is not enough to run Spark examples, it is recommended to set it at least to 4Gb_.
 
 `minikube start`
 
