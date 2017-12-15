@@ -23,5 +23,5 @@ cp ~/.minikube/client.* urb-core/vagrant/.minikube
 cp ~/.minikube/cert.pem urb-core/vagrant/.minikube
 mkdir -p urb-core/vagrant/.kube
 cp ~/.kube/config urb-core/vagrant/.kube/config.orig
-sed "s|/home/.*/\.minikube|/vagrant/.minikube|; s|/Users/.*/\.minikube|/vagrant/.minikube|" \
+sed "s|/home/.*/\.minikube|/vagrant/.minikube|; s|/Users/.*/\.minikube|/vagrant/.minikube|; s|https.*$|http://127.0.0.1.:8001|" \
 	urb-core/vagrant/.kube/config.orig > urb-core/vagrant/.kube/config

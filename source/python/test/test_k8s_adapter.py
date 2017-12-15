@@ -34,11 +34,9 @@ from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
 os.environ["URB_CONFIG_FILE"] = os.path.dirname(os.path.realpath(__file__)) + "/urb.conf"
-client.Configuration().host="http://127.0.0.1:8001"
 os.environ["URB_MASTER"] = "urb://urb-master:6379"
-#client.Configuration().host="http://192.168.99.100:8433"
 
-#@needs_uge
+
 def test_short_job_management():
     adapter = K8SAdapter()
     adapter.set_command(["/bin/sh", "-c", "env; sleep 1"])

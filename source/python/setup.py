@@ -17,10 +17,11 @@ import sys
 
 if "nosetests" in sys.argv:
     try:
-        print ("Monkey patching thread")
+        print ("Monkey patching")
         import gevent.monkey
-        gevent.monkey.patch_thread()
-        gevent.monkey.patch_socket()
+        gevent.monkey.patch_all()
+#        gevent.monkey.patch_thread()
+#        gevent.monkey.patch_socket()
     except Exception, ex:
         print(ex)
 

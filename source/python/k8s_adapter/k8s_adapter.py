@@ -85,8 +85,8 @@ class K8SAdapter(object):
           'KUBERNETES_SERVICE_HOST' not in os.environ or \
           'KUBERNETES_SERVICE_PORT' not in os.environ:
             self.logger.info("In test environment")
-            client.Configuration().host = "http://127.0.0.1:8001"
-#            config.load_kube_config()
+#            client.Configuration().host = "http://127.0.0.1:8001"
+            config.load_kube_config()
         else:
             # to workaround for:
             # SSLError hostname '10.0.0.1' doesn't match either of 'kubernetes.default.svc.cluster.local', 'kubernetes.default.svc', 'kubernetes.default', 'kubernetes'

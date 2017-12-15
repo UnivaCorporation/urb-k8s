@@ -44,7 +44,7 @@ _Requires Virtualbox or another supported minikube backend to be installed_. _By
 
 _This will be used inside the build container_
 
-`tools/conf.sh`
+`tools/vagrant_kube_conf.sh`
 
 ## Create Docker Build Environment
 _Requires `docker` to be installed_
