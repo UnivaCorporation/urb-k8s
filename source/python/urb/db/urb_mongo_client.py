@@ -35,7 +35,7 @@ class URBMongoClient(object):
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
         try:
             # for pymongo >= 3.0 constructor doesn't throw anymore
-            self.client = MongoClient(db_uri)
+            self.client = MongoClient(db_uri, serverSelectionTimeoutMS = 5000)
             # check connection with ismaster command
             self.client.admin.command('ismaster')
             self.logger.info("Connected to Mongo DB: %s" % db_uri)
