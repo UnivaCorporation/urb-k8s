@@ -61,6 +61,9 @@ from urb.messaging.mesos.reconcile_tasks_message import ReconcileTasksMessage
 from urb.messaging.mesos.revive_offers_message import ReviveOffersMessage
 from urb.messaging.mesos.rescind_resource_offer_message import RescindResourceOfferMessage
 
+from urb.messaging.mesos.subscribe_message import SubscribeMessage
+from urb.messaging.mesos.subscribed_message import SubscribedMessage
+
 from urb.messaging.service_disconnected_message import ServiceDisconnectedMessage
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
 
@@ -74,6 +77,8 @@ from urb.utility.port_range_utility import PortRangeUtility
 from urb.config.config_manager import ConfigManager
 from urb.log.log_manager import LogManager
 from urb.db.db_manager import DBManager
+
+from urb.service.mesos_http import MesosHttp
 
 from urb.exceptions.registration_error import RegistrationError
 from urb.exceptions.unknown_job import UnknownJob
@@ -108,6 +113,7 @@ class MesosHandler(MessageHandler):
         self.configure()
         if platform.system() == "Linux":
             gevent.spawn(self.__watch_config)
+        self.http_service = MesosHttp()
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -280,6 +286,8 @@ class MesosHandler(MessageHandler):
             framework['lock_acquired'] = False
             framework_lock.release()
             self.logger.debug('Released lock for framework id %s' % framework_id['value'])
+        else:
+            self.logger.debug("Releasing framework lock: no framework lock")
     
     def __add_delete_element(self, d, k):
         self.__delete_elements.append(self.__DeleteElement(d,k))
@@ -296,6 +304,7 @@ class MesosHandler(MessageHandler):
         self.channel_monitor = ChannelMonitor(self.validate_channel, self.delete_channel)
         self.channel_monitor.start()
         self.retry_manager.start()
+        self.http_service.start(self)
 
         # Notify existing channels we restarted
         self.send_service_disconnected_message()
@@ -304,6 +313,7 @@ class MesosHandler(MessageHandler):
         self.logger.debug('We are no longer the master')
         # Trigger a shutdown of the offer loop
         self.__master_broker = False
+#        self.http_service.stop()
         self.channel.stop_listener()
         self.job_monitor.stop()
         self.channel_monitor.stop()
@@ -479,7 +489,7 @@ class MesosHandler(MessageHandler):
                         (channel_id, framework_id))
                     cf.destroy_channel(channel_id)
 
-    def __generate_offers_for_framework(self, framework):
+    def __generate_offers_for_framework(self, framework, http = False):
         # First we need to see if we have any slaves around...
         slaves = []
         offers = []
@@ -499,7 +509,7 @@ class MesosHandler(MessageHandler):
             offerable = ( slave.get('offerable',True) and (not slave.get('is_command_executor',False)) and (now > offerable_after))
             if offerable:
                 self.logger.debug("Generating offer for framework %s from slave %s" % (framework['name'],slave))
-                offer = self.build_offer(framework, slave)
+                offer = self.build_offer(framework, slave, http=http)
                 self.logger.debug("Generated offer: %s" % offer)
 
                 if offer is not None:
@@ -538,7 +548,7 @@ class MesosHandler(MessageHandler):
                         dummy_slave = { "hostname":"place-holder", "id" : { "value" : "place-holder"}, 'offerable':True}
                         self.__initialize_slave_resources(framework, dummy_slave)
                         self.logger.debug("Adding placeholder offer: %s" % dummy_slave)
-                        offers.append(self.build_offer(framework,dummy_slave,force=True))
+                        offers.append(self.build_offer(framework,dummy_slave,force=True,http=http))
                         built_offer_count +=1
                 else:
                     self.logger.debug("Do not add placeholder offer: offerable after: %s" %
@@ -548,9 +558,18 @@ class MesosHandler(MessageHandler):
 
         # If we have some offers to send for this framework we can send them now
         if built_offer_count > 0:
-            self.send_offers(framework, offers)
+            if http:
+                return offers
+#                offers_event = json.dumps({ 'type' : 'OFFERS',
+#                                 'offers' : offers })
+#                length = len(offers_event)
+#                buf = str(length) + "\n" + offers_event
+#                yield buf
+            else:
+                self.send_offers(framework, offers)
 
     def __generate_offers(self, framework_id):
+        self.logger.info("Starting offer loop for framework id %s" % framework_id['value'])
         framework = FrameworkTracker.get_instance().get(framework_id['value'])
         offer_event = framework.get('offer_event')
         self.logger.info("Starting offer loop for framework id %s with offer event %s" % (framework_id['value'], offer_event))
@@ -595,9 +614,77 @@ class MesosHandler(MessageHandler):
                     time_to_wait = framework['config']['offer_period']
                 framework['__next_offer_wait_time'] = 0
                 try:
-                    self.__generate_offers_for_framework(framework)
+                    offers = self.__generate_offers_for_framework(framework)
+                    self.logger.debug("After __generate_offers_for_framework")
+                except Exception as e:
+                    self.logger.error("Offers not generated: %s" % e)
                 finally:
                     # Release lock
+                    self.logger.debug("In finally before release lock")
+                    self.__release_framework_lock(framework)
+                self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
+                offer_event.wait(time_to_wait)
+            except Exception, ex:
+                self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
+                self.logger.exception(ex)
+        self.logger.info("Exiting offer loop for framework id %s" %(framework_id['value']))
+
+    def generate_offers_http(self, framework_id):
+        self.logger.info("HTTP: Starting offer loop for framework id %s" % framework_id['value'])
+        framework = FrameworkTracker.get_instance().get(framework_id['value'])
+        offer_event = framework.get('offer_event')
+        self.logger.info("Starting offer loop for framework id %s with offer event %s" % (framework_id['value'], offer_event))
+        while True:
+            try:
+                framework = FrameworkTracker.get_instance().get(framework_id['value'])
+                if framework is None:
+                    if self.framework_db_interface is not None and self.framework_db_interface.is_active():
+                        self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
+                    self.logger.info("Framework id %s is not active, exiting offer loop" %(framework_id['value']))
+                    break
+
+                # Make sure we don't thrash
+                last_offer_time = framework.get("__last_offer_time",0)
+                current_time = time.time()
+                seconds_since_last_offer = current_time - last_offer_time
+                if seconds_since_last_offer < MesosHandler.FRAMEWORK_OFFER_MIN_WAIT_IN_SECONDS:
+                    time_to_sleep = MesosHandler.FRAMEWORK_OFFER_MIN_WAIT_IN_SECONDS - seconds_since_last_offer
+                    self.logger.debug("Accelerated offer, waiting %s second(s)" % time_to_sleep)
+                    gevent.sleep(time_to_sleep)
+                    current_time = time.time()
+                framework['__last_offer_time'] = current_time
+
+                if not self.__master_broker:
+                    # In case we need to restart when we reregister,
+                    # remove offer event
+                    self.logger.debug("No master broker")
+                    if framework.has_key('offer_event'):
+                        self.logger.debug("Deleting offer event: %s" % framework['offer_event'])
+                        del framework['offer_event']
+                    break
+
+                offer_event.clear()
+                # Acquire framework lock
+                self.__acquire_framework_lock(framework)
+
+                # Read our current iterations wait time
+                next_offer_time = framework.get('__next_offer_wait_time',0)
+                if current_time < next_offer_time:
+                    time_to_wait = next_offer_time - current_time
+                else:
+                    time_to_wait = framework['config']['offer_period']
+                framework['__next_offer_wait_time'] = 0
+                try:
+                    offers = self.__generate_offers_for_framework(framework, True)
+                    self.logger.debug("After __generate_offers_for_framework")
+                    self.logger.debug("Before yield offers")
+                    yield offers
+                    self.logger.debug("After yield offers")
+                except Exception as e:
+                    self.logger.error("Offers not generated: %s" % e)
+                finally:
+                    # Release lock
+                    self.logger.debug("In finally before release lock")
                     self.__release_framework_lock(framework)
                 self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
@@ -827,12 +914,32 @@ class MesosHandler(MessageHandler):
             framework['__next_offer_wait_time'] = reoffer_time + 0.25
             offer_event.set()
 
+    def accept_launch(self, framework_id, offer_ids, filters, launch):
+        payload = {
+            'mesos.internal.LaunchTasksMessage' : {
+                'framework_id' : framework_id,
+                'offer_ids' : offer_ids,
+                'filters' : filters,
+                'tasks' : launch['task_infos']
+             }
+        }
+        request = {
+            'source_id' : None, # indicate http type
+            'payload_type' : 'json',
+            'ext_payload' : None,
+            'payload' : payload
+            }
+        self.launch_tasks(request)
+
     def launch_tasks(self, request):
         self.logger.info('Launch tasks: %s' % request)
+        http = not request.get('source_id')
         payload = request.get('payload')
         message = payload['mesos.internal.LaunchTasksMessage']
         framework_id = message['framework_id']
+        self.logger.debug("Launch tasks: framework_id=%s" % framework_id)
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
+        self.logger.debug("Launch tasks: framework=%s" % framework)
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
@@ -841,16 +948,21 @@ class MesosHandler(MessageHandler):
             # Wait for framework to come back
             self.logger.debug("No active framework for framework id %s, wait for it to come back" % framework_id['value'])
             self.retry_manager.retry(request)
+            if http:
+                self.__release_framework_lock(framework)
             return
         scheduler_channel_name = framework.get('channel_name')
 
+        self.logger.debug("massa")
         slave_dict = framework.get('slave_dict',{})
         offer_ids = [ oid['value'] for oid in message.get("offer_ids",[]) ]
         remaining_offer_ids = dict((k,True) for k in offer_ids)
         filters = message.get('filters', {})
+        self.logger.debug("massa1")
 
         task_dict = framework.get('task_dict', {})
         framework['task_dict'] = task_dict
+        self.logger.debug("massa2")
         tasks = message.get('tasks',[])
         # Keep track of our job-id to placeholder mappings while we work through the tasks
         placeholder_to_jobid = {}
@@ -918,6 +1030,8 @@ class MesosHandler(MessageHandler):
             slave_job_id = NamingUtility.get_job_id_from_slave_id(slave["id"]["value"])
             if slave_job_id is None:
                 self.logger.error("Cannot extract job id from: %s" % slave["id"]["value"])
+                if http:
+                    self.__release_framework_lock(framework)
                 return
             job_id = slave_job_id
 
@@ -929,7 +1043,7 @@ class MesosHandler(MessageHandler):
                 if current_offer:
                     self.logger.warn("Slave %s has no offer" % (slave_id['value']))
                 else:
-                    self.logger.warn("Unable to find offer %s in slave %s" % (current_offer['id']['value'], slave_id['value']))
+                    self.logger.warn("Unable to find offer in slave %s" % slave_id['value'])
 
             task_record['job_id'] = job_id
             task_name = t['task_id']['value']
@@ -992,6 +1106,8 @@ class MesosHandler(MessageHandler):
         # Now we need to handle the slaves specified in the offers that don't have tasks to launch
         self.__process_remaining_offers(framework, [ k for k,v in remaining_offer_ids.items() if v ], filters)
         self.adapter.launch_tasks(self, framework_id, tasks) # dummy method
+        if http:
+            self.__release_framework_lock(framework)
 
     def reconcile_tasks(self, request):
         self.logger.info('Reconcile request: %s' % request)
@@ -1201,7 +1317,7 @@ class MesosHandler(MessageHandler):
         framework_id = payload['framework_id']
         framework_name = framework_id['value']
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_name)
-
+        self.logger.debug("Register executor runner: for name %s got framework from tracker: %s" % (framework_name, framework))
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
         
@@ -1228,6 +1344,10 @@ class MesosHandler(MessageHandler):
                 self.logger.debug("Register executor runner: schedule a future delete if framework %s doesn't show up" % framework_id)
                 self.__shutdown_if_no_framework_with_delay(framework_name, slave_channel_name, slave_id['value'])
             return
+
+#        http = framework.get('http', False)
+        http = True if framework['channel_name'] == "http" else False
+
         self.__initialize_slave_resources(framework, slave)
         self.logger.debug('Register executor runner on channel %s, slave info: %s' % (slave_channel_name, slave))
 
@@ -1349,7 +1469,7 @@ class MesosHandler(MessageHandler):
         if len(tasks) > 0:
             # OK...tasks waiting for us means we are already committed... disable offers on
             # this host until a task completes...
-            payload =  self.__build_launch_tasks_payload(framework_id,tasks)
+            payload =  self.__build_launch_tasks_payload(framework_id, tasks, http)
 
             message = LaunchTasksMessage(self.channel.name, payload)
             self.logger.debug('Register executor runner: sending launch tasks message to %s: %s' %
@@ -1600,11 +1720,14 @@ class MesosHandler(MessageHandler):
     def register_framework(self, request):
         self.logger.info('Register framework: %s' % request)
         payload = request.get('payload')
+        self.logger.trace("payload: %s" % payload)
         message = payload['mesos.internal.RegisterFrameworkMessage']
+        self.logger.trace("message: %s" % message)
         response = FrameworkRegisteredMessage(self.channel.name, {})
         framework = self.process_registration(request, None, message, response)
 
         # Acquire framework lock
+        self.logger.debug("Register framework: acquiring framework lock for framework: %s" % framework.get('id'))
         self.__acquire_framework_lock(framework)
 
         framework['registered_time'] = time.time()
@@ -1616,20 +1739,55 @@ class MesosHandler(MessageHandler):
         self.logger.info('Reregister framework: %s' % request)
         self.adapter.reregister_framework(request)
         payload = request.get('payload')
+        self.logger.trace("payload: %s" % payload)
         message = payload['mesos.internal.ReregisterFrameworkMessage']
+        self.logger.trace("message: %s" % message)
         framework_id = message['framework']['id']
 
         response = FrameworkReregisteredMessage(self.channel.name, {})
         framework = self.process_registration(request, framework_id, message, response)
         # Acquire framework lock
+        self.logger.debug("Reregister framework: acquiring framework lock for framework: %s" % framework.get('id'))
         self.__acquire_framework_lock(framework)
 
         framework['reregistered_time'] = time.time()
 
         self.logger.debug('Reregistered framework: %s' % framework)
 
+    def subscribe(self, framework_info):
+        self.logger.info('Subscribe: %s' % framework_info)
+        
+        response = SubscribedMessage({})
+        
+        internal = "mesos.internal.ReregisterFrameworkMessage" if framework_info.get('id') else "mesos.internal.RegisterFrameworkMessage"
+            
+        payload = {
+                'reply_to' : 'http',
+                    internal : {
+                       'framework' : framework_info
+                    }
+                  }
+        request = {
+            'source_id' : None, # indicate http type
+            'message_id' : str(uuid.uuid1()),
+            'payload' : payload
+            }
+        framework = self.process_registration(request, None, payload[internal], response)
+        self.logger.trace("Subscribe response: %s" % response)
+        # Acquire framework lock
+#        self.logger.debug("Subscribe framework: acquiring framework lock for framework: %s" % framework.get('id'))
+#        self.__acquire_framework_lock(framework)
+
+        framework['registered_time'] = time.time()
+        framework['reregistered_time'] = ""
+
+        self.logger.debug('Subscribed framework: %s' % framework)
+#        return response['payload']['framework_id']['value']
+        return response
+
     # This method handles registration and reregistration
     def process_registration(self, request, framework_id, message, response):
+        self.logger.debug("process_registration, request=%s" % request)
         source_id = request.get('source_id')
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         if framework_id is None:
@@ -1649,8 +1807,8 @@ class MesosHandler(MessageHandler):
         cf = ChannelFactory.get_instance()
         port = cf.get_message_broker_connection_port()
         host = cf.get_message_broker_connection_host()
-        int_addr = struct.unpack('!I',
-            socket.inet_aton(socket.gethostbyname(host)))[0]
+        ip_addr = socket.gethostbyname(host)
+        int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
 
         master_info = {}
         master_info['id'] = 'master-' + host
@@ -1658,6 +1816,10 @@ class MesosHandler(MessageHandler):
         master_info['port'] = int(port)
         master_info['hostname'] = host
         master_info['version'] = MesosHandler.MESOS_VERSION
+        master_info['address'] = { 'ip' : ip_addr,
+                                   'hostname' : host,
+                                   'port' : int(port)
+                                 }
 
         response['payload'] = {
             'framework_id' : framework_id,
@@ -1683,6 +1845,8 @@ class MesosHandler(MessageHandler):
         resolved_framework['id'] = framework_id
         resolved_framework['channel_name'] = scheduler_channel_name
         resolved_framework['master_info'] = master_info
+#        if not source_id:
+#            resolved_framework['http'] = True
         self.configure_framework(resolved_framework)
 
         self.logger.debug("Framework registration: adding to tracker")
@@ -1690,21 +1854,31 @@ class MesosHandler(MessageHandler):
         self.logger.debug("Framework registration: storing request framework id in tracker")
         FrameworkTracker.get_instance().store_request_framework_id(request, framework_id['value'])
 
-        # Begin monitoring framework channel
-        self.channel_monitor.start_channel_monitoring(scheduler_channel_name,
-            framework_id['value'])
+        # For non http framework
+        if source_id is not None:
+            # Begin monitoring framework channel
+            self.channel_monitor.start_channel_monitoring(scheduler_channel_name, framework_id['value'])
+        else:
+            self.logger.debug("Do not start channgel monitoring to http framework")
 
         # Start offer greenlet
         if resolved_framework.get('offer_event') is None:
+            self.logger.debug("No offer_event, creating new one")
             resolved_framework['offer_event'] = gevent.event.Event()
-            gevent.Greenlet.spawn(self.__generate_offers, framework_id)
+            if source_id is not None:
+                self.logger.debug("Starting generate offers greenlet")
+                gevent.Greenlet.spawn(self.__generate_offers, framework_id)
+            else:
+                self.logger.debug("Do not start generate offers greenlet for http framework")
         else:
             self.logger.debug("Do not start new offer loop due to existing offer event: %s" % resolved_framework['offer_event'])
 
-        # Send response
-        scheduler_channel = cf.create_channel(scheduler_channel_name)
-        scheduler_channel.write(response.to_json())
-        self.logger.debug('Framework registration: wrote response via channel %s: %s' % (scheduler_channel_name, response))
+        # Send response for non http
+        if source_id is not None:
+            scheduler_channel = cf.create_channel(scheduler_channel_name)
+            scheduler_channel.write(response.to_json())
+            self.logger.debug('Framework registration: wrote response via channel %s: %s' % (scheduler_channel_name, response))
+
         return resolved_framework
 
     def register_slave(self, request):
@@ -2026,9 +2200,14 @@ class MesosHandler(MessageHandler):
             framework['framework_info'] = framework_info
         return framework_info
 
-    def __build_launch_tasks_payload(self,framework_id, tasks):
+    def __build_launch_tasks_payload(self, framework_id, tasks, http = False):
         payload =  {}
         payload['framework_id'] = framework_id
+        # remove agent_id until http executor api implemented
+        for t in tasks:
+            if t.get('agent_id'):
+                self.logger.debug("remove agent_id form task")
+                del t['agent_id']
         payload['tasks'] = tasks
         payload = { "mesos.internal.LaunchTasksMessage" : payload }
         return payload
@@ -2197,7 +2376,7 @@ class MesosHandler(MessageHandler):
 
         return attributes
 
-    def build_offer(self, framework, slave, force=False):
+    def build_offer(self, framework, slave, force=False, http=False):
         # If we don't have enough resources to offer than don't
         if not force and (slave['cpus'] == 0 or slave['mem'] == 0 or slave['disk'] == 0):
             self.logger.debug("Build offer: not enough resources to build offer")
@@ -2220,6 +2399,8 @@ class MesosHandler(MessageHandler):
         offer['id'] = { 'value': 'offer-%s-%s' % (framework_id['value'], offer_id)}
         offer['framework_id'] = framework_id
         offer['slave_id'] = slave_id
+        if http:
+            offer['agent_id'] = slave_id
         offer['hostname'] = slave['hostname']
 
         offer['resources'] = self.__build_resources(cpus=cpus,mem=mem,
