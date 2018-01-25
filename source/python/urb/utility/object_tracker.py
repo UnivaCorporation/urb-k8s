@@ -42,24 +42,24 @@ class ObjectTracker(object):
 
     def __init__(self):
         self.logger = LogManager.get_instance().get_logger(self.__class__.__name__)
-        self.logger.debug("__init__: self=%s" % self)
+        self.logger.trace("__init__: self=%s" % self)
         self.lock = threading.RLock()
         self.object_dict = {}
 
     def add(self, id, object):
         self.object_dict[id] = object
-        self.logger.debug("add: self=%s, new object_dict=%s" % (self, self.object_dict))
+        self.logger.trace("add: self=%s, new object_dict=%s" % (self, self.object_dict))
 
     def get(self, id):
-        self.logger.debug("get: self=%s, id=%s, object_dict=%s" % (self, id, self.object_dict))
+        self.logger.trace("get: self=%s, id=%s, object_dict=%s" % (self, id, self.object_dict))
         return self.object_dict.get(id)
 
     def remove(self, id):
-        self.logger.debug("remove: self=%s, beg: object_dict=%s" % (self, self.object_dict))
+        self.logger.trace("remove: self=%s, beg: object_dict=%s" % (self, self.object_dict))
         object = self.object_dict.get(id)
         if object is not None:
             del self.object_dict[id]
-        self.logger.debug("remove: object_dict=%s" % self.object_dict)
+        self.logger.trace("remove: object_dict=%s" % self.object_dict)
         return object
 
     def __iter__(self):

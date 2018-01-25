@@ -602,7 +602,7 @@ class MesosHandler(MessageHandler):
                         del framework['offer_event']
                     break
 
-                offer_event.clear()
+#                offer_event.clear() #
                 # Acquire framework lock
                 self.__acquire_framework_lock(framework)
 
@@ -624,6 +624,7 @@ class MesosHandler(MessageHandler):
                     self.__release_framework_lock(framework)
                 self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
+                self.logger.debug("event triggered")
             except Exception, ex:
                 self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
                 self.logger.exception(ex)
@@ -631,6 +632,7 @@ class MesosHandler(MessageHandler):
 
     def generate_offers_http(self, framework_id):
         self.logger.info("HTTP: Starting offer loop for framework id %s" % framework_id['value'])
+        event_delta = 0
         framework = FrameworkTracker.get_instance().get(framework_id['value'])
         offer_event = framework.get('offer_event')
         self.logger.info("Starting offer loop for framework id %s with offer event %s" % (framework_id['value'], offer_event))
@@ -649,6 +651,9 @@ class MesosHandler(MessageHandler):
                 seconds_since_last_offer = current_time - last_offer_time
                 if seconds_since_last_offer < MesosHandler.FRAMEWORK_OFFER_MIN_WAIT_IN_SECONDS:
                     time_to_sleep = MesosHandler.FRAMEWORK_OFFER_MIN_WAIT_IN_SECONDS - seconds_since_last_offer
+                    if event_delta > 0:
+                        self.logger.debug("Adding event delta %d to time to sleep %d accelerated offer" % (event_delta, time_to_sleep))
+                        time_to_sleep += event_delta
                     self.logger.debug("Accelerated offer, waiting %s second(s)" % time_to_sleep)
                     gevent.sleep(time_to_sleep)
                     current_time = time.time()
@@ -663,7 +668,7 @@ class MesosHandler(MessageHandler):
                         del framework['offer_event']
                     break
 
-                offer_event.clear()
+#                offer_event.clear() #
                 # Acquire framework lock
                 self.__acquire_framework_lock(framework)
 
@@ -677,9 +682,15 @@ class MesosHandler(MessageHandler):
                 try:
                     offers = self.__generate_offers_for_framework(framework, True)
                     self.logger.debug("After __generate_offers_for_framework")
-                    self.logger.debug("Before yield offers")
-                    yield offers
-                    self.logger.debug("After yield offers")
+                    if offers and len(offers) > 0:
+                        self.logger.debug("Before yield offers")
+                        offers_resp = {'type' : 'OFFERS',
+                                        'offers' : { 'offers' : offers }
+                                    }
+                        yield offers_resp
+                        self.logger.debug("After yield offers")
+                    else:
+                        self.logger.debug("Skip empty offers")
                 except Exception as e:
                     self.logger.error("Offers not generated: %s" % e)
                 finally:
@@ -688,6 +699,15 @@ class MesosHandler(MessageHandler):
                     self.__release_framework_lock(framework)
                 self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
+                data = offer_event.value
+                self.logger.debug("event data=%s" % data)
+                if data:
+                    ev_time = time.time()
+                    event_delta = ev_time - current_time
+                    yield data
+                else:
+                    event_delta = 0
+                    
             except Exception, ex:
                 self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
                 self.logger.exception(ex)
@@ -765,10 +785,13 @@ class MesosHandler(MessageHandler):
             status_update = {}
             status_update['framework_id'] = framework_id
             status_update['timestamp'] = time.time()
-            status_update['uuid'] = self.__generate_uuid()
+            status_uuid = self.__generate_uuid()
+            status_update['uuid'] = status_uuid # deprecated
             status_update['status'] = {
                 'task_id' : task_id,
-                'state' : 'TASK_KILLED'
+                'state' : 'TASK_KILLED',
+                'uuid' : status_uuid, # new one
+#                'source' : 'SOURCE_EXECUTOR_?MASTER'
             }
             #Scheduler gets the task update, send shutdown to the executor
             channel = framework['channel_name']
@@ -791,10 +814,12 @@ class MesosHandler(MessageHandler):
             status_update = {}
             status_update['framework_id'] = framework_id
             status_update['timestamp'] = time.time()
-            status_update['uuid'] = self.__generate_uuid()
+            status_uuid = self.__generate_uuid()
+            status_update['uuid'] = status_uuid
             status_update['status'] = {
                 'task_id' : task_id,
-                'state' : 'TASK_KILLED'
+                'state' : 'TASK_KILLED',
+                'uuid' : status_uuid
             }
             # Aurora framework complains of illegal state transition LOST->KILLED
             # when status update sent on a kill for the task which is already lost
@@ -1252,12 +1277,14 @@ class MesosHandler(MessageHandler):
                 status_update = {}
                 status_update['framework_id'] = framework_id
                 status_update['timestamp'] = time.time()
-                status_update['uuid'] = self.__generate_uuid()
+                status_uuid = self.__generate_uuid()
+                status_update['uuid'] = status_uuid
                 status_update['status'] = {
                     'task_id' : s['task_id'],
                     'state' : job_status,
                     'reason' : 'REASON_RECONCILIATION',
                     'slave_id' : slave_id,
+                    'uuid' : status_uuid
                 }
 
                 channel = framework['channel_name']
@@ -1277,11 +1304,13 @@ class MesosHandler(MessageHandler):
                     status_update = {}
                     status_update['framework_id'] = framework_id
                     status_update['timestamp'] = time.time()
-                    status_update['uuid'] = self.__generate_uuid()
+                    status_uuid = self.__generate_uuid()
+                    status_update['uuid'] = status_uuid
                     status_update['status'] = {
                         'task_id' : t['task_info']['task_id'],
                         'state' : state,
                         'reason' : 'REASON_RECONCILIATION',
+                        'uuid' : status_uuid
                     }
 
                     channel = framework['channel_name']
@@ -1864,7 +1893,8 @@ class MesosHandler(MessageHandler):
         # Start offer greenlet
         if resolved_framework.get('offer_event') is None:
             self.logger.debug("No offer_event, creating new one")
-            resolved_framework['offer_event'] = gevent.event.Event()
+#            resolved_framework['offer_event'] = gevent.event.Event()
+            resolved_framework['offer_event'] = gevent.event.AsyncResult()
             if source_id is not None:
                 self.logger.debug("Starting generate offers greenlet")
                 gevent.Greenlet.spawn(self.__generate_offers, framework_id)
@@ -2272,10 +2302,12 @@ class MesosHandler(MessageHandler):
         status_update['framework_id'] = framework_id
         now = time.time()
         status_update['timestamp'] = now
-        status_update['uuid'] = self.__generate_uuid()
+        status_uuid = self.__generate_uuid()
+        status_update['uuid'] = status_uuid
         status_update['status'] = {
             'task_id' : task_id,
-            'state' : 'TASK_LOST'
+            'state' : 'TASK_LOST',
+            'uuid' : status_uuid
         }
         if slave_id:
             status_update['status']['slave_id'] = slave_id
@@ -2437,11 +2469,23 @@ class MesosHandler(MessageHandler):
         response = StatusUpdateMessage(self.channel.name,
                      {"update":update} )
 
-        # Forward this to the framework...
-        cf = ChannelFactory.get_instance()
-        response_channel = cf.create_channel(channel_name)
-        self.logger.debug('Sending status update message via channel %s to framework: %s' % (channel_name, response))
-        response_channel.write(response.to_json())
+        http = True if framework['channel_name'] == "http" else False
+        if http:
+            self.logger.debug("HTTP: Sending status update message")
+            # add agent id until http executor api implemented
+            status = update['status']
+            status['agent_id'] = status['slave_id']
+            del status['slave_id']
+            http_resp = {'type' : 'UPDATE',
+                         'update' : { 'status' : status} }
+            offer_event = framework.get('offer_event')
+            offer_event.set(http_resp)
+        else:
+            # Forward this to the framework...
+            cf = ChannelFactory.get_instance()
+            response_channel = cf.create_channel(channel_name)
+            self.logger.debug('Sending status update message via channel %s to framework: %s' % (channel_name, response))
+            response_channel.write(response.to_json())
 
     def send_executor_message(self, framework, message):
         response = ExecutorToFrameworkMessage(self.channel.name, message)

@@ -31,33 +31,33 @@ class FrameworkTracker(ObjectTracker):
         self.finished_framework_dict = {}
 
     def get_framework_and_store_request_framework_id(self, request, framework_id):
-        self.logger.debug("get_framework_and_store_request_framework_id: self=%s, request=%s , framework_id=%s" % (self, request, framework_id))
+        self.logger.trace("get_framework_and_store_request_framework_id: self=%s, request=%s , framework_id=%s" % (self, request, framework_id))
         self.store_request_framework_id(request, framework_id)
         return self.get(framework_id)
 
     def store_request_framework_id(self, request, framework_id):
         message_id = request.get('message_id')
-        self.logger.debug("store_request_framework_id: self=%s, message_id=%s, framework_id=%s" % (self, message_id, framework_id))
-        self.logger.debug("store_request_framework_id: beg: framework_id_dict=%s" % self.framework_id_dict)
+        self.logger.trace("store_request_framework_id: self=%s, message_id=%s, framework_id=%s" % (self, message_id, framework_id))
+        self.logger.trace("store_request_framework_id: beg: framework_id_dict=%s" % self.framework_id_dict)
         if message_id is not None:
             self.framework_id_dict[message_id] = framework_id
-        self.logger.debug("store_request_framework_id: framework_id_dict=%s" % self.framework_id_dict)
+        self.logger.trace("store_request_framework_id: framework_id_dict=%s" % self.framework_id_dict)
 
     def retrieve_and_forget_request_framework_id(self, request):
-        self.logger.debug("retrieve_and_forget_request_framework_id: self=%s, request=%s" % (self, request))
-        self.logger.debug("retrieve_and_forget_request_framework_id: beg: framework_id_dict=%s" % self.framework_id_dict)
+        self.logger.trace("retrieve_and_forget_request_framework_id: self=%s, request=%s" % (self, request))
+        self.logger.trace("retrieve_and_forget_request_framework_id: beg: framework_id_dict=%s" % self.framework_id_dict)
         message_id = request.get('message_id')
         if message_id is None:
-            self.logger.debug("retrieve_and_forget_request_framework_id: message_id is None, return")
+            self.logger.trace("retrieve_and_forget_request_framework_id: message_id is None, return")
             return None
         framework_id = self.framework_id_dict.get(message_id)
         if framework_id is not None:
             del self.framework_id_dict[message_id]
-        self.logger.debug("retrieve_and_forget_request_framework_id: framework_id_dict=%s" % self.framework_id_dict)
+        self.logger.trace("retrieve_and_forget_request_framework_id: framework_id_dict=%s" % self.framework_id_dict)
         return framework_id
 
     def remove(self, id):
-        self.logger.debug("remove: self=%s, id=%s" % (self, id))
+        self.logger.trace("remove: self=%s, id=%s" % (self, id))
         framework = ObjectTracker.remove(self, id)
         if framework is not None:
             self.finished_framework_dict[id] = framework
@@ -68,7 +68,7 @@ class FrameworkTracker(ObjectTracker):
         return framework
 
     def get_active_or_finished_framework(self, id):
-        self.logger.debug("get_active_or_finished_framework: self=%s, id=%s, framework_id_dict=%s" % (self, id, self.framework_id_dict))
+        self.logger.trace("get_active_or_finished_framework: self=%s, id=%s, framework_id_dict=%s" % (self, id, self.framework_id_dict))
         framework = self.get(id)
         if framework is None:
             framework = self.finished_framework_dict.get(id)
