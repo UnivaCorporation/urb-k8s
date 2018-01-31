@@ -127,14 +127,6 @@ def scheduler():
                 ctype = content['type']
             else:
                 logger.debug("protobuf data")
-    #            epos = request.data.find("\n")
-    #            if epos == -1:
-    #                logger.error("Wrong format")
-    #                return Response(status=400)
-    #            logger.debug("epos=%d" % epos)
-    #            length = int(request.data[:pos])
-    #            logger.debug("len=%d" % length)
-    #            m = Message(request.data[pos + 1:])
                 try:
                     call = scheduler_pb2.Call()
                     call.ParseFromString(request.data)
@@ -158,7 +150,7 @@ def scheduler():
                     resp = Response(buf, status=400)
                     return resp
                 def generate():
-                    mesos_subscribed = mesos_handler.subscribe(content['subscribe']['framework_info'])
+                    mesos_subscribed = mesos_handler.http_subscribe(content['subscribe']['framework_info'])
                     framework_id = mesos_subscribed['payload']['framework_id']['value']
                     logger.debug("Subscribed framework_id=%s" % framework_id)
                     master_info = mesos_subscribed['payload']['master_info']
@@ -199,31 +191,16 @@ def scheduler():
                     yield buf
 
                     logger.debug("subscribed before generate offer loop")
-                    for data in mesos_handler.generate_offers_http({'value' : framework_id}):
+                    for data in mesos_handler.http_generate_offers({'value' : framework_id}):
                         logger.debug("yielded")
                         if data:
                             resp_event = json.dumps(data)
-
-#                            if False:
-#                            if type(data) is StatusUpdateMessage:
-#                                logger.debug("StatusUpdateMessage yielded")
-#                                resp_event = json.dumps(
-#                                    {'type' : 'UPDATE',
-#                                    'update' : data['payload']['update']
-#                                    })
-#                            else:
-#                                logger.debug("Offer yielded")
-#                                resp_event = json.dumps(
-#                                    {'type' : 'OFFERS',
-#                                    'offers' : { 'offers' : data }
-#                                    })
                             length = len(resp_event)
-
                             buf = str(length) + "\n" + resp_event
                             logger.debug("in offer loop: before yield, buf=%s" % buf)
                             yield buf
                         else:
-                            logger.debug("in offer loop: skip empty offer")
+                            logger.debug("in offer loop: skip empty data")
 
     #                while True:
     #                    gevent.sleep(5)
@@ -252,13 +229,15 @@ def scheduler():
 
             elif content['type'] == 'TEARDOWN':
                 logger.debug("TEARDOWN")
+                framework_id = content['framework_id']
+                
             elif content['type'] == 'ACCEPT':
                 logger.debug("ACCEPT")
                 framework_id = content['framework_id']
                 offer_ids = content['accept']['offer_ids']
                 filters = content['accept'].get('filters')
                 if content['accept']['operations']['type'] == 'LAUNCH':
-                    mesos_handler.accept_launch(framework_id, offer_ids, filters, content['accept']['operations']['launch'])
+                    mesos_handler.http_accept_launch(framework_id, offer_ids, filters, content['accept']['operations']['launch'])
                 else:
                     msg = "ACCEPT: operation type %s is not supported" % content['accept']['operations']['type']
                     resp = Response(msg, status=400)
@@ -274,11 +253,18 @@ def scheduler():
                 return resp
             elif content['type'] == 'DECLINE':
                 logger.debug("DECLINE")
+                framework_id = content['framework_id']
 
             elif content['type'] == 'REVIVE':
                 logger.debug("REVIVE")
             elif content['type'] == 'KILL':
                 logger.debug("KILL")
+                framework_id = content['framework_id']
+                task_id = content['kill']['task_id']
+                agent_id = content['kill']['agent_id']
+                mesos_handler.http_kill(framework_id, task_id, agent_id)
+                resp = Response(status=202)
+                return resp
             elif content['type'] == 'SHUTDOWN':
                 logger.debug("SHUTDOWN")
             elif content['type'] == 'ACKNOWLEDGE':
@@ -307,6 +293,7 @@ class MesosHttp:
 #    def __init__(self, mesos_handler, port=5050):
     def __init__(self, port=5050):
         self.name = self.__class__.__name__
+        self.port = port
 #        self.mesos_handler = None
         self.logger = LogManager.get_instance().get_logger(self.name)
         self.logger.info("__init__")
@@ -325,7 +312,7 @@ class MesosHttp:
         #self.http.serve_forever()
 
 #        self.__http_thread = gevent.spawn(app.run(host='0.0.0.0', port=5050))
-        self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=5050))
+        self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=self.port))
 #        io.run(app, host='0.0.0.0', port=5050)
 
     def stop(self):
