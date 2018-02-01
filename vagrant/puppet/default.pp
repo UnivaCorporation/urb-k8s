@@ -103,9 +103,10 @@ exec { "install_mock":
    require => Package['python-setuptools']
 }
 
+# set stable version for now (to avoid latest 1.3a1)
 exec { "install_gevent":
    unless => "/usr/bin/env python -c 'import gevent'",
-   command => "/usr/bin/easy_install gevent",
+   command => "/usr/bin/easy_install gevent==1.2.2",
    timeout => 600,
    require => Package['python-setuptools']
 }
