@@ -198,7 +198,6 @@ def test_cleanup():
 
 # Testing
 if __name__ == '__main__':
-    test_env()
     test_setup()
     test_register_framework()
     test_cleanup()

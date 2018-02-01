@@ -29,7 +29,7 @@ PYTHONEGG_SCHEDULER_SDIST=$(DIST_DIR)/mesos.scheduler-$(EXT_MESOS_VERSION).tar.g
 URB_PYTHON_INCLUDES=../$(BUILDDIR)/python_bindings.mk
 MESOS_PROTO_INC=../$(BUILDDIR)/include/mesos/mesos_pb2.py
 MESOS_PROTO_TARGET=interface/src/mesos/interface/mesos_pb2.py
-REDIS_BIN=../../3rdparty/redis/build/redis-2.8.18/src/
+REDIS_BIN=../../3rdparty/redis/build/redis-4.0.2/src/
 
 ifeq ($(STDCPP11),true)
   CFLAGS += -std=c++11 -std=c++1y
