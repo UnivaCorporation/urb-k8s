@@ -150,79 +150,61 @@ def scheduler():
                     resp = Response(buf, status=400)
                     return resp
                 def generate():
-                    mesos_subscribed = mesos_handler.http_subscribe(content['subscribe']['framework_info'])
-                    framework_id = mesos_subscribed['payload']['framework_id']['value']
-                    logger.debug("Subscribed framework_id=%s" % framework_id)
-                    master_info = mesos_subscribed['payload']['master_info']
-                    master_info['port'] = 5050 # override for Mesos http port for now
-                    master_info['address']['port'] = 5050
-                    
-                    del master_info['ip'] # might be incorrect
-
-                    if request.is_json:
-                        subscribed = json.dumps({
-                            'type'         : 'SUBSCRIBED',
-                            'subscribed'   : {
-                                'framework_id' : {'value' : framework_id},
-                                'heartbeat_interval_seconds' : 15,
-                                'master_info' : master_info
-                            }
-                        })
-                    else:
-                        subscribed_event = scheduler_pb2.Event()
-                        subscribed_event.type = scheduler_pb2.Event.SUBSCRIBED
-                        subscribed_event.subscribed.framework_id.value = framework_id
-                        subscribed_event.subscribed.heartbeat_interval_seconds = 15
-                        subscribed_event.subscribed.master_info.id = master_info['id']
-        #                subscribed_event.subscribed.master_info.ip = master_info['ip']
-                        subscribed_event.subscribed.master_info.port = master_info['port']
-                        subscribed_event.subscribed.master_info.hostname = master_info['hostname']
-                        subscribed_event.subscribed.master_info.version = master_info['version']
-                        subscribed_event.subscribed.master_info.address.ip = master_info['address']['ip']
-                        subscribed_event.subscribed.master_info.address.hostname = master_info['address']['hostname']
-                        subscribed_event.subscribed.master_info.address.port = master_info['address']['port']
+                    try:
+                        mesos_subscribed = mesos_handler.http_subscribe(content['subscribe']['framework_info'])
+                        framework_id = mesos_subscribed['payload']['framework_id']['value']
+                        logger.debug("Subscribed framework_id=%s" % framework_id)
+                        master_info = mesos_subscribed['payload']['master_info']
+                        master_info['port'] = mesos_handler.get_http_port() # set actual http port (instead of redis port)
+                        master_info['address']['port'] = master_info['port']
                         
-                        subscribed = subscribed_event.SerializeToString()
+                        del master_info['ip'] # might be incorrect
 
-                    logger.debug("subscribed=%s" % subscribed)
-                    length = len(subscribed)
-                    buf = str(length) + "\n" + subscribed
-                    logger.debug("subscribed before yield, buf=%s" % buf)
-                    yield buf
-
-                    logger.debug("subscribed before generate offer loop")
-                    for data in mesos_handler.http_generate_offers({'value' : framework_id}):
-                        logger.debug("yielded")
-                        if data:
-                            resp_event = json.dumps(data)
-                            length = len(resp_event)
-                            buf = str(length) + "\n" + resp_event
-                            logger.debug("in offer loop: before yield, buf=%s" % buf)
-                            yield buf
+                        if request.is_json:
+                            subscribed = json.dumps({
+                                'type'         : 'SUBSCRIBED',
+                                'subscribed'   : {
+                                    'framework_id' : {'value' : framework_id},
+                                    'heartbeat_interval_seconds' : mesos_handler.get_heartbeat_interval(),
+                                    'master_info' : master_info
+                                }
+                            })
                         else:
-                            logger.debug("in offer loop: skip empty data")
+                            subscribed_event = scheduler_pb2.Event()
+                            subscribed_event.type = scheduler_pb2.Event.SUBSCRIBED
+                            subscribed_event.subscribed.framework_id.value = framework_id
+                            subscribed_event.subscribed.heartbeat_interval_seconds = 15
+                            subscribed_event.subscribed.master_info.id = master_info['id']
+            #                subscribed_event.subscribed.master_info.ip = master_info['ip']
+                            subscribed_event.subscribed.master_info.port = master_info['port']
+                            subscribed_event.subscribed.master_info.hostname = master_info['hostname']
+                            subscribed_event.subscribed.master_info.version = master_info['version']
+                            subscribed_event.subscribed.master_info.address.ip = master_info['address']['ip']
+                            subscribed_event.subscribed.master_info.address.hostname = master_info['address']['hostname']
+                            subscribed_event.subscribed.master_info.address.port = master_info['address']['port']
 
-    #                while True:
-    #                    gevent.sleep(5)
-    #                    buf = give_offer()
-    #                    yield buf
+                            subscribed = subscribed_event.SerializeToString()
 
-    #                    offers = mesos_handler.generate_offers({'value' : framework_id}, True)
-                        #offers = json.dumps({'type' : 'OFFERS',
-                                            #'offers' : { 'offers' :
-                                                #[
-                                                #{ 'id' : { 'value' : 'offer_id' },
-                                                #'framework_id' : {'value' : 'framework_id'},
-                                                #'agent_id' : {'value' : 'agent_id'},
-                                                #'hostname' : 'head'
-                                                #}]
-                                                #}
-                                            #})
-                        #length = len(offers)
-                        #buf = str(length) + "\n" + offers
-                        #yield buf
+                        logger.debug("subscribed=%s" % subscribed)
+                        length = len(subscribed)
+                        buf = str(length) + "\n" + subscribed
+                        logger.debug("subscribed before yield, buf=%s" % buf)
+                        yield buf
 
-    #            resp = Response(buf, status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
+                        logger.debug("subscribed before generate offer loop")
+                        for data in mesos_handler.http_generate_offers({'value' : framework_id}):
+                            logger.debug("yielded")
+                            if data:
+                                resp_event = json.dumps(data)
+                                length = len(resp_event)
+                                buf = str(length) + "\n" + resp_event
+                                logger.debug("in offer loop: before yield, buf=%s" % buf)
+                                yield buf
+                            else:
+                                logger.debug("in offer loop: skip empty data")
+                    except Exception as ge:
+                        logger.error("Exception in generator: %s" % ge)
+
                 resp = Response(stream_with_context(generate()), status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
                 resp.headers['Mesos-Stream-Id'] = framework_id
                 return resp
@@ -230,18 +212,25 @@ def scheduler():
             elif content['type'] == 'TEARDOWN':
                 logger.debug("TEARDOWN")
                 framework_id = content['framework_id']
+                mesos_handler.http_teardown(framework_id)
+                resp = Response(status=202)
+                return resp
                 
             elif content['type'] == 'ACCEPT':
                 logger.debug("ACCEPT")
                 framework_id = content['framework_id']
                 offer_ids = content['accept']['offer_ids']
                 filters = content['accept'].get('filters')
-                if content['accept']['operations']['type'] == 'LAUNCH':
-                    mesos_handler.http_accept_launch(framework_id, offer_ids, filters, content['accept']['operations']['launch'])
+                if content['accept'].get('operations') and len(content['accept']['operations']) > 0:
+                    if content['accept']['operations']['type'] == 'LAUNCH':
+                        mesos_handler.http_accept_launch(framework_id, offer_ids, filters, content['accept']['operations']['launch'])
+                    else:
+                        msg = "ACCEPT: operation type %s is not supported" % content['accept']['operations']['type']
+                        resp = Response(msg, status=400)
+                        return resp
                 else:
-                    msg = "ACCEPT: operation type %s is not supported" % content['accept']['operations']['type']
-                    resp = Response(msg, status=400)
-                    return resp
+                    # same as decline
+                    mesos_handler.http_decline(framework_id, offer_ids, filters)
     #            for operation in content['accept']['operations']:
     #                if operation['type'] == 'LAUNCH':
     #                    mesos_handler.accept_launch(framework_id, offer_ids, filters, operation['launch'])
@@ -251,12 +240,24 @@ def scheduler():
     #                    return resp
                 resp = Response(status=202)
                 return resp
+
             elif content['type'] == 'DECLINE':
                 logger.debug("DECLINE")
                 framework_id = content['framework_id']
+                offer_ids = content['decline']['offer_ids']
+                filters = content['decline'].get('filters')
+                mesos_handler.http_decline(framework_id, offer_ids, filters)
+                resp = Response(status=202)
+                return resp
 
             elif content['type'] == 'REVIVE':
                 logger.debug("REVIVE")
+                framework_id = content['framework_id']
+                revive = content['revive']
+                mesos_handler.http_revive(framework_id, revive)
+                resp = Response(status=202)
+                return resp
+
             elif content['type'] == 'KILL':
                 logger.debug("KILL")
                 framework_id = content['framework_id']
@@ -265,16 +266,53 @@ def scheduler():
                 mesos_handler.http_kill(framework_id, task_id, agent_id)
                 resp = Response(status=202)
                 return resp
+
             elif content['type'] == 'SHUTDOWN':
                 logger.debug("SHUTDOWN")
+                framework_id = content['framework_id']
+                executor_id = content['shutdown']['executor_id']
+                agent_id = content['shutdown']['agent_id']
+                mesos_handler.http_shutdown(framework_id, executor_id, agent_id)
+                resp = Response(status=202)
+                return resp
+
             elif content['type'] == 'ACKNOWLEDGE':
                 logger.debug("ACKNOWLEDGE")
+                framework_id = content['framework_id']
+                agent_id = content['acknowledge']['agent_id']
+                task_id = content['acknowledge']['task_id']
+                uuid = content['acknowledge'].get('uuid')
+                mesos_handler.http_acknowledge(framework_id, agent_id, task_id, uuid)
+                resp = Response(status=202)
+                return resp
+
             elif content['type'] == 'RECONCILE':
                 logger.debug("RECONCILE")
+                framework_id = content['framework_id']
+                tasks = content['reconcile']['tasks']
+                mesos_handler.http_reconcile(framework_id, tasks)
+                resp = Response(status=202)
+                return resp
+
             elif content['type'] == 'MESSAGE':
                 logger.debug("MESSAGE")
+                framework_id = content['framework_id']
+                agent_id = content['message']['agent_id']
+                executor_id = content['message']['executor_id']
+                data = content['message']['data']
+                mesos_handler.http_message(framework_id, agent_id, executor_id, data)
+                resp = Response(status=202)
+                return resp
+
             elif content['type'] == 'REQUEST':
                 logger.debug("REQUEST")
+                framework_id = content['framework_id']
+                agent_id = content['requests']['agent_id']
+                resources = content['requests']['resources']
+                mesos_handler.http_request(framework_id, agent_id, resources)
+                resp = Response(status=202)
+                return resp
+
             else:
                 logger.error("Unkown content type: %s" % content['type'])
                 
@@ -311,7 +349,7 @@ class MesosHttp:
         #self.flask_app.run(host = '0.0.0.0')
         #self.http.serve_forever()
 
-#        self.__http_thread = gevent.spawn(app.run(host='0.0.0.0', port=5050))
+#        self.__http_thread = gevent.spawn(app.run(host='0.0.0.0', port=self.port))
         self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=self.port))
 #        io.run(app, host='0.0.0.0', port=5050)
 
