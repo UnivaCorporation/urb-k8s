@@ -646,6 +646,7 @@ class MesosHandler(MessageHandler):
     def http_generate_offers(self, framework_id):
         self.logger.info("HTTP: Starting offer loop for framework id %s" % framework_id['value'])
         framework = FrameworkTracker.get_instance().get(framework_id['value'])
+        last_heartbeat_time = time.time()
 #        framework['offer_event'] = gevent.event.AsyncResult()
 #        offer_event = framework.get('offer_event')
         self.logger.info("Starting offer loop for framework %s with offer event %s" % (framework_id['value'], repr(framework['offer_event'])))
@@ -671,7 +672,6 @@ class MesosHandler(MessageHandler):
                 current_time = time.time()
                 since_last_offer = current_time - last_offer_time
 
-#                offer_event.clear() #
                 # Acquire framework lock
                 self.__acquire_framework_lock(framework)
 
@@ -685,6 +685,14 @@ class MesosHandler(MessageHandler):
                 self.logger.debug("HTTP event loop: current_time=%d, last_offer_time=%d, since_last_offer=%d, time_to_wait=%d" %
                                   (current_time, last_offer_time, since_last_offer, time_to_wait))
                 framework['__next_offer_time'] = 0
+
+                if current_time - last_heartbeat_time >= self.heartbeat_interval:
+                    last_heartbeat_time = current_time
+                    self.logger.debug("Before yield heartbeat")
+                    hb = {'type' : 'HEARTBEAT'}
+                    yield hb
+                    self.logger.debug("After yield heartbeat")
+
                 try:
                     if since_last_offer >= time_to_wait:
                         offers = self.__generate_offers_for_framework(framework, True)
@@ -718,6 +726,7 @@ class MesosHandler(MessageHandler):
 #                    event_delta = ev_time - current_time
                     yield data
                     self.logger.debug("After yielded data")
+
                 self.logger.debug("Renew AsyncResult, old=%s" % repr(framework['offer_event']))
                 self.__acquire_framework_lock(framework)
                 del framework['offer_event']
@@ -1107,7 +1116,8 @@ class MesosHandler(MessageHandler):
                     else:
                         # We can't start a job for this... probably never should have
                         # offered it. Need to send a lost task
-                        self.__process_task_lost_status_update(t, framework)
+                        self.logger.debug("Could not scale up")
+                        self.__process_task_lost_status_update(t, framework, slave_id)
                         continue
                     placeholder_to_jobid[slave_id['value']] = task_record['job_id']
                     framework['concurrent_tasks'] = concurrent_tasks
@@ -2810,11 +2820,11 @@ class MesosHandler(MessageHandler):
         # Check how much headroom we have
         job_headroom = max_tasks - len(framework.get("job_id",[]))
         if job_headroom <= 0:
-            self.logger.debug("Not starting any new jobs since the max number of jobs are already pending. (%d/%d)"
+            self.logger.debug("Scaling up: Not starting any new jobs since the max number of jobs are already pending. (%d/%d)"
                     % (max_tasks,max_tasks))
             return []
         if scale_count > job_headroom:
-            self.logger.debug("Only launching %d tasks since there is less headroom than scale level %d" %
+            self.logger.debug("Scaling up: Only launching %d tasks since there is less headroom than scale level %d" %
                     (job_headroom, scale_count))
             scale_count = job_headroom
         job_ids = self.submit_executor_runner(framework, scale_count, tasks)
@@ -2826,7 +2836,7 @@ class MesosHandler(MessageHandler):
         framework_job_ids = framework.get('job_ids', [])
         framework_job_ids = list(set(framework_job_ids).union(job_ids))
         framework['job_ids'] = framework_job_ids
-        self.logger.debug("Framework %s has (%d/%d) jobs pending/running" %
+        self.logger.debug("Scaling up: Framework %s has (%d/%d) jobs pending/running" %
                           (framework['name'], len(framework_job_ids), max_tasks))
         return job_ids
         #self.adapter.scale(framework,scale_count)

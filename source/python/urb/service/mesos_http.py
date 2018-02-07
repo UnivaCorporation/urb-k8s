@@ -16,8 +16,9 @@
 
 
 from flask import Flask, request, Response, stream_with_context
-from flask_socketio import SocketIO, Namespace, emit
+#from flask_socketio import SocketIO
 #from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from gevent.wsgi import WSGIServer
 
 import gevent
 import json
@@ -40,7 +41,7 @@ monkey.patch_all()
 
 app = Flask(__name__)
 #app.debug = True
-io = SocketIO(app)
+#io = SocketIO(app)
 #io.debug = True
 
 logger = LogManager.get_instance().get_logger(__name__)
@@ -173,7 +174,7 @@ def scheduler():
                             subscribed_event = scheduler_pb2.Event()
                             subscribed_event.type = scheduler_pb2.Event.SUBSCRIBED
                             subscribed_event.subscribed.framework_id.value = framework_id
-                            subscribed_event.subscribed.heartbeat_interval_seconds = 15
+                            subscribed_event.subscribed.heartbeat_interval_seconds = mesos_handler.get_heartbeat_interval()
                             subscribed_event.subscribed.master_info.id = master_info['id']
             #                subscribed_event.subscribed.master_info.ip = master_info['ip']
                             subscribed_event.subscribed.master_info.port = master_info['port']
@@ -350,7 +351,9 @@ class MesosHttp:
         #self.http.serve_forever()
 
 #        self.__http_thread = gevent.spawn(app.run(host='0.0.0.0', port=self.port))
-        self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=self.port))
+#        self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=self.port))
+        self.__wsgi = WSGIServer(('', self.port), app)
+        self.__http_thread = gevent.spawn(self.__wsgi.serve_forever())
 #        io.run(app, host='0.0.0.0', port=5050)
 
     def stop(self):
