@@ -69,43 +69,61 @@ def redirect():
 @app.route('/master/state', methods=['GET'])
 @app.route('/state', methods=['GET'])
 def state():
-    request_debug("/master/state", request)
-    mesos_handler = MesosHttp.get_mesos_handler()
-    state = json.dumps({
-        'version' : mesos_handler.MESOS_VERSION,
-    })
-#    length = len(state)
-#    buf = str(length) + "\n" + state
-    resp = Response(state, status=200, mimetype="application/json")
-#    resp = Response(buf, status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
-    return resp
+    try:
+        request_debug("/master/state", request)
+        mesos_handler = MesosHttp.get_mesos_handler()
+        state = json.dumps({
+            'version' : mesos_handler.MESOS_VERSION,
+        })
+    #    length = len(state)
+    #    buf = str(length) + "\n" + state
+        resp = Response(state, status=200, mimetype="application/json")
+    #    resp = Response(buf, status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
+        return resp
+    except Exception as se:
+        msg = "Exception in state endpoint: %s" % se
+        logger.error(msg)
+        return Response(msg, status=500)
 
 @app.route('/master/slaves', methods=['GET'])
 @app.route('/slaves', methods=['GET'])
 def slaves():
-    request_debug("/master/slaves", request)
-#    slaves = json.dumps({
-#        '' : ??
+    try:
+        request_debug("/master/slaves", request)
+        slaves = json.dumps(
+        {"slaves":[{"id":"2d24a9aa-b496-40cf-a6d9-74e36b246c65-S0","hostname":"head.private","port":5051,"attributes":{},"pid":"slave(1)@10.0.2.15:5051","registered_time":1517236098.85274,"resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"used_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"offered_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"reserved_resources":{},"unreserved_resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"active":True,"version":"1.4.0","capabilities":["MULTI_ROLE","HIERARCHICAL_ROLE","RESERVATION_REFINEMENT"],"reserved_resources_full":{},"unreserved_resources_full":[{"name":"cpus","type":"SCALAR","scalar":{"value":1.0},"role":"*"},{"name":"mem","type":"SCALAR","scalar":{"value":2719.0},"role":"*"},{"name":"disk","type":"SCALAR","scalar":{"value":13778.0},"role":"*"},{"name":"ports","type":"RANGES","ranges":{"range":[{"begin":31000,"end":32000}]},"role":"*"}],"used_resources_full":[],"offered_resources_full":[]}],"recovered_slaves":[]}
+        )
+#        slaves = json.dumps({
+#            'slaves' : [ {'id' : 'dummy'},
+#                         {'hostname' : 'dummy'},
+#                         {'port' : 5051},
+#                         {'active' : True},
+#                         {'version' : '1.4.0'}
+#                       ]
 #        })
-    resp = Response(status=200, mimetype="application/json")
-    return resp
+        resp = Response(slaves, status=200, mimetype="application/json")
+        return resp
+    except Exception as se:
+        msg = "Exception in slaves endpoint: %s" % se
+        logger.error(msg)
+        return Response(msg, status=500)
 
-def give_offer():
-    offers = json.dumps({'type' : 'OFFERS',
-                            'offers' : { 'offers' :
-                                [
-                                { 'id' : { 'value' : 'offer_id' },
-                                'framework_id' : {'value' : 'framework_id'},
-                                'agent_id' : {'value' : 'agent_id'},
-                                'hostname' : 'head'
-                                }]
-                                }
-                        })
-    length = len(offers)
-    buf = str(length) + "\n" + offers
-    return buf
-#    yield buf
-    
+@app.route('/master/racks', methods=['GET'])
+@app.route('/racks', methods=['GET'])
+def racks():
+    try:
+        request_debug("/master/racks", request)
+#        racks = json.dumps({
+#            'racks' : [ { 'id' : 'dummy' } ]
+#        })
+#        resp = Response(racks, status=200, mimetype="application/json")
+        resp = Response(status=404) # return "not found" as mesos does
+        return resp
+    except Exception as se:
+        msg = "Exception in racks endpoint: %s" % se
+        logger.error(msg)
+        return Response(msg, status=500)
+
 
 @app.route('/api/v1/scheduler', methods=['GET', 'POST'])
 @app.route('/master/api/v1/scheduler', methods=['GET', 'POST'])
@@ -159,7 +177,8 @@ def scheduler():
                         master_info['port'] = mesos_handler.get_http_port() # set actual http port (instead of redis port)
                         master_info['address']['port'] = master_info['port']
                         
-                        del master_info['ip'] # might be incorrect
+#                        if 'ip' in master_info:
+#                            del master_info['ip'] # might be incorrect
 
                         if request.is_json:
                             subscribed = json.dumps({
@@ -176,7 +195,7 @@ def scheduler():
                             subscribed_event.subscribed.framework_id.value = framework_id
                             subscribed_event.subscribed.heartbeat_interval_seconds = mesos_handler.get_heartbeat_interval()
                             subscribed_event.subscribed.master_info.id = master_info['id']
-            #                subscribed_event.subscribed.master_info.ip = master_info['ip']
+                            subscribed_event.subscribed.master_info.ip = master_info['ip']
                             subscribed_event.subscribed.master_info.port = master_info['port']
                             subscribed_event.subscribed.master_info.hostname = master_info['hostname']
                             subscribed_event.subscribed.master_info.version = master_info['version']
@@ -325,7 +344,9 @@ def scheduler():
         else:
             logger.info("scheduler: unxpected")
     except Exception as se:
-        logger.error("Exception in scheduler endpoint: %s" % se)
+        msg = "Exception in scheduler endpoint: %s" % se
+        logger.error(msg)
+        return Response(msg, status=500)
 
 class MesosHttp:
     mesos_handler = None

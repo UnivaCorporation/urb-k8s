@@ -1955,6 +1955,8 @@ class MesosHandler(MessageHandler):
         host = cf.get_message_broker_connection_host()
         ip_addr = socket.gethostbyname(host)
         int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
+#        ip_addr = "127.0.0.1"
+#        int_addr = struct.unpack('I', socket.inet_aton(ip_addr))[0]
 
         master_info = {}
         master_info['id'] = 'master-' + host
