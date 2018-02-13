@@ -117,8 +117,8 @@ class MessageHandler:
             else:
                 try:
                     self.logger.debug('Processing request with: %s' % target_executor) 
-#                    response, f = target_executor(request)
-                    target_executor(request)
+                    _, response = target_executor(request)
+#                    target_executor(request)
                     self.logger.trace('Response message: %s' % response) 
                 except URBException, ex:
                     response = Message(payload=ex.to_dict())

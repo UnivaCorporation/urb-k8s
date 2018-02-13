@@ -47,7 +47,7 @@ class MasterElector(object):
 
     def elect(self):
         """ Monitoring thread. """
-        self.logger.debug('Entering election loop')
+        self.logger.debug('MasterElector: Entering election loop')
         cf = ChannelFactory.get_instance()
         while True:
             if not self.__run:
@@ -58,7 +58,7 @@ class MasterElector(object):
             try:
                 self.__master_broker = cf.determine_master_message_broker(value=self.__server_id,ttl=MasterElector.ELECTOR_TTL_IN_SECONDS)
             except Exception, ex:
-                self.logger.error("Error determining master broker: %s" % ex)
+                self.logger.error("MasterElector: Error determining master broker: %s" % ex)
                 self.__thread_event.wait(MasterElector.ELECTOR_SLEEP_PERIOD_IN_SECONDS)
                 continue
 
@@ -66,32 +66,35 @@ class MasterElector(object):
 
             if self.is_master_message_broker():
                 # We are the master broker... lets make sure that our ttl is updated
+                self.logger.debug("MasterElector: we are master broker")
                 try:
                     cf.refresh_master_message_broker(ttl=MasterElector.ELECTOR_TTL_IN_SECONDS)
                 except Exception, ex:
-                    self.logger.error("Unable to refresh the master broker: %s" % ex)
+                    self.logger.error("MasterElector: Unable to refresh the master broker: %s" % ex)
 
                 # We are now and if we weren't before trigger the callback
                 if not were_mb and self.elected_callback:
                     try:
                         self.elected_callback()
-                        self.logger.debug("Elected callback complete.")
+                        self.logger.debug("MasterElector: Elected callback complete.")
                     except Exception, ex:
-                        self.logger.warn("Exception calling demote callback")
+                        self.logger.warn("MasterElector: Exception calling demote callback")
                         self.logger.exception(ex)
             else:
                 # We aren't the master broker.  If we were before lets call the demote callback
+                self.logger.debug("MasterElector: we are not master broker")
                 if were_mb and self.demoted_callback:
                     try:
                         self.demoted_callback()
                     except Exception, ex:
-                        self.logger.warn("Exception calling demote callback")
+                        self.logger.warn("MasterElector: Exception calling demote callback")
                         self.logger.exception(ex)
 
             # Monitoring thread sleep
+            self.logger.debug("MasterElector: sleeping for %d sec" % MasterElector.ELECTOR_SLEEP_PERIOD_IN_SECONDS)
             self.__thread_event.wait(MasterElector.ELECTOR_SLEEP_PERIOD_IN_SECONDS)
 
-        self.logger.debug('Exiting election loop')
+        self.logger.debug('MasterElector: Exiting election loop')
 
     def is_master_message_broker(self):
         """ Return's true if this is the master message broker """

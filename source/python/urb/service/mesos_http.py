@@ -366,7 +366,7 @@ class MesosHttp:
         return cls.mesos_handler
 
     def start(self, mesos_handler):
-        self.logger.info("Starting http server")
+        self.logger.info("Starting http server on port %d" % self.port)
         self.__class__.mesos_handler = mesos_handler
         #self.flask_app.run(host = '0.0.0.0')
         #self.http.serve_forever()
@@ -374,18 +374,20 @@ class MesosHttp:
 #        self.__http_thread = gevent.spawn(app.run(host='0.0.0.0', port=self.port))
 #        self.__http_thread = gevent.spawn(io.run(app, host='0.0.0.0', port=self.port))
         self.__wsgi = WSGIServer(('', self.port), app)
-        self.__http_thread = gevent.spawn(self.__wsgi.serve_forever())
+        self.__http_thread = gevent.spawn(self.__wsgi.serve_forever)
 #        io.run(app, host='0.0.0.0', port=5050)
+        self.logger.debug("Spawned http server thread")
 
     def stop(self):
         self.logger.info("Stopping http server")
         self.shutdown()
 
     def shutdown(self):
-        func = request.environ.get('werkzeug.server.shutdown')
-        if func is None:
-            raise RuntimeError('Not running with the Werkzeug Server')
-        func()
+        self.__wsgi.stop()
+#        func = request.environ.get('werkzeug.server.shutdown')
+#        if func is None:
+#            raise RuntimeError('Not running with the Werkzeug Server')
+#        func()
 
 
 # Testing

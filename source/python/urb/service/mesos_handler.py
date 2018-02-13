@@ -48,7 +48,6 @@ from urb.messaging.mesos.register_executor_message import RegisterExecutorMessag
 from urb.messaging.mesos.executor_registered_message import ExecutorRegisteredMessage
 from urb.messaging.mesos.reregister_executor_message import ReregisterExecutorMessage
 from urb.messaging.mesos.executor_reregistered_message import ExecutorReregisteredMessage
-#from urb.messaging.mesos.resource_offers_message import ResourceOffersMessage
 from urb.messaging.mesos.launch_tasks_message import LaunchTasksMessage
 from urb.messaging.mesos.run_task_message import RunTaskMessage
 from urb.messaging.mesos.status_update_message import StatusUpdateMessage
@@ -113,7 +112,7 @@ class MesosHandler(MessageHandler):
         self.configure()
         if platform.system() == "Linux":
             gevent.spawn(self.__watch_config)
-        self.http_service = MesosHttp(self.http_port)
+        self.http_service = MesosHttp(self.http_port) if self.http_enabled else None
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -131,18 +130,22 @@ class MesosHandler(MessageHandler):
             self.logger.warn('Could not find executor runner config file %s, falling back to default %s' % (self.executor_runner_config_file, default_config_file))
             self.executor_runner_config_file = default_config_file
         self.logger.debug('Executor runner config file is set to %s' % (self.executor_runner_config_file))
-        http_port = cm.get_config_option("Http", "port")
-        if not http_port:
-            self.logger.warn("Could not get http port from configuration file, defaulting to port 5050")
-            self.http_port = 5050
+        self.http_enabled = cm.get_config_option("Http", "enabled", True)
+        if self.http_enabled:
+            http_port = cm.get_config_option("Http", "port")
+            if not http_port:
+                self.logger.warn("Could not get http port from configuration file, defaulting to port 5050")
+                self.http_port = 5050
+            else:
+                self.http_port = int(http_port)
+            interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
+            if not interval:
+                self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
+                self.heartbeat_interval = 15
+            else:
+                self.heartbeat_interval = int(interval)
         else:
-            self.http_port = int(http_port)
-        interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
-        if not interval:
-            self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
-            self.heartbeat_interval = 15
-        else:
-            self.heartbeat_interval = int(interval)
+            self.logger.info("HTTP API disabled")
 
     def __watch_config(self):
         # IN_CLOSE_WRITE handles completion of the config file modification
@@ -322,7 +325,8 @@ class MesosHandler(MessageHandler):
         self.channel_monitor = ChannelMonitor(self.validate_channel, self.delete_channel)
         self.channel_monitor.start()
         self.retry_manager.start()
-        self.http_service.start(self)
+        if self.http_service:
+            self.http_service.start(self)
 
         # Notify existing channels we restarted
         self.send_service_disconnected_message()
@@ -331,7 +335,8 @@ class MesosHandler(MessageHandler):
         self.logger.debug('We are no longer the master')
         # Trigger a shutdown of the offer loop
         self.__master_broker = False
-#        self.http_service.stop()
+        if self.http_service:
+            self.http_service.stop()
         self.channel.stop_listener()
         self.job_monitor.stop()
         self.channel_monitor.stop()
@@ -744,14 +749,17 @@ class MesosHandler(MessageHandler):
     def authenticate(self, request):
         self.logger.info('Authenticate: %s' % request)
         self.adapter.authenticate(request)
+        return None, None
 
     def deactivate_framework(self, request):
         self.logger.info('Deactivate framework: %s' % request)
         self.adapter.deactivate_framework(request)
+        return None, None
 
     def exited_executor(self, request):
         self.logger.info('Exited executor: %s' % request)
         self.adapter.exited_executor(request)
+        return None, None
 
     def http_message(self, framework_id, agent_id, executor_id, data):
         payload = {
@@ -768,14 +776,16 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.framework_to_executor(request)
+        framework, _ = self.framework_to_executor(request)
         if framework:
             self.__release_framework_lock(framework)
 
     def framework_to_executor(self, request):
         self.logger.info('Framework to executor: %s' % request)
-        payload = request.get('payload')
-        message = payload['mesos.internal.FrameworkToExecutorMessage']
+        message = request.get('payload', {}).get('mesos.internal.FrameworkToExecutorMessage')
+        if not message:
+            self.logger.warn("Framework to executor: empty message")
+            return None, None
         framework_id = message['framework_id']
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
        
@@ -790,13 +800,14 @@ class MesosHandler(MessageHandler):
             self.logger.warn("Received message from unknown framework or to unknown executor: %s", framework_id['value'])
             self.retry_manager.retry(request)
 
-        return framework
+        return framework, None
 
     def executor_to_framework(self, request):
         self.logger.info('Executor to framework: %s' % request)
-
-        payload = request.get('payload')
-        message = payload['mesos.internal.ExecutorToFrameworkMessage']
+        message = request.get('payload', {}).get('mesos.internal.ExecutorToFrameworkMessage')
+        if not message:
+            self.logger.warn("Executor to framework: empty message")
+            return None, None
         framework_id = message['framework_id']
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
 
@@ -816,6 +827,8 @@ class MesosHandler(MessageHandler):
         else:
             self.logger.warn("Received message to unknown framework: %s", framework_id['value'])
             self.retry_manager.retry(request)
+        return framework, None
+
 
     def http_kill(self, framework_id, task_id, agent_id):
         payload = {
@@ -831,7 +844,7 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.kill_task(request)
+        framework, _ = self.kill_task(request)
         if framework:
             self.__release_framework_lock(framework)
 
@@ -902,19 +915,21 @@ class MesosHandler(MessageHandler):
     def kill_task(self, request):
         self.logger.info('Kill task: %s' % request)
         self.adapter.kill_task(request)
-        payload = request.get('payload')
-        message = payload['mesos.internal.KillTaskMessage']
+        message = request.get('payload', {}).get('mesos.internal.KillTaskMessage')
+        if not message:
+            self.logger.warn("Kill task: empty message")
+            return None, None
         framework_id = message['framework_id']
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
         if not framework:
             # Requeue until the framework comes back
             self.retry_manager.retry(request)
-            return None
+            return None, None
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
         self.__kill_task(message['task_id'], framework_id, framework)
-        return framework
+        return framework, None
 
     def __process_remaining_offers(self, framework, remaining_offers, filters):
         # Loop through the slaves and let this slave know tremaining_offershat there is nothing to do
@@ -1043,7 +1058,7 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.launch_tasks(request)
+        framework, _ = self.launch_tasks(request)
         self.logger.debug("http_accept_launch: after launch_tasks")
         if framework:
             self.__release_framework_lock(framework)
@@ -1052,11 +1067,17 @@ class MesosHandler(MessageHandler):
         self.logger.info('Launch tasks: %s' % request)
         http = not request.get('source_id')
         payload = request.get('payload')
-        message = payload['mesos.internal.LaunchTasksMessage']
+        if not payload:
+            self.logger.warn("Launch tasks: empty payload")
+            return None, None
+        message = payload.get('mesos.internal.LaunchTasksMessage')
+        if not message:
+            self.logger.warn("Launch tasks: empty message")
+            return None, None
         framework_id = message['framework_id']
         self.logger.debug("Launch tasks: framework_id=%s" % framework_id)
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
-        self.logger.debug("Launch tasks: framework=%s" % framework)
+        self.logger.trace("Launch tasks: framework=%s" % framework)
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
@@ -1067,7 +1088,7 @@ class MesosHandler(MessageHandler):
             self.retry_manager.retry(request)
 #            if http:
 #                self.__release_framework_lock(framework)
-            return None
+            return None, None
         scheduler_channel_name = framework.get('channel_name')
 
         self.logger.debug("massa")
@@ -1150,7 +1171,7 @@ class MesosHandler(MessageHandler):
                 self.logger.error("Cannot extract job id from: %s" % slave["id"]["value"])
 #                if http:
 #                    self.__release_framework_lock(framework)
-                return framework
+                return framework, None
             job_id = slave_job_id
 
             # Mark this offer as 'used'
@@ -1225,11 +1246,11 @@ class MesosHandler(MessageHandler):
         self.__process_remaining_offers(framework, [ k for k,v in remaining_offer_ids.items() if v ], filters)
         self.adapter.launch_tasks(self, framework_id, tasks) # dummy method
         self.logger.trace("launch_tasks: end")
-        return framework
+        return framework, None
 #        if http:
 #            self.__release_framework_lock(framework)
 
-    def http_reconcile(self, tasks):
+    def http_reconcile(self, framework_id, tasks):
         payload = {
             'mesos.internal.ReconcileTasksMessage' : {
                 'framework_id' : framework_id,
@@ -1242,13 +1263,17 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.status_update_acknowledgement(request)
+        framework, _ = self.reconcile_tasks(request)
         if framework:
             self.__release_framework_lock(framework)
 
 
     def reconcile_tasks(self, request):
         self.logger.info('Reconcile request: %s' % request)
+        message = request.get('payload', {}).get('mesos.internal.ReconcileTasksMessage')
+        if not message:
+            self.logger.warn("Reconcile: empty message")
+            return None, None
         (smart_adapter, adapter_status_update_time) = self.adapter.reconcile_tasks(request)
         source_id = request.get('source_id')
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
@@ -1257,10 +1282,7 @@ class MesosHandler(MessageHandler):
             reply_to=reply_to, endpoint_id=endpoint_id)
 
         # Return status for all requested tasks
-        payload = request.get('payload')
-        message = payload['mesos.internal.ReconcileTasksMessage']
         framework_id = message['framework_id']
-
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
 
         # Acquire framework lock
@@ -1273,7 +1295,7 @@ class MesosHandler(MessageHandler):
             self.channel_monitor.start_channel_monitoring(scheduler_channel_name,
                 framework_id['value'])
             self.retry_manager.retry(request)
-            return None
+            return None, None
 
         retry_list = []
         # First check if we actually have a task list
@@ -1428,11 +1450,14 @@ class MesosHandler(MessageHandler):
 
                     channel = framework['channel_name']
                     self.send_status_update(channel, framework, status_update)
-        return framework
+        return framework, None
 
     def register_executor_runner(self, request):
         self.logger.info('Register executor runner, request: %s' % request)
         payload = request.get('payload')
+        if not payload:
+            self.logger.warn("Register executor runner: empty payload")
+            return None, None
 
         cf = ChannelFactory.get_instance()
         port = cf.get_message_broker_connection_port()
@@ -1640,8 +1665,10 @@ class MesosHandler(MessageHandler):
 
     def reregister_executor(self, request):
         """ Reregistering a lost executor """
-        payload = request.get('payload')
-        message = payload["mesos.internal.ReregisterExecutorMessage"]
+        message = request.get('payload', {}).get('mesos.internal.ReregisterExecutorMessage')
+        if not message:
+            self.logger.warn("Reregister Executor: empty message")
+            return None, None
         self.logger.info("Reregister Executor: %s from: %s" % (message, request['reply_to']))
         framework_id = message["framework_id"]
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
@@ -1742,8 +1769,10 @@ class MesosHandler(MessageHandler):
 
     def register_executor(self, request):
         """ Just track this and send it on to our executor runner """
-        payload = request.get('payload')
-        message = payload["mesos.internal.RegisterExecutorMessage"]
+        message = request.get('payload', {}).get('mesos.internal.RegisterExecutorMessage')
+        if not message:
+            self.logger.warn("Register Executor: empty message")
+            return None, None
         self.logger.info("Register Executor: %s from: %s" % (message, request['reply_to']))
         executor_id_val = message["executor_id"]["value"]
         framework_id = message["framework_id"]
@@ -1863,9 +1892,10 @@ class MesosHandler(MessageHandler):
 
     def register_framework(self, request):
         self.logger.info('Register framework: %s' % request)
-        payload = request.get('payload')
-        self.logger.trace("payload: %s" % payload)
-        message = payload['mesos.internal.RegisterFrameworkMessage']
+        message = request.get('payload', {}).get('mesos.internal.RegisterFrameworkMessage')
+        if not message:
+            self.logger.warn("Register framework: empty message")
+            return None, None
         self.logger.trace("message: %s" % message)
         response = FrameworkRegisteredMessage(self.channel.name, {})
         framework = self.process_registration(request, None, message, response)
@@ -1878,14 +1908,15 @@ class MesosHandler(MessageHandler):
         framework['reregistered_time'] = ""
 
         self.logger.debug('Registered framework: %s' % framework)
-        return framework
+        return framework, None
         
     def reregister_framework(self, request):
         self.logger.info('Reregister framework: %s' % request)
+        message = request.get('payload', {}).get('mesos.internal.ReregisterFrameworkMessage')
+        if not message:
+            self.logger.warn("Reregister framework: empty message")
+            return None, None
         self.adapter.reregister_framework(request)
-        payload = request.get('payload')
-        self.logger.trace("payload: %s" % payload)
-        message = payload['mesos.internal.ReregisterFrameworkMessage']
         self.logger.trace("message: %s" % message)
         framework_id = message['framework']['id']
 
@@ -1898,7 +1929,7 @@ class MesosHandler(MessageHandler):
         framework['reregistered_time'] = time.time()
 
         self.logger.debug('Reregistered framework: %s' % framework)
-        return framework
+        return framework, None
 
     def http_subscribe(self, framework_info):
         self.logger.info('Subscribe: %s' % framework_info)
@@ -2035,14 +2066,17 @@ class MesosHandler(MessageHandler):
     def register_slave(self, request):
         self.logger.info('Register slave: %s' % request)
         self.adapter.register_slave(request)
+        return None, None
 
     def reregister_slave(self, request):
         self.logger.info('Reregister slave: %s' % request)
         self.adapter.reregister_slave(request)
+        return None, None
 
     def resource_request(self, request):
         self.logger.info('Resource request: %s' % request)
         self.adapter.resource_request(request)
+        return None, None
 
     def http_revive(framework_id, revive):
         payload = {
@@ -2056,15 +2090,17 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.revive_offers(request)
+        framework, _ = self.revive_offers(request)
         if framework:
             self.__release_framework_lock(framework)
 
     def revive_offers(self, request):
         self.logger.info('Revive offers: %s' % request)
+        message = request.get('payload', {}).get('mesos.internal.ReviveOffersMessage')
+        if not message:
+            self.logger.warn("Revive offers: empty message")
+            return None, None
         self.adapter.revive_offers(request)
-        payload = request.get('payload')
-        message = payload['mesos.internal.ReviveOffersMessage']
         framework_id = message['framework_id']['value']
 
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id)
@@ -2083,11 +2119,13 @@ class MesosHandler(MessageHandler):
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
             offer_event.set()
-            return framework
+
+        return framework, None
 
     def submit_scheduler_request(self, request):
         self.logger.info('Submit scheduler request: %s' % request)
         self.adapter.submit_scheduler_request(request)
+        return None, None
 
     def http_acknowledge(self, framework_id, agent_id, task_id, uuid):
         if not uuid:
@@ -2107,7 +2145,7 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.status_update_acknowledgement(request)
+        framework, _ = self.status_update_acknowledgement(request)
         if framework:
             self.__release_framework_lock(framework)
 
@@ -2116,8 +2154,10 @@ class MesosHandler(MessageHandler):
         # This message justs get sent along
         self.adapter.status_update_acknowledgement(request)
 
-        payload = request.get('payload')
-        message = payload['mesos.internal.StatusUpdateAcknowledgementMessage']
+        message = request.get('payload', {}).get('mesos.internal.StatusUpdateAcknowledgementMessage')
+        if not message:
+            self.logger.warn("Status update acknowledgement: empty message")
+            return None, None
         framework_id = message['framework_id']
         slave_id = message['agent_id'] if'agent_id' in message else message['slave_id']
 
@@ -2155,12 +2195,14 @@ class MesosHandler(MessageHandler):
         else:
             self.logger.warn('Not sending status acknowledgement message: no framework')
         self.logger.trace('Status update acknowledgement: end')
-        return framework
+        return framework, None
                 
     def status_update(self, request):
-        payload = request.get('payload')
-        message = payload['mesos.internal.StatusUpdateMessage']
         self.logger.info('Status update: %s' % request)
+        message = request.get('payload', {}).get('mesos.internal.StatusUpdateMessage')
+        if not message:
+            self.logger.warn("Status update: empty message")
+            return None, None
         update = message['update']
 
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, 
@@ -2171,7 +2213,7 @@ class MesosHandler(MessageHandler):
         
         if self.handle_status_update(framework, update):
             self.retry_manager.retry(request)
-        return None
+        return None, None
 
     def handle_status_update(self, framework, update):
         task_id = update['status']['task_id']
@@ -2243,16 +2285,17 @@ class MesosHandler(MessageHandler):
             'ext_payload' : None,
             'payload' : payload
             }
-        framework = self.unregister_framework(request)
+        framework, _ = self.unregister_framework(request)
         if framework:
             self.__release_framework_lock(framework)
 
     def unregister_framework(self, request):
         self.logger.info('Unregister framework: %s' % request)
-
+        message = request.get('payload', {}).get('mesos.internal.UnregisterFrameworkMessage')
+        if not message:
+            self.logger.warn("Unregister framework: empty message")
+            return None, None
         # Send shutdown message and then delete...
-        payload = request.get('payload')
-        message = payload['mesos.internal.UnregisterFrameworkMessage']
         framework_id = message['framework_id']
         framework = self.__delete_framework(framework_id['value'])
 
@@ -2260,13 +2303,14 @@ class MesosHandler(MessageHandler):
         
         if framework:
             framework['unregistered_time'] = framework['delete_time']
-            return framework
+            return framework, None
         else:
-            return None
+            return None, None
 
     def unregister_slave(self, request):
         self.logger.info('Unregister slave: %s' % request)
         self.adapter.unregister_slave(request)
+        return None, None
 
 ###########################
 
@@ -2666,6 +2710,7 @@ class MesosHandler(MessageHandler):
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting AsyncResult: %s" % repr(offer_event))
             offer_event.set(http_resp)
+            gevent.sleep(0)
         else:
             # Forward this to the framework...
             cf = ChannelFactory.get_instance()

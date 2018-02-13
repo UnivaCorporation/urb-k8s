@@ -214,8 +214,10 @@ class URBService:
                 if now > end_time:
                     self.logger.info('Done serving requests')
                     break
+            self.logger.debug("serve: waiting for shutdown event for %d sec" % wait_time)
             self.shutdown_event.wait(wait_time)
             #gevent.sleep(URBService.GREENLET_SLEEP_PERIOD_IN_SECONDS)
+        master_elector.stop()
         self.logger.info('Service exiting\n\n')
 
     def serve_forever(self):
@@ -234,10 +236,11 @@ class URBService:
             handler.demoted_callback()
 
     def shutdown_callback(self, request=None):
-        self.logger.info('Shutting down')
+        self.logger.info('Service shutting down')
+        self.demoted_callback()
         self.shutdown = True
         self.shutdown_event.set()
-        #self.demoted_callback()
+#        self.demoted_callback()
         ChannelFactory.get_instance().refresh_master_message_broker(ttl=0)
 
     def signal_handler(self, signal, frame):
