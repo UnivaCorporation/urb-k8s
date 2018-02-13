@@ -43,7 +43,7 @@ XMLTODICT_EGG=$(XMLTODICT_NAME)-py$(EGG_PYV).egg
 PYMONGO_ARCHIVE=$(shell ls pymongo-*.tar.gz)
 PYMONGO_NAME=$(subst .tar.gz,,$(PYMONGO_ARCHIVE))
 PYMONGO_EGG=$(PYMONGO_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
-PROTOBUF_ARCHIVE=$(shell ls protobuf-*.tar.gz)
+PROTOBUF_ARCHIVE=$(shell ls protobuf-[0-9].*.tar.gz)
 PROTOBUF_NAME=$(subst .tar.gz,,$(PROTOBUF_ARCHIVE))
 PROTOBUF_EGG=$(PROTOBUF_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
 ARGPARSE_ARCHIVE=$(shell ls argparse-*.tar.gz)
@@ -61,6 +61,9 @@ GEVENTINOTIFYX_EGG=$(GEVENTINOTIFYX_NAME)-py$(EGG_PYV).egg
 FLASK_ARCHIVE=$(shell ls Flask-*.tar.gz)
 FLASK_NAME=$(subst .tar.gz,,$(FLASK_ARCHIVE))
 FLASK_EGG=$(FLASK_NAME)-py$(EGG_PYV).egg
+PROTOBUF_TO_DICT_ARCHIVE=$(shell ls protobuf-to-dict-*.tar.gz)
+PROTOBUF_TO_DICT_NAME=$(subst .tar.gz,,$(PROTOBUF_TO_DICT_ARCHIVE))
+PROTOBUF_TO_DICT_EGG=$(PROTOBUF_TO_DICT_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -72,12 +75,18 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
           $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
-          $(DIST_DIR)/$(FLASK_EGG)
+          $(DIST_DIR)/$(FLASK_EGG) \
+          $(DIST_DIR)/$(PROTOBUF_TO_DICT_EGG)
 
 # some packages can be used directly as prebuild eggs or wheels
 SIX_ARCHIVE=$(shell ls six-*.whl)
+WERKZEUG_ARCHIVE=$(shell ls Werkzeug-*.whl)
+JINJA2_ARCHIVE=$(shell ls Jinja2-*.whl)
+ITSDANGEROUS_ARCHIVE=$(shell ls itsdangerous-*.whl)
+CLICK_ARCHIVE=$(shell ls click-*.whl)
 
-DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE)
+DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE) $(DIST_DIR)/$(WERKZEUG_ARCHIVE) $(DIST_DIR)/$(JINJA2_ARCHIVE) \
+              $(DIST_DIR)/$(ITSDANGEROUS_ARCHIVE) $(DIST_DIR)/$(CLICK_ARCHIVE)
 
 ifeq ($(shell uname -s),SunOS)
   SETUP_ENV=PYCC_CC=gcc
@@ -155,10 +164,24 @@ $(DIST_DIR)/$(FLASK_EGG): $(FLASK_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(FLASK_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
+$(DIST_DIR)/$(PROTOBUF_TO_DICT_EGG): $(PROTOBUF_TO_DICT_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(PROTOBUF_TO_DICT_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
 $(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
 	cp $< $(DIST_DIR)
 
-$(DIST_PREBUILT): $(DIST_DIR)/$(SIX_ARCHIVE)
+$(DIST_DIR)/$(WERKZEUG_ARCHIVE): $(WERKZEUG_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_DIR)/$(JINJA2_ARCHIVE): $(JINJA2_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_DIR)/$(ITSDANGEROUS_ARCHIVE): $(ITSDANGEROUS_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_DIR)/$(CLICK_ARCHIVE): $(CLICK_ARCHIVE)
+	cp $< $(DIST_DIR)
 
 dist: $(BUILDDIR)/.dummy $(DIST_DIR)/.dummy $(DIST_EGGS) $(DIST_PREBUILT)
 

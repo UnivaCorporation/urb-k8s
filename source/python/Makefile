@@ -19,6 +19,10 @@ SETUP_ENV=PYCC_CC=gcc
 endif
 
 REDIS_BIN=../cpp/3rdparty/redis/build/redis-4.0.2/src
+V1_MESOS_PB2=mesos_pb2.py
+V1_SCHEDULER_PB2=scheduler_pb2.py
+V1_MESOS_PROTO_SRC_DIR=../cpp/liburb/$(BUILDDIR)/include/mesos/v1
+V1_MESOS_PROTO_TARGET_DIR=urb/service
 
 include ../../util/include.mk
 
@@ -38,7 +42,10 @@ mesos_version:
 
 distclean: tidy
 
-build: urb/__init__.py mesos_version
+v1_proto: $(V1_MESOS_PROTO_SRC_DIR)/$(V1_MESOS_PB2) $(V1_MESOS_PROTO_SRC_DIR)/$(V1_SCHEDULER_PB2)
+	cp $^ $(V1_MESOS_PROTO_TARGET_DIR)
+
+build: urb/__init__.py mesos_version v1_proto
 	$(SETUP_ENV) $(PYTHON) setup.py build
 
 dist: egg sdist
@@ -56,7 +63,7 @@ test: urb/__init__.py
 	if [ "`$(REDIS_BIN)/redis-cli ping`" = "PONG" ]; then $(REDIS_BIN)/redis-cli flushdb; $(REDIS_BIN)/redis-cli shutdown; fi
 
 clean:
-	rm -rf build *.egg-info `find . -name '*.pyc'` urb/__init__.py
+	rm -rf build *.egg-info `find . -name '*.pyc'` urb/__init__.py $(V1_MESOS_PROTO_TARGET_DIR)/$(V1_MESOS_PB2) $(V1_MESOS_PROTO_TARGET_DIR)/$(V1_SCHEDULER_PB2)
 
 tidy: clean
 	rm -rf dist
