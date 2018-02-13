@@ -22,6 +22,7 @@ import os
 import uuid
 import logging
 import threading
+import copy
 
 # add path to test util
 sys.path.append('../../urb-core/source/python/test')
@@ -40,8 +41,8 @@ from mesoshttp.client import MesosClient
 if os.environ.get("URB_CONFIG_FILE") is None:
     raise Exception("URB_CONFIG_FILE environment variable has to be defined")
 
-#from gevent import monkey
-#monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 
 SERVICE_THREAD = create_service_thread(serve_time=100)
 
@@ -54,13 +55,18 @@ class Test(object):
         def __init__(self, client):
             threading.Thread.__init__(self)
             self.client = client
-            self.stop = False
+            self.exited = False
 
         def run(self):
             try:
                 self.client.register()
             except KeyboardInterrupt:
                 print('Stop requested by user, stopping framework....')
+            print("MesosFramework: run end")
+            self.exited = True
+
+        def is_done(self):
+            return self.exited
 
     def __init__(self, url="http://127.0.0.1:5050", name="HTTP framework", user="vagrant"):
         logging.basicConfig()
@@ -71,6 +77,8 @@ class Test(object):
         self.driver = None
         self.mesos_offer = None # to store only one offer
         self.update = None
+        self.task_id = None
+        self.agent_id = None
         self.client = MesosClient(mesos_urls = [url], frameworkName = name, frameworkUser = user)
         self.client.on(MesosClient.SUBSCRIBED, self.subscribed)
         self.client.on(MesosClient.OFFERS, self.offer_received)
@@ -78,13 +86,20 @@ class Test(object):
         self.th = Test.MesosFramework(self.client)
 
     def reset_offer(self):
-        mesos_offer = None
+        ret = copy.deepcopy(self.mesos_offer)
+        self.mesos_offer = None
+        return ret
 
     def reset_update(self):
+        ret = copy.deepcopy(self.update)
         self.update = None
+        return ret
 
     def start(self):
         self.th.start()
+
+    def is_done(self):
+        return self.th.is_done()
 
     def wait_offer(self, sec):
         cnt = 0
@@ -122,7 +137,6 @@ class Test(object):
         print('Stop requested by user, stopping framework....')
         self.driver.tearDown()
         self.client.stop = True
-        self.stop = True
 
     def subscribed(self, driver):
         print('SUBSCRIBED')
@@ -132,6 +146,8 @@ class Test(object):
         print("STATUS UPDATE: %s" % update['status']['state'])
         if self.update is None:
             self.update = update
+            self.task_id = update['status']['task_id']
+            self.agent_id = update['status']['agent_id']
             print("Use update: %s" % self.update)
 #        if update['status']['state'] == 'TASK_RUNNING':
 #            self.tasks+=1
@@ -160,8 +176,8 @@ class Test(object):
                 offer.decline()
             i+=1
 
-    def run_task(self, sec):
-        offer = self.mesos_offer.get_offer()
+    def run_task(self, sec, o = None):
+        offer = o if o else self.mesos_offer.get_offer()
         print("Run task on offer: %s" % str(offer))
         task = {
             'name': 'sample test',
@@ -183,16 +199,23 @@ class Test(object):
         }
         self.mesos_offer.accept([task])
 
-    def kill_task(self):
-        print("kill task: %s on %s" % (self.update['status']['task_id']['value'], self.update['status']['agent_id']['value']))
-        self.driver.kill(self.update['status']['agent_id']['value'], self.update['status']['task_id']['value'])
+    def kill_task(self, task_name = None, agent_name = None):
+        t = task_name if task_name else self.update['status']['task_id']['value']
+        a = agent_name if agent_name else self.update['status']['agent_id']['value']
+        print("kill task: %s on %s" % (t, a))
+        self.driver.kill(a, t)
 
-    def send_message(msg):
+    def send_message(self, msg, agent_id = None, executor_id = None):
+        a = agent_id if agent_id else self.update['agent_id']
+        e = task_name if task_name else self.update['executor_id']
         print("Send message: %s" % msg)
-        agent_id = self.update['agent_id']
-        executor_id = self.update['executor_id']
-        self.driver.message(agent_id, executor_id, msg)
-        
+        self.driver.message(a, e, msg)
+
+    def reconcile(self):
+        print("Reconcile")
+        task = { 'task_id' : self.task_id, 'agent_id' : self.agent_id }
+        self.driver.reconcile([task])
+
 
 URB_TEST = Test(URL)
 
@@ -223,12 +246,13 @@ def test_status_update_long_task():
 #    assert update['status']['state'] == 'TASK_RUNNING'
 
 def test_reconcile_long_task():
-    printt("HTTP Test reconcile")
+    print("HTTP Test reconcile")
     URB_TEST.reset_update()
     URB_TEST.reconcile()
-    update = URB_TEST.wait_update(10)
+    update = URB_TEST.wait_update(15)
     assert update
-    assert (update['status']['state'] == 'TASK_RUNNING' and update['status']['reason'] == 'REASON_RECONCILIATION')
+    assert (update['status']['state'] == 'TASK_LOST' and update['status']['reason'] == 'REASON_RECONCILIATION')
+#    assert (update['status']['state'] == 'TASK_RUNNING' and update['status']['reason'] == 'REASON_RECONCILIATION')
 
 #def test_message():
 #    print("HTTP Test message long task")
@@ -236,9 +260,9 @@ def test_reconcile_long_task():
 
 def test_kill_long_task():
     print("HTTP Test Kill long task")
-    URB_TEST.kill_task()
-    URB_TEST.reset_update()
-    update = URB_TEST.wait_update(10)
+    update = URB_TEST.reset_update()
+    URB_TEST.kill_task(update['status']['task_id']['value'], update['status']['agent_id']['value'])
+    update = URB_TEST.wait_update(15)
     assert update
     assert update['status']['state'] == 'TASK_KILLED'
 
@@ -259,16 +283,28 @@ def test_kill_long_task():
 
 @needs_cleanup
 def test_cleanup():
+    print("HTTP Test cleanup")
     URB_TEST.shutdown()
+    print("Sent shutdown test framework")
+    for i in range(10):
+        if URB_TEST.is_done():
+            break
+        gevent.sleep(2)
+        print("waiting for framework shutdown... %d" % i)
     # Try and signal a shutdown but just wait for the timeout if it fails
     try:
         from urb.service.urb_service_controller import URBServiceController
         from gevent import monkey; monkey.patch_socket()
         controller = URBServiceController('urb.service.monitor')
+        print("Shutdown URB service")
         controller.send_shutdown_message()
     except:
+        print("Exception, pass")
         pass
+    print("Joining service thread")
     SERVICE_THREAD.join()
+    print("HTTP Test cleanup, done")
+
 
 # Testing
 if __name__ == '__main__':
@@ -277,11 +313,8 @@ if __name__ == '__main__':
     test_subscribe()
     test_launch_long_task()
     test_status_update_long_task()
-#    test_reconcile_long_task()
-#    test_kill_long_task()
-#    print("Before sleep")
-#    gevent.sleep(20)
-#    print("After sleep")
+    test_reconcile_long_task()
+    test_kill_long_task()
     print("END")
     test_cleanup()
     pass
