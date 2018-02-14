@@ -161,7 +161,6 @@ def scheduler():
             logger.info("content=%s" % content)
             if ctype == "SUBSCRIBE":
                 logger.debug("app_context=%s" % app.app_context())
-                framework_id = None
                 if "Mesos-Stream-Id" in request.headers:
                     msg = "Subscribe calls should not include the 'Mesos-Stream-Id' header"
                     length = len(msg)
@@ -171,8 +170,9 @@ def scheduler():
                 def generate():
                     try:
                         mesos_subscribed = mesos_handler.http_subscribe(content['subscribe']['framework_info'])
-                        framework_id = mesos_subscribed['payload']['framework_id']['value']
-                        logger.debug("Subscribed framework_id=%s" % framework_id)
+                        framework_name = mesos_subscribed['payload']['framework_id']['value']
+                        logger.debug("Subscribed framework_name=%s, yield it" % framework_name)
+                        yield framework_name
                         master_info = mesos_subscribed['payload']['master_info']
                         master_info['port'] = mesos_handler.get_http_port() # set actual http port (instead of redis port)
                         master_info['address']['port'] = master_info['port']
@@ -184,7 +184,7 @@ def scheduler():
                             subscribed = json.dumps({
                                 'type'         : 'SUBSCRIBED',
                                 'subscribed'   : {
-                                    'framework_id' : {'value' : framework_id},
+                                    'framework_id' : {'value' : framework_name},
                                     'heartbeat_interval_seconds' : mesos_handler.get_heartbeat_interval(),
                                     'master_info' : master_info
                                 }
@@ -192,7 +192,7 @@ def scheduler():
                         else:
                             subscribed_event = scheduler_pb2.Event()
                             subscribed_event.type = scheduler_pb2.Event.SUBSCRIBED
-                            subscribed_event.subscribed.framework_id.value = framework_id
+                            subscribed_event.subscribed.framework_id.value = framework_name
                             subscribed_event.subscribed.heartbeat_interval_seconds = mesos_handler.get_heartbeat_interval()
                             subscribed_event.subscribed.master_info.id = master_info['id']
                             subscribed_event.subscribed.master_info.ip = master_info['ip']
@@ -205,28 +205,29 @@ def scheduler():
 
                             subscribed = subscribed_event.SerializeToString()
 
-                        logger.debug("subscribed=%s" % subscribed)
                         length = len(subscribed)
                         buf = str(length) + "\n" + subscribed
-                        logger.debug("subscribed before yield, buf=%s" % buf)
+                        logger.debug("subscribed=%s, yield it as recordio" % subscribed)
                         yield buf
 
                         logger.debug("subscribed before generate offer loop")
-                        for data in mesos_handler.http_generate_offers({'value' : framework_id}):
-                            logger.debug("yielded")
+                        for data in mesos_handler.http_generate_offers({'value' : framework_name}):
                             if data:
                                 resp_event = json.dumps(data)
                                 length = len(resp_event)
                                 buf = str(length) + "\n" + resp_event
-                                logger.debug("in offer loop: before yield, buf=%s" % buf)
+                                logger.debug("offer: %s, yield it as recordio" % resp_event)
                                 yield buf
                             else:
                                 logger.debug("in offer loop: skip empty data")
                     except Exception as ge:
                         logger.error("Exception in generator: %s" % ge)
 
-                resp = Response(stream_with_context(generate()), status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
-                resp.headers['Mesos-Stream-Id'] = framework_id
+                g = generate()
+                framework_name = next(g)
+                logger.debug("framework_name=%s" % framework_name)
+                resp = Response(stream_with_context(g), status=200, headers = {'Mesos-Stream-Id' : framework_name}, mimetype="application/json" if request.is_json else "application/x-protobuf")
+#                resp.headers['Mesos-Stream-Id'] = framework_name
                 return resp
 
             elif content['type'] == 'TEARDOWN':
