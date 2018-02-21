@@ -532,7 +532,7 @@ class MesosHandler(MessageHandler):
             offerable = ( slave.get('offerable',True) and (not slave.get('is_command_executor',False)) and (now > offerable_after))
             if offerable:
                 self.logger.debug("Generating offer for framework %s from slave %s" % (framework['name'],slave))
-                offer = self.build_offer(framework, slave, http=http)
+                offer = self.__build_offer(framework, slave, http=http)
                 self.logger.debug("Generated offer: %s" % offer)
 
                 if offer is not None:
@@ -571,7 +571,7 @@ class MesosHandler(MessageHandler):
                         dummy_slave = { "hostname":"place-holder", "id" : { "value" : "place-holder"}, 'offerable':True}
                         self.__initialize_slave_resources(framework, dummy_slave)
                         self.logger.debug("Adding placeholder offer: %s" % dummy_slave)
-                        offers.append(self.build_offer(framework,dummy_slave,force=True,http=http))
+                        offers.append(self.__build_offer(framework,dummy_slave,force=True,http=http))
                         built_offer_count +=1
                 else:
                     self.logger.debug("Do not add placeholder offer: offerable after: %s" %
@@ -951,9 +951,10 @@ class MesosHandler(MessageHandler):
                 self.logger.warn("Received a launch tasks against an unknown offer id: %s" % offer_id)
                 continue
 
-            slave = slave_dict.get(offer['slave_id']['value'])
+            offer_slave_name = offer['slave_id']['value'] if 'slave_id' in offer else offer['agent_id']['value']
+            slave = slave_dict.get(offer_slave_name)
             if not slave:
-                if not offer['slave_id']['value'].startswith('place-holder'):
+                if not offer_slave_name.startswith('place-holder'):
                     # We don't have a slave for this offer
                     self.logger.warn("Received a launch tasks against an unknown slave id")
                 else:
@@ -1120,7 +1121,7 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Setting offer ids to: %s" % task_record['offer_ids'])
             task_dict[task_id['value']] = task_record
 
-            slave_id = t['slave_id']
+            slave_id = t['slave_id'] if 'slave_id' in t else t['agent_id']
             if slave_id['value'].startswith('place-holder'):
                 self.logger.debug("Processing slave: %s" % slave_id['value'])
                 # This is a response to our 'query' offer
@@ -1593,15 +1594,15 @@ class MesosHandler(MessageHandler):
                     continue
                 self.logger.debug("Register executor runner: found task %s with job id %s" % (task_id, task['job_id']))
                 if task['job_id'] == payload['job_id']:
-                    if task['task_info']['slave_id']['value'].startswith('place-holder'):
+                    task_slave_id = task['task_info']['slave_id'] if 'slave_id' in task['task_info'] else task['task_info']['agent_id']
+                    if task_slave_id['value'].startswith('place-holder'):
                         # We need to record the mapping of this slave to place-holder
                         placeholder_to_slave = framework.get('placeholder_to_slave',{})
-                        placeholder_to_slave[task['task_info']['slave_id']['value']] = \
-                             slave['id']['value']
+                        placeholder_to_slave[task_slave_id['value']] = slave['id']['value']
                         framework['placeholder_to_slave'] = placeholder_to_slave
-                        slave['placeholder'] = task['task_info']['slave_id']['value']
+                        slave['placeholder'] = task_slave_id['value']
                         # Fix up the slave value... it is probably 'place-holder'
-                        task['task_info']['slave_id'] = slave['id']
+                        task_slave_id = slave['id']
                         # Also set the command executor info if necessary
                         if task['task_info'].has_key('executor'):
                             slave['executor'] = task['task_info']['executor']
@@ -1621,7 +1622,7 @@ class MesosHandler(MessageHandler):
                         task_container = task['task_info'].get('container')
                         if task_container is not None:
                             if task_container['type'] == 'DOCKER':
-                                tsid = task['task_info']['slave_id']['value']
+                                tsid = task_slave_id['value']
                                 sid = slave["id"]["value"]
                                 self.logger.debug("tsid=%s, sid=%s" % (tsid, sid))
                                 if tsid == sid:
@@ -2460,10 +2461,10 @@ class MesosHandler(MessageHandler):
         payload =  {}
         payload['framework_id'] = framework_id
         # remove agent_id until http executor api implemented
-        for t in tasks:
-            if t.get('agent_id'):
-                self.logger.debug("remove agent_id form task")
-                del t['agent_id']
+#        for t in tasks:
+#            if t.get('agent_id'):
+#                self.logger.debug("remove agent_id form task")
+#                del t['agent_id']
         payload['tasks'] = tasks
         payload = { "mesos.internal.LaunchTasksMessage" : payload }
         return payload
@@ -2634,7 +2635,7 @@ class MesosHandler(MessageHandler):
 
         return attributes
 
-    def build_offer(self, framework, slave, force=False, http=False):
+    def __build_offer(self, framework, slave, force=False, http=False):
         # If we don't have enough resources to offer than don't
         if not force and (slave['cpus'] == 0 or slave['mem'] == 0 or slave['disk'] == 0):
             self.logger.debug("Build offer: not enough resources to build offer")
@@ -2656,9 +2657,11 @@ class MesosHandler(MessageHandler):
         offer = {}
         offer['id'] = { 'value': 'offer-%s-%s' % (framework_id['value'], offer_id)}
         offer['framework_id'] = framework_id
-        offer['slave_id'] = slave_id
         if http:
             offer['agent_id'] = slave_id
+        else:
+            offer['slave_id'] = slave_id
+
         offer['hostname'] = slave['hostname']
 
         offer['resources'] = self.__build_resources(cpus=cpus,mem=mem,
