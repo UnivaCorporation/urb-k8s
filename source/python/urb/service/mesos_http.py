@@ -28,8 +28,6 @@ import scheduler_pb2
 
 from urb.log.log_manager import LogManager
 from urb.messaging.mesos.register_framework_message import RegisterFrameworkMessage
-from urb.messaging.mesos.subscribe_message import SubscribeMessage
-from urb.messaging.mesos.subscribed_message import SubscribedMessage
 
 from gevent import monkey
 monkey.patch_all()

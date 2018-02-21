@@ -59,10 +59,6 @@ from urb.messaging.mesos.kill_task_message import KillTaskMessage
 from urb.messaging.mesos.reconcile_tasks_message import ReconcileTasksMessage
 from urb.messaging.mesos.revive_offers_message import ReviveOffersMessage
 from urb.messaging.mesos.rescind_resource_offer_message import RescindResourceOfferMessage
-
-from urb.messaging.mesos.subscribe_message import SubscribeMessage
-from urb.messaging.mesos.subscribed_message import SubscribedMessage
-
 from urb.messaging.service_disconnected_message import ServiceDisconnectedMessage
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
 
@@ -94,7 +90,7 @@ class MesosHandler(MessageHandler):
     SLAVE_GRACE_PERIOD = 120
     DEFAULT_FRAMEWORK_MAX_TASKS = 10
     # Actual Mesos version has to be set by the build procedure
-    MESOS_VERSION = "1.4.0"
+    MESOS_VERSION = "3.0.0"
 
     def __init__(self, channel_name, initial_retry_interval, max_retry_count):
         MessageHandler.__init__(self, channel_name)
@@ -1934,9 +1930,7 @@ class MesosHandler(MessageHandler):
 
     def http_subscribe(self, framework_info):
         self.logger.info('Subscribe: %s' % framework_info)
-        
-        response = SubscribedMessage({})
-        
+        response = {}
         internal = "mesos.internal.ReregisterFrameworkMessage" if framework_info.get('id') else "mesos.internal.RegisterFrameworkMessage"
             
         payload = {
@@ -1960,7 +1954,6 @@ class MesosHandler(MessageHandler):
         framework['reregistered_time'] = ""
 
         self.logger.debug('Subscribed framework: %s' % framework)
-#        return response['payload']['framework_id']['value']
         return response
 
     # This method handles registration and reregistration
