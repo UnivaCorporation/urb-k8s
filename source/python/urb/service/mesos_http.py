@@ -20,7 +20,9 @@ from gevent.wsgi import WSGIServer
 import gevent
 import json
 from google.protobuf import json_format
-
+from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor
+from google.protobuf import reflection
 #from protobuf_to_dict import protobuf_to_dict
 
 import mesos_pb2
@@ -38,8 +40,8 @@ app = Flask(__name__)
 logger = LogManager.get_instance().get_logger(__name__)
 
 
-def request_debug(endpoint, request):
-    logger.debug("%s: request=%s" % (endpoint, request))
+def request_debug(msg, request):
+    logger.debug("%s: request=%s" % (msg, request))
     logger.debug("is_json: %s" % request.is_json)
     logger.debug("request.headers=%s" % request.headers)
     logger.debug("request.environ=%s" % request.environ)
@@ -56,16 +58,48 @@ def redirect():
 @app.route('/state', methods=['GET'])
 def state():
     try:
-        request_debug("/master/state", request)
+        request_debug("Get state", request)
         mesos_handler = MesosHttp.get_mesos_handler()
-        state = json.dumps({
+        state_json = json.dumps({
             'version' : mesos_handler.MESOS_VERSION,
+            'cluster' : 'urb-uge-cluster',
+            'flags' : {},
+            'slaves' : [],
+            'frameworks' : [],
+            'completed_frameworks' : [],
+            'orphan_tasks' : [],
+            'unregistered_frameworks' : []
         })
-        resp = Response(state, status=200, mimetype="application/json")
-    #    resp = Response(buf, status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
+        if True:
+#        if request.is_json:
+            resp = Response(state_json, status=200, mimetype="application/json")
+        else:
+            try:
+                descriptor_proto = descriptor_pb2.DescriptorProto()
+                descriptor_proto.name = "state"
+                descriptor_proto.field.add(name='version',
+                                                number=1,
+                                                type=descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                                                label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL)
+                descriptor_proto.field.add(name='cluster',
+                                                number=2,
+                                                type=descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+                                                label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL)
+                desc = descriptor.MakeDescriptor(descriptor_proto)
+                clazz = reflection.MakeClass(desc)
+                msg = clazz(version=mesos_handler.MESOS_VERSION,
+                            cluster='urb-uge-cluster')
+                ser_msg = msg.SerializeToString()
+                logger.info("state content=%s" % ser_msg)
+    #            msg = json_format.Parse(state_json, xxx_pb2.Event(), ignore_unknown_fields=False)
+                resp = Response(ser_msg, status=200, mimetype="application/x-protobuf")
+            except Exception as se:
+                msg = "Exception: %s" % se
+                logger.error(msg)
+                return Response(msg, status=500)
         return resp
-    except Exception as se:
-        msg = "Exception in state endpoint: %s" % se
+    except Exception as e:
+        msg = "Exception handling: %s" % (request.url_rule, e)
         logger.error(msg)
         return Response(msg, status=500)
 
@@ -73,22 +107,20 @@ def state():
 @app.route('/slaves', methods=['GET'])
 def slaves():
     try:
-        request_debug("/master/slaves", request)
-        slaves = json.dumps(
-        {"slaves":[{"id":"2d24a9aa-b496-40cf-a6d9-74e36b246c65-S0","hostname":"head.private","port":5051,"attributes":{},"pid":"slave(1)@10.0.2.15:5051","registered_time":1517236098.85274,"resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"used_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"offered_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"reserved_resources":{},"unreserved_resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"active":True,"version":"1.4.0","capabilities":["MULTI_ROLE","HIERARCHICAL_ROLE","RESERVATION_REFINEMENT"],"reserved_resources_full":{},"unreserved_resources_full":[{"name":"cpus","type":"SCALAR","scalar":{"value":1.0},"role":"*"},{"name":"mem","type":"SCALAR","scalar":{"value":2719.0},"role":"*"},{"name":"disk","type":"SCALAR","scalar":{"value":13778.0},"role":"*"},{"name":"ports","type":"RANGES","ranges":{"range":[{"begin":31000,"end":32000}]},"role":"*"}],"used_resources_full":[],"offered_resources_full":[]}],"recovered_slaves":[]}
-        )
-#        slaves = json.dumps({
-#            'slaves' : [ {'id' : 'dummy'},
-#                         {'hostname' : 'dummy'},
-#                         {'port' : 5051},
-#                         {'active' : True},
-#                         {'version' : '1.4.0'}
-#                       ]
-#        })
-        resp = Response(slaves, status=200, mimetype="application/json")
+        request_debug("Get slaves", request)
+#        slaves_json = json.dumps(
+#        {"slaves":[{"id":"2d24a9aa-b496-40cf-a6d9-74e36b246c65-S0","hostname":"head.private","port":5051,"attributes":{},"pid":"slave(1)@10.0.2.15:5051","registered_time":1517236098.85274,"resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"used_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"offered_resources":{"disk":0.0,"mem":0.0,"gpus":0.0,"cpus":0.0},"reserved_resources":{},"unreserved_resources":{"disk":13778.0,"mem":2719.0,"gpus":0.0,"cpus":1.0,"ports":"[31000-32000]"},"active":True,"version":"1.4.0","capabilities":["MULTI_ROLE","HIERARCHICAL_ROLE","RESERVATION_REFINEMENT"],"reserved_resources_full":{},"unreserved_resources_full":[{"name":"cpus","type":"SCALAR","scalar":{"value":1.0},"role":"*"},{"name":"mem","type":"SCALAR","scalar":{"value":2719.0},"role":"*"},{"name":"disk","type":"SCALAR","scalar":{"value":13778.0},"role":"*"},{"name":"ports","type":"RANGES","ranges":{"range":[{"begin":31000,"end":32000}]},"role":"*"}],"used_resources_full":[],"offered_resources_full":[]}],"recovered_slaves":[]}
+#        )
+        slaves_json = json.dumps({'slaves' : []})
+        if request.is_json:
+            resp = Response(slaves_json, status=200, mimetype="application/json")
+        else:
+            resp = Response(status=404)
+#            msg = json_format.Parse(slaves_json, xxx_pb2.Event(), ignore_unknown_fields=False)
+#            resp = Response(msg, status=200, mimetype="application/x-protobuf")
         return resp
-    except Exception as se:
-        msg = "Exception in slaves endpoint: %s" % se
+    except Exception as e:
+        msg = "Exception handling %s: %s" % (request.url_rule, e)
         logger.error(msg)
         return Response(msg, status=500)
 
@@ -96,18 +128,53 @@ def slaves():
 @app.route('/racks', methods=['GET'])
 def racks():
     try:
-        request_debug("/master/racks", request)
+        request_debug("Get racks", request)
 #        racks = json.dumps({
 #            'racks' : [ { 'id' : 'dummy' } ]
 #        })
-#        resp = Response(racks, status=200, mimetype="application/json")
+#        resp = Response(racks, status=200, mimetype="application/json" if request.is_json else "application/x-protobuf")
         resp = Response(status=404) # return "not found" as mesos does
         return resp
-    except Exception as se:
-        msg = "Exception in racks endpoint: %s" % se
+    except Exception as e:
+        msg = "Exception handling %s: %s" % (request.url_rule, e)
         logger.error(msg)
         return Response(msg, status=500)
 
+@app.route('/monitor/statistics', methods=['GET'])
+def statistics():
+    try:
+        request_debug("Get monitor/statistics", request)
+        s_json = json.dumps([])
+        if True:
+#        if request.is_json:
+            resp = Response(s_json, status=200, mimetype="application/json")
+        else:
+            resp = Response(status=404)
+        return resp
+    except Exception as e:
+        msg = "Exception handling %s: %s" % (request.url_rule, e)
+        logger.error(msg)
+        return Response(msg, status=500)
+
+@app.route('/slave(1)/state', methods=['GET'])
+def slave1_state():
+    try:
+        request_debug("Get /slave(1)/state", request)
+        mesos_handler = MesosHttp.get_mesos_handler()
+        s_json = json.dumps({
+            'version' :  mesos_handler.MESOS_VERSION,
+            'flags' : {}
+            })
+        if True:
+#        if request.is_json:
+            resp = Response(s_json, status=200, mimetype="application/json")
+        else:
+            resp = Response(status=404)
+        return resp
+    except Exception as e:
+        msg = "Exception handling %s: %s" % (request.url_rule, e)
+        logger.error(msg)
+        return Response(msg, status=500)
 
 @app.route('/api/v1/scheduler', methods=['GET', 'POST'])
 @app.route('/master/api/v1/scheduler', methods=['GET', 'POST'])
@@ -260,7 +327,7 @@ def scheduler():
                 logger.debug("KILL")
                 framework_id = content['framework_id']
                 task_id = content['kill']['task_id']
-                agent_id = content['kill']['agent_id']
+                agent_id = content['kill'].get('agent_id')
                 mesos_handler.http_kill(framework_id, task_id, agent_id)
                 resp = Response(status=202)
                 return resp
@@ -287,7 +354,7 @@ def scheduler():
             elif content['type'] == 'RECONCILE':
                 logger.debug("RECONCILE")
                 framework_id = content['framework_id']
-                tasks = content['reconcile']['tasks']
+                tasks = content.get('reconcile',{}).get('tasks',[])
                 mesos_handler.http_reconcile(framework_id, tasks)
                 resp = Response(status=202)
                 return resp
