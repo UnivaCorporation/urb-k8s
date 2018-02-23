@@ -827,12 +827,15 @@ class MesosHandler(MessageHandler):
 
 
     def http_kill(self, framework_id, task_id, agent_id):
+        kill_msg = {
+            'framework_id' : framework_id,
+            'task_id' : task_id
+        }
+        if agent_id:
+            kill_msg['agent_id'] = agent_id
+
         payload = {
-            'mesos.internal.KillTaskMessage' : {
-                'framework_id' : framework_id,
-                'task_id' : task_id,
-                'agent_id' : agent_id,
-             }
+            'mesos.internal.KillTaskMessage' : kill_msg
         }
         request = {
             'source_id' : None, # indicate http type
