@@ -74,6 +74,7 @@ from urb.log.log_manager import LogManager
 from urb.db.db_manager import DBManager
 
 from urb.service.mesos_http import MesosHttp
+from urb.service.slave_http import SlaveHttp
 
 from urb.exceptions.registration_error import RegistrationError
 from urb.exceptions.unknown_job import UnknownJob
@@ -108,7 +109,9 @@ class MesosHandler(MessageHandler):
         self.configure()
         if platform.system() == "Linux":
             gevent.spawn(self.__watch_config)
+        self.service_hostname = socket.gethostname()
         self.http_service = MesosHttp(self.http_port) if self.http_enabled else None
+        self.slave_http_service = SlaveHttp() if self.http_service else None
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -323,6 +326,7 @@ class MesosHandler(MessageHandler):
         self.retry_manager.start()
         if self.http_service:
             self.http_service.start(self)
+            self.slave_http_service.start(self)
 
         # Notify existing channels we restarted
         self.send_service_disconnected_message()
@@ -333,6 +337,7 @@ class MesosHandler(MessageHandler):
         self.__master_broker = False
         if self.http_service:
             self.http_service.stop()
+            self.slave_http_service.stop()
         self.channel.stop_listener()
         self.job_monitor.stop()
         self.channel_monitor.stop()
@@ -560,14 +565,18 @@ class MesosHandler(MessageHandler):
                    offerable_after_for_placeholder < framework.get('__placeholder_offerable_after', 0):
                     framework['__placeholder_offerable_after'] = offerable_after_for_placeholder
                 if framework.get('__placeholder_offerable_after',0) < now:
-                    dummy_count = 1
-                    if framework_config:
-                        dummy_count = int(framework_config.get('initial_tasks',1))
+                    dummy_count = int(framework_config.get('initial_tasks',1)) if framework_config else 1
                     for i in range(0,dummy_count):
-                        dummy_slave = { "hostname":"place-holder", "id" : { "value" : "place-holder"}, 'offerable':True}
+                        # for http framework use actual service host name so it can response to operator API
+                        # requests with some dummy data
+                        dummy_slave = {
+                            "hostname" : self.service_hostname if http else "place-holder",
+                            "id" : { "value" : "place-holder"},
+                            'offerable' : True
+                            }
                         self.__initialize_slave_resources(framework, dummy_slave)
                         self.logger.debug("Adding placeholder offer: %s" % dummy_slave)
-                        offers.append(self.__build_offer(framework,dummy_slave,force=True,http=http))
+                        offers.append(self.__build_offer(framework, dummy_slave, force=True, http=http))
                         built_offer_count +=1
                 else:
                     self.logger.debug("Do not add placeholder offer: offerable after: %s" %
@@ -1276,6 +1285,7 @@ class MesosHandler(MessageHandler):
             return None, None
         (smart_adapter, adapter_status_update_time) = self.adapter.reconcile_tasks(request)
         source_id = request.get('source_id')
+        http = False if source_id else True
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         reply_to = request.get('payload').get('reply_to')
         scheduler_channel_name = MessagingUtility.get_notify_channel_name(
@@ -1292,23 +1302,25 @@ class MesosHandler(MessageHandler):
             # We should make sure we monitor this channel though so we can send disconnects
             # Begin monitoring framework channel
             self.logger.debug("Reconcile: no active framework found for framework id: %s" % framework_id['value'])
-            self.channel_monitor.start_channel_monitoring(scheduler_channel_name,
-                framework_id['value'])
+            self.channel_monitor.start_channel_monitoring(scheduler_channel_name, framework_id['value'])
             self.retry_manager.retry(request)
             return None, None
 
         retry_list = []
         # First check if we actually have a task list
-        if message.has_key('statuses'):
+        if message.has_key('statuses') and len(message['statuses']) > 0:
+            self.logger.debug("Reconcile: explicit for: %s" % message['statuses'])
             # Explicit reconciliation...
             for s in message['statuses']:
                 # First lets see if we have a record for this task
                 task_id = s['task_id']['value']
                 t = framework.get('task_dict',{}).get(task_id,{})
                 job_status = t.get('state')
-                slave_id = s.get('slave_id')
+                slave_id = s['slave_id'] if 'slave_id' in s else s.get('agent_id')
                 if not slave_id:
-                    slave_id = t.get('task_info',{}).get('slave_id')
+                    ti = t.get('task_info',{})
+                    slave_id = ti['slave_id'] if 'slave_id' in ti else ti.get('agent_id')
+#                    slave_id = t.get('task_info',{}).get('slave_id')
                 self.logger.debug("Reconcile: task %s: info found: %s, slave_id: %s" % (task_id, t, slave_id))
 
                 # If a task is staging lets print out its details here.... we shouldn't get lots of these
@@ -1397,7 +1409,7 @@ class MesosHandler(MessageHandler):
                             # this may cause failures on scheduler side for some frameworks (as in Spark with non-existed
                             # key exception for "NotValid" setting scheduler driver to DRIVER_ABORTED state)
                             slave_id = { 'value' : 'NotValid' }
-                            task_record['task_info'] = {'slave_id': slave_id}
+                            task_record['task_info'] = {'agent_id' if http else 'slave_id': slave_id}
                             task_record['state'] = "TASK_LOST"
                             task_record['offer_ids'] = None
                             t[task_id] = task_record
@@ -1418,7 +1430,7 @@ class MesosHandler(MessageHandler):
                     'task_id' : s['task_id'],
                     'state' : job_status,
                     'reason' : 'REASON_RECONCILIATION',
-                    'slave_id' : slave_id,
+                    'agent_id' if http else 'slave_id' : slave_id,
                     'uuid' : status_uuid
                 }
 
@@ -1433,8 +1445,10 @@ class MesosHandler(MessageHandler):
         else:
             # Implicit reconciliation... Send all non-completed tasks
             self.logger.debug("Reconcile: implicit")
+            self.logger.trace("All tasks: %s" % framework.get('task_dict',{}))
             for t in framework.get('task_dict',{}).values():
                 state = t.get('state')
+                self.logger.debug("Task %s" % t)
                 if state == 'TASK_RUNNING' or state == 'TASK_STAGING':
                     status_update = {}
                     status_update['framework_id'] = framework_id
@@ -1460,8 +1474,6 @@ class MesosHandler(MessageHandler):
             return None, None
 
         cf = ChannelFactory.get_instance()
-        port = cf.get_message_broker_connection_port()
-        host = cf.get_message_broker_connection_host()
 
         source_id = request['source_id']
         slave_endpoint_id = MessagingUtility.get_endpoint_id(source_id)
@@ -1963,6 +1975,7 @@ class MesosHandler(MessageHandler):
     def process_registration(self, request, framework_id, message, response):
         self.logger.debug("process_registration, request=%s" % request)
         source_id = request.get('source_id')
+        http = False if source_id else True
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
         if framework_id is None:
             framework_id = {}
@@ -1978,9 +1991,14 @@ class MesosHandler(MessageHandler):
         ext_data = request.get('ext_payload',{})
 
         # Form response payload
-        cf = ChannelFactory.get_instance()
-        port = cf.get_message_broker_connection_port()
-        host = cf.get_message_broker_connection_host()
+        if http:
+            port = self.http_port
+            host = self.service_hostname
+        else:
+            cf = ChannelFactory.get_instance()
+            port = cf.get_message_broker_connection_port()
+            host = cf.get_message_broker_connection_host()
+
         ip_addr = socket.gethostbyname(host)
         int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
 #        ip_addr = "127.0.0.1"
@@ -2021,7 +2039,7 @@ class MesosHandler(MessageHandler):
         resolved_framework['id'] = framework_id
         resolved_framework['channel_name'] = scheduler_channel_name
         resolved_framework['master_info'] = master_info
-        if not source_id:
+        if http:
             resolved_framework['http'] = True
         self.configure_framework(resolved_framework)
 
@@ -2031,7 +2049,7 @@ class MesosHandler(MessageHandler):
         FrameworkTracker.get_instance().store_request_framework_id(request, framework_id['value'])
 
         # For non http framework
-        if source_id is not None:
+        if not http:
             # Begin monitoring framework channel
             self.channel_monitor.start_channel_monitoring(scheduler_channel_name, framework_id['value'])
         else:
@@ -2042,7 +2060,7 @@ class MesosHandler(MessageHandler):
             self.logger.debug("No offer_event, creating new one")
 #            resolved_framework['offer_event'] = gevent.event.Event()
 #            resolved_framework['offer_event'] = gevent.event.AsyncResult()
-            if source_id is not None:
+            if not http:
                 resolved_framework['offer_event'] = gevent.event.Event()
                 self.logger.debug("Starting generate offers greenlet")
                 gevent.Greenlet.spawn(self.__generate_offers, framework_id)
@@ -2053,7 +2071,7 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Do not start new offer loop due to existing offer event: %s" % resolved_framework['offer_event'])
 
         # Send response for non http
-        if source_id is not None:
+        if not http:
             scheduler_channel = cf.create_channel(scheduler_channel_name)
             scheduler_channel.write(response.to_json())
             self.logger.debug('Framework registration: wrote response via channel %s: %s' % (scheduler_channel_name, response))
@@ -2641,7 +2659,7 @@ class MesosHandler(MessageHandler):
         framework_id = framework.get('id')
         slave_id = slave.get('id')
 
-        if slave_id['value'].startswith("place-holder"):
+        if not http and slave_id['value'].startswith("place-holder"):
             slave_id['value'] += "-%s" % offer_id
             slave['hostname'] += "-%s" % offer_id
 
@@ -2852,7 +2870,7 @@ class MesosHandler(MessageHandler):
         response_payload =  executor_registered
         message = ExecutorRegisteredMessage(self.channel.name, response_payload)
 
-        cf = ChannelFactory.get_instance()
+#        cf = ChannelFactory.get_instance()
         self.logger.debug('Sending executor registered message via channel %s: %s' % (executor_channel.name, message))
         executor_channel.write(message.to_json())
 

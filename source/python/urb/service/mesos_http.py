@@ -29,7 +29,6 @@ import mesos_pb2
 import scheduler_pb2
 
 from urb.log.log_manager import LogManager
-from urb.messaging.mesos.register_framework_message import RegisterFrameworkMessage
 
 from gevent import monkey
 monkey.patch_all()
@@ -39,13 +38,12 @@ app = Flask(__name__)
 
 logger = LogManager.get_instance().get_logger(__name__)
 
-
-def request_debug(msg, request):
-    logger.debug("%s: request=%s" % (msg, request))
-    logger.debug("is_json: %s" % request.is_json)
-    logger.debug("request.headers=%s" % request.headers)
-    logger.debug("request.environ=%s" % request.environ)
-    logger.debug("request.data=%s" % request.data)
+def request_debug(msg, r):
+    logger.debug("%s: request=%s" % (msg, r))
+    logger.debug("is_json: %s" % r.is_json)
+    logger.debug("request.headers=%s" % r.headers)
+    logger.debug("request.environ=%s" % r.environ)
+    logger.debug("request.data=%s" % r.data)
 
 
 @app.route('/redirect', methods=['GET', 'POST'])
@@ -210,8 +208,8 @@ def scheduler():
                         logger.debug("Subscribed framework_name=%s, yield it" % framework_name)
                         yield framework_name
                         master_info = mesos_subscribed['payload']['master_info']
-                        master_info['port'] = mesos_handler.get_http_port() # set actual http port (instead of redis port)
-                        master_info['address']['port'] = master_info['port']
+#                        master_info['port'] = mesos_handler.get_http_port() # set actual http port (instead of redis port)
+#                        master_info['address']['port'] = master_info['port']
                         
 #                        if 'ip' in master_info:
 #                            del master_info['ip'] # might be incorrect
