@@ -33,8 +33,11 @@ from urb.utility.task_tracker import TaskTracker
 from urb.utility.executor_tracker import ExecutorTracker
 from urb.messaging.service_disconnected_message import ServiceDisconnectedMessage
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
+from urb.executor.mesos_http import MesosHttp
 
 class ExecutorHandler(MessageHandler):
+    # Actual Mesos version has to be set by the build procedure
+    MESOS_VERSION = "3.0.0"
 
     def __init__(self, channelName,executor_runner):
         MessageHandler.__init__(self, channelName)
@@ -59,6 +62,27 @@ class ExecutorHandler(MessageHandler):
         self.executor_pids = []
         self.executor_rets = []
         self.shutdown = False
+
+        self.http_enabled = cm.get_config_option("Http", "enabled", True)
+        self.http_enabled = False
+        if self.http_enabled:
+            http_port = cm.get_config_option("Http", "port")
+            if not http_port:
+                self.logger.warn("Could not get http port from configuration file, defaulting to port 5050")
+                self.http_port = 5051
+            else:
+                self.http_port = int(http_port)
+            interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
+            if not interval:
+                self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
+                self.heartbeat_interval = 15
+            else:
+                self.heartbeat_interval = int(interval)
+            self.http_service = MesosHttp(self.http_port)
+            self.http_service.start(self)
+        else:
+            self.logger.info("HTTP API disabled")
+            self.http_service = None
 
     def get_target_executor(self, target):
         supported_target_dict = {
@@ -114,7 +138,7 @@ class ExecutorHandler(MessageHandler):
         self.logger.debug("Calling fetcher:  %s" % cmd)
         os.system(cmd)
 
-    def __sig_child_handler(self,signum,frame):
+    def __sig_child_handler(self, signum, frame):
         # Our child exits with sig 9 when all is good... so map that to 0
         try:
             status = None
@@ -123,6 +147,7 @@ class ExecutorHandler(MessageHandler):
             self.logger.debug("Running children: %s" % self.executor_pids)
             self.logger.debug("Got signal %s" % signum)
             pid, ret = os.wait()
+            self.logger.debug("After wait")
             msg = "Child %s: wait returned code %s which means:" % (pid, ret)
             if os.WIFSIGNALED(ret):
                 sig = os.WTERMSIG(ret)
@@ -148,16 +173,23 @@ class ExecutorHandler(MessageHandler):
 
             ret = 0
             if len(self.executor_pids) == 0:
+                if self.http_service:
+                    self.http_service.stop()
                 self.logger.trace("Statuses of all executors: %s" % self.executor_rets)
                 for st, sg, co in self.executor_rets:
                     if st is not None and st != 0:
                         ret = st
                     if co:
                         ret = 1
-                self.logger.debug("Exit with code %s" % ret)
+                self.logger.info("Exit with code %s" % ret)
                 sys.exit(ret)
         except Exception, ex:
             self.logger.error("Error waiting for child process: %s" % ex)
+            if len(self.executor_pids) <= 1:
+                self.logger.warn("No more child processes, exit with success: pids=%s, pid=%s, ret=%s" % (self.executor_pids, pid, ret))
+                sys.exit(0)
+            else:
+                self.logger.info("Children left: %s" % self.executor_pids)
 
     def service_disconnected(self, request):
         tasks = [ v for k,v in TaskTracker.get_instance() ]
