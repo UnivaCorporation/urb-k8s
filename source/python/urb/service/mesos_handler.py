@@ -530,26 +530,28 @@ class MesosHandler(MessageHandler):
         offerable_after_for_placeholder = 0
         for slave in slaves:
             offerable_after = slave.get('offerable_after', 0)
-            offerable = ( slave.get('offerable',True) and (not slave.get('is_command_executor',False)) and (now > offerable_after))
+            offerable = ( slave.get('offerable',True) and (not slave.get('is_command_executor',False)) and (now > offerable_after) )
+            self.logger.debug("Slave %s: offerable=%s, is_command_executor=%s, now-offerable_after=%s, offerable_after_for_placeholder=%s" %
+                               (slave['id']['value'], slave.get('offerable',True), slave.get('is_command_executor',False),
+                               (now - offerable_after), offerable_after_for_placeholder))
             if offerable:
-                self.logger.debug("Generating offer for framework %s from slave %s" % (framework['name'],slave))
+                self.logger.debug("Generating offer for framework %s from slave %s" % (framework['name'], slave))
                 offer = self.__build_offer(framework, slave, http=http)
                 self.logger.debug("Generated offer: %s" % offer)
 
                 if offer is not None:
                     # Don't offer for this slave again
-                    self.logger.debug("Appending and disabling offers for slave: %s" % slave['id'])
+                    self.logger.debug("Appending and disabling offers for slave: %s" % slave['id']['value'])
                     slave['offerable'] = False
                     offers.append(offer)
                     built_offer_count += 1
             else:
                 if offerable_after > offerable_after_for_placeholder:
                     offerable_after_for_placeholder = offerable_after
-                self.logger.debug("Skipping slave [%s] as it is not offerable: offerable=%s, is_command_executor=%s, now-offerable_after=%s, offerable_after_for_placeholder=%s" %
-                                  (slave['id'], slave.get('offerable',True), slave.get('is_command_executor',False), (now - offerable_after), offerable_after_for_placeholder))
+                self.logger.debug("Skipping offer for framework %s from not offerable slave: %s" % (framework['name'], slave))
 
 #        built_offer_count = len(offers)
-        self.logger.debug("Offers built for framework [%s]: %d" %(framework["name"],built_offer_count))
+        self.logger.debug("Offers built for framework [%s]: %d" %(framework["name"], built_offer_count))
         # Only send placeholder offers if we have no other offers to send, we are under our max offer count
         # and we don't have any pending jobs
         if built_offer_count == 0 and slaves_cnt < max_tasks:
@@ -875,22 +877,26 @@ class MesosHandler(MessageHandler):
                 'uuid' : status_uuid, # new one
 #                'source' : 'SOURCE_EXECUTOR_?MASTER'
             }
-            self.logger.debug("jopa=%s" % task_dict[task_name]['task_info'])
-            if 'slave_id' in task['task_info']:
-                status_update['status']['slave_id'] = task['task_info']['slave_id']
-            self.logger.debug("jopa1=%s" % status_update)
-            # Scheduler gets the task update, send shutdown to the executor
             channel = framework['channel_name']
-            slave_dict = framework.get('slave_dict',{})
+            self.logger.trace("task_info=%s" % task_dict[task_name]['task_info'])
+            slave_id = task['task_info'].get('slave_id')
+            if slave_id:
+                status_update['status']['slave_id'] = slave_id
+            self.logger.trace("status_update=%s" % status_update)
             self.send_status_update(channel, framework, status_update)
-            slave = slave_dict.get(task['task_info']['slave_id']['value'])
-            if slave:
-                if not slave.get('is_command_executor', False):
-                    self.__credit_resources(slave, task['task_info'])
-                if not self.send_kill_task(framework_id, slave, task_id):
-                    self.retry_manager.retry(request)
+            # Scheduler gets the task update, send shutdown to the executor
+            slave_dict = framework.get('slave_dict',{})
+            if slave_id:
+                slave = slave_dict.get(slave_id['value'])
+                if slave:
+                    if not slave.get('is_command_executor', False):
+                        self.__credit_resources(slave, task['task_info'])
+                    if not self.send_kill_task(framework_id, slave, task_id):
+                        self.retry_manager.retry(request)
+                else:
+                    self.logger.warn("Shutdown on task [%s] without a slave [%s] in slave dict" % (task_name, slave_id['value']))
             else:
-                self.logger.warn("Shutdown on task [%s] without a slave [%s]" % (task_name, task['task_info']['slave_id']['value']))
+                self.logger.warn("Shutdown on task [%s] without a slave in task dict: task_info=%s" % (task_name, task['task_info']))
             #slave['offerable'] = True
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
@@ -1051,6 +1057,24 @@ class MesosHandler(MessageHandler):
 
     def http_decline(self, framework_id, offer_ids, filters):
         self.logger.debug("http_decline")
+        payload = {
+            'mesos.internal.LaunchTasksMessage' : {
+                'framework_id' : framework_id,
+                'offer_ids' : offer_ids,
+                'filters' : filters,
+                'tasks' : []
+             }
+        }
+        request = {
+            'source_id' : None, # indicate http type
+            'payload_type' : 'json',
+            'ext_payload' : None,
+            'payload' : payload
+            }
+        framework, _ = self.launch_tasks(request)
+        self.logger.debug("http_decline: after launch_tasks")
+        if framework:
+            self.__release_framework_lock(framework)
 
     def http_accept_launch(self, framework_id, offer_ids, filters, launch):
         payload = {
@@ -1084,9 +1108,9 @@ class MesosHandler(MessageHandler):
             self.logger.warn("Launch tasks: empty message")
             return None, None
         framework_id = message['framework_id']
-        self.logger.debug("Launch tasks: framework_id=%s" % framework_id)
+        self.logger.debug("Launch tasks for framework id: %s" % framework_id['value'])
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
-        self.logger.trace("Launch tasks: framework=%s" % framework)
+        self.logger.trace("Launch tasks: framework data=%s" % framework)
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
@@ -1098,24 +1122,22 @@ class MesosHandler(MessageHandler):
 #            if http:
 #                self.__release_framework_lock(framework)
             return None, None
-        scheduler_channel_name = framework.get('channel_name')
 
-        self.logger.debug("massa")
+        scheduler_channel_name = framework.get('channel_name')
         slave_dict = framework.get('slave_dict',{})
         offer_ids = [ oid['value'] for oid in message.get("offer_ids",[]) ]
         remaining_offer_ids = dict((k,True) for k in offer_ids)
         filters = message.get('filters', {})
-        self.logger.debug("massa1")
 
         task_dict = framework.get('task_dict', {})
         framework['task_dict'] = task_dict
-        self.logger.debug("massa2")
         tasks = message.get('tasks',[])
         # Keep track of our job-id to placeholder mappings while we work through the tasks
         placeholder_to_jobid = {}
         self.logger.debug('Number of tasks: %s' % len(tasks))
         for t in tasks:
-            self.logger.debug("Processing task id: %s" % t['task_id']['value'])
+            slave_id = t['slave_id'] if 'slave_id' in t else t['agent_id']
+            self.logger.debug("Processing task %s, on slave %s" % (t['task_id']['value'], slave_id['value']))
             # Save task
             task_id = t['task_id']
             task_record = {}
@@ -1129,9 +1151,8 @@ class MesosHandler(MessageHandler):
             self.logger.debug("Setting offer ids to: %s" % task_record['offer_ids'])
             task_dict[task_id['value']] = task_record
 
-            slave_id = t['slave_id'] if 'slave_id' in t else t['agent_id']
             if slave_id['value'].startswith('place-holder'):
-                self.logger.debug("Processing slave: %s" % slave_id['value'])
+                self.logger.debug("Processing placeholder slave: %s" % slave_id['value'])
                 # This is a response to our 'query' offer
                 framework_config = framework['config']
                 existing_job_id = placeholder_to_jobid.get(slave_id['value'])
@@ -2659,9 +2680,10 @@ class MesosHandler(MessageHandler):
         framework_id = framework.get('id')
         slave_id = slave.get('id')
 
-        if not http and slave_id['value'].startswith("place-holder"):
+        if slave_id['value'].startswith("place-holder"):
             slave_id['value'] += "-%s" % offer_id
-            slave['hostname'] += "-%s" % offer_id
+            if not http:
+                slave['hostname'] += "-%s" % offer_id
 
         cpus = int(slave['cpus'])
         mem = int(slave['mem'])
@@ -2671,11 +2693,7 @@ class MesosHandler(MessageHandler):
         offer = {}
         offer['id'] = { 'value': 'offer-%s-%s' % (framework_id['value'], offer_id)}
         offer['framework_id'] = framework_id
-        if http:
-            offer['agent_id'] = slave_id
-        else:
-            offer['slave_id'] = slave_id
-
+        offer['agent_id' if http else 'slave_id'] = slave_id
         offer['hostname'] = slave['hostname']
 
         offer['resources'] = self.__build_resources(cpus=cpus,mem=mem,
