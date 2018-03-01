@@ -171,6 +171,14 @@ class ExecutorHandler(MessageHandler):
             else:
                 self.logger.error("Pid %s is not a child" % pid)
 
+            # sometimes signal handler is not called, clean here zombies
+            for pid in self.executor_pids:
+                p, r = os.waitpid(pid, os.WNOHANG)
+                if p != 0:
+                    self.logger.debug("Zombie with pid %d found, exit code=%d" % (p, r))
+                    self.executor_pids.remove(pid)
+                    #self.executor_rets.append((status, sig, core))
+
             ret = 0
             if len(self.executor_pids) == 0:
                 if self.http_service:
@@ -183,6 +191,7 @@ class ExecutorHandler(MessageHandler):
                         ret = 1
                 self.logger.info("Exit with code %s" % ret)
                 sys.exit(ret)
+
         except Exception, ex:
             self.logger.error("Error waiting for child process: %s" % ex)
             if len(self.executor_pids) <= 1:
