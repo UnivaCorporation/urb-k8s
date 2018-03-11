@@ -4,7 +4,7 @@ in which case build instructions from those projects might be used instead.
 
 ## Build base docker image:
 
-  `make`
+  `cd vagrant; make`
 
 ## Provision and start build environment:
 
