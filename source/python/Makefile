@@ -21,8 +21,11 @@ endif
 REDIS_BIN=../cpp/3rdparty/redis/build/redis-4.0.2/src
 V1_MESOS_PB2=mesos_pb2.py
 V1_SCHEDULER_PB2=scheduler_pb2.py
+V1_EXECUTOR_PB2=executor_pb2.py
 V1_MESOS_PROTO_SRC_DIR=../cpp/liburb/$(BUILDDIR)/include/mesos/v1
-V1_MESOS_PROTO_TARGET_DIR=urb/service
+V1_MESOS_PROTO_SERVICE_TARGET_DIR=urb/service
+#V1_MESOS_PROTO_EXECUTOR_TARGET_DIR=urb/executor
+
 
 include ../../util/include.mk
 
@@ -38,12 +41,22 @@ urb/__init__.py : $(TOP)/util/params.mk
 	echo "__version__ = '$(VERSION)'" > $@
 
 mesos_version:
-	$(SED) -Ei "s/^[ \t]*MESOS_VERSION[ \t]*=[ \t]['\"][0-9.]+['\"]/    MESOS_VERSION = `awk '/#define[ \t]+MESOS_VERSION/ { print $$3 }' $(TOP)/source/cpp/liburb/mesos/include/mesos/version.hpp`/" $(TOP)/source/python/urb/service/mesos_handler.py
+	$(SED) -Ei "s/^[ \t]*MESOS_VERSION[ \t]*=[ \t]['\"][0-9.]+['\"]/    MESOS_VERSION = `awk '/#define[ \t]+MESOS_VERSION/ { print $$3 }' $(TOP)/source/cpp/liburb/mesos/include/mesos/version.hpp`/" $(TOP)/source/python/urb/service/mesos_handler.py $(TOP)/source/python/urb/executor/executor_handler.py
 
 distclean: tidy
 
-v1_proto: $(V1_MESOS_PROTO_SRC_DIR)/$(V1_MESOS_PB2) $(V1_MESOS_PROTO_SRC_DIR)/$(V1_SCHEDULER_PB2)
-	cp $^ $(V1_MESOS_PROTO_TARGET_DIR)
+v1_proto: $(V1_MESOS_PROTO_SRC_DIR)/$(V1_MESOS_PB2) $(V1_MESOS_PROTO_SRC_DIR)/$(V1_SCHEDULER_PB2) $(V1_MESOS_PROTO_SRC_DIR)/$(V1_EXECUTOR_PB2)
+	cp $^ $(V1_MESOS_PROTO_SERVICE_TARGET_DIR)
+
+#$(V1_MESOS_PROTO_SRC_DIR)/$(V1_MESOS_PB2):
+#	cp $@ $(V1_MESOS_PROTO_SERVICE_TARGET_DIR)
+#	ln -s $@ $(V1_MESOS_PROTO_EXECUTOR_TARGET_DIR)
+
+#$(V1_MESOS_PROTO_SRC_DIR)/$(V1_SCHEDULER_PB2):
+#	cp $@ $(V1_MESOS_PROTO_SERVICE_TARGET_DIR)
+
+#$(V1_MESOS_PROTO_SRC_DIR)/$(V1_EXECUTOR_PB2):
+#	cp $@ $(V1_MESOS_PROTO_EXECUTOR_TARGET_DIR)
 
 build: urb/__init__.py mesos_version v1_proto
 	$(SETUP_ENV) $(PYTHON) setup.py build
