@@ -24,8 +24,8 @@ from google.protobuf import descriptor_pb2
 from google.protobuf import descriptor
 from google.protobuf import reflection
 
-#import mesos_pb2
-#import scheduler_pb2
+import mesos_pb2
+import executor_pb2
 
 from urb.log.log_manager import LogManager
 
@@ -33,7 +33,7 @@ from gevent import monkey
 monkey.patch_all()
 
 app = Flask(__name__)
-#app.debug = True
+app.debug = True
 
 logger = LogManager.get_instance().get_logger(__name__)
 
@@ -110,6 +110,116 @@ def statistics():
         logger.error(msg)
         return Response(msg, status=500)
 
+@app.route('/api/v1/executor', methods=['GET', 'POST'])
+def executor():
+    request_debug("/api/v1/executor", request)
+    mesos_handler = SlaveHttp.get_mesos_handler()
+    try:
+        if request.method == 'POST':
+            logger.info("POST")
+            content = {}
+            if request.is_json:
+                logger.debug("json data")
+                content = request.get_json()
+                ctype = content['type']
+            else:
+                logger.debug("protobuf data")
+                call = executor_pb2.Call()
+                call.ParseFromString(request.data)
+                content = json_format.MessageToDict(call, preserving_proto_field_name = True)
+            logger.info("content=%s" % content)
+            if content['type'] == 'SUBSCRIBE':
+                def generate():
+                    try:
+                        executor_subscribed, tasks = mesos_handler.http_subscribe_executor(content)
+                        logger.debug("executor_subscribed=%s" % executor_subscribed)
+                        logger.debug("tasks=%s" % tasks)
+                        subscribed_json = json.dumps({
+                            'type'         : 'SUBSCRIBED',
+                            'subscribed'   : executor_subscribed
+                        })
+                        if request.is_json:
+                            subscribed = subscribed_json
+                            logger.debug("json executor subscribed response")
+                        else:
+                            logger.debug("protobuf executor subscribed response")
+                            subscribed_msg = json_format.Parse(subscribed_json, executor_pb2.Event(), ignore_unknown_fields=False)
+                            subscribed = subscribed_msg.SerializeToString()
+
+                        length = len(subscribed)
+                        buf = str(length) + "\n" + subscribed
+                        logger.debug("executor subscribed=%s, yield it as recordio" % subscribed)
+                        yield buf
+
+                        for task in tasks:
+                            launch_json = json.dumps({
+                                'type' : 'LAUNCH',
+                                'launch' : {
+                                    'task' : task
+                                }
+                            })
+                            if request.is_json:
+                                launch = task_json
+                                logger.debug("json launch")
+                            else:
+                                logger.debug("protobuf launch")
+                                launch_msg = json_format.Parse(launch_json, executor_pb2.Event(), ignore_unknown_fields=False)
+                                launch = launch_msg.SerializeToString()
+
+                            length = len(launch)
+                            buf = str(length) + "\n" + launch
+                            logger.debug("launch=%s, yield it as recordio" % launch)
+                            yield buf
+
+                        logger.debug("before event loop")
+                        for event in mesos_handler.http_handle_executor(content, executor_subscribed['agent_info']['id']):
+                            if event:
+                                if request.is_json:
+                                    resp_event = json.dumps(event)
+                                    logger.debug("json event response")
+                                else:
+                                    ev_msg = json_format.Parse(json.dumps(event), executor_pb2.Event(), ignore_unknown_fields=False)
+                                    resp_event = ev_msg.SerializeToString()
+                                    logger.debug("protobuf offer response")
+                                length = len(resp_event)
+                                buf = str(length) + "\n" + resp_event
+                                logger.debug("event: %s, yield it as recordio" % resp_event)
+                                yield buf
+                            else:
+                                logger.debug("in event loop: skip empty event")
+                    except Exception as ge:
+                        logger.error("Exception in generator: %s" % ge)
+
+                g = generate()
+                mimetype = "application/json" if request.is_json else "application/x-protobuf"
+                resp = Response(stream_with_context(g), status = 200, mimetype = mimetype)
+                logger.debug("resp.headers=%s" % resp.headers)
+                return resp
+
+            elif content['type'] == 'UPDATE':
+                logger.debug("UPDATE")
+                mesos_handler.http_update_executor(content)
+                resp = Response(status=202)
+                return resp
+
+            elif content['type'] == 'MESSAGE':
+                logger.debug("MESSAGE")
+                mesos_handler.http_message_executor(content)
+                resp = Response(status=202)
+                return resp
+
+            else:
+                msg = "Unkown content type: %s" % content['type']
+                logger.error(msg)
+                return Response(msg, status=500)
+        else:
+            msg = "executor: unxpected request method: %s" % request.method
+            logger.info(msg)
+            return Response(msg, status=500)
+    except Exception as e:
+        msg = "Exception in executor endpoint: %s" % e
+        logger.error(msg)
+        return Response(msg, status=500)
 
 class SlaveHttp:
     mesos_handler = None

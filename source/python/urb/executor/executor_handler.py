@@ -33,7 +33,6 @@ from urb.utility.task_tracker import TaskTracker
 from urb.utility.executor_tracker import ExecutorTracker
 from urb.messaging.service_disconnected_message import ServiceDisconnectedMessage
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
-from urb.executor.mesos_http import MesosHttp
 
 class ExecutorHandler(MessageHandler):
     # Actual Mesos version has to be set by the build procedure
@@ -62,27 +61,6 @@ class ExecutorHandler(MessageHandler):
         self.executor_pids = []
         self.executor_rets = []
         self.shutdown = False
-
-        self.http_enabled = cm.get_config_option("Http", "enabled", True)
-        self.http_enabled = False
-        if self.http_enabled:
-            http_port = cm.get_config_option("Http", "port")
-            if not http_port:
-                self.logger.warn("Could not get http port from configuration file, defaulting to port 5050")
-                self.http_port = 5051
-            else:
-                self.http_port = int(http_port)
-            interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
-            if not interval:
-                self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
-                self.heartbeat_interval = 15
-            else:
-                self.heartbeat_interval = int(interval)
-            self.http_service = MesosHttp(self.http_port)
-            self.http_service.start(self)
-        else:
-            self.logger.info("HTTP API disabled")
-            self.http_service = None
 
     def get_target_executor(self, target):
         supported_target_dict = {
@@ -240,18 +218,19 @@ class ExecutorHandler(MessageHandler):
                 # We can use the one that was passed
                 e =  t['executor']
             executor_id = e['executor_id']
-            executor_key = executor_id['value']
+            executor_id_value = executor_id['value']
+            # make unique executor id (so in case of executor http api on subscribe we can find corresponding slave)
+#            executor_id_value_unique = executor_id_value + "_%s" % t['task_id']['value']
+            executor_id_value_unique = executor_id_value
             executor_tracker = ExecutorTracker.get_instance()
-            executor = executor_tracker.get(executor_key)
+            executor = executor_tracker.get(executor_id_value)
             if executor is not None:
-                self.logger.warn('Executor %s is already running' 
-                    % executor_key)
+                self.logger.warn('Executor %s is already running'  % executor_id_value)
                 return
 
             executor_command = e.get('command')
             if executor_command is None:
-                self.logger.warn('No command provided for executor %s' 
-                    % executor_key)
+                self.logger.warn('No command provided for executor %s' % executor_id_value)
                 return
 
             # First allocate the executor
@@ -262,7 +241,7 @@ class ExecutorHandler(MessageHandler):
             }
             if e.has_key('data'):
                 executor['data'] = e['data']
-            executor_tracker.add(executor_key, executor)
+            executor_tracker.add(executor_id_value, executor)
 
             # Fetch URIs if necessary
             user = pwd.getpwuid(os.getuid())[0]
@@ -286,10 +265,18 @@ class ExecutorHandler(MessageHandler):
 
             exec_env["URB_SLAVE_ID"] = self.executor_runner.slave_id['value']
             exec_env["URB_FRAMEWORK_ID"] = self.executor_runner.framework_id['value']
-            exec_env["URB_EXECUTOR_ID"] = executor_id['value']
+            exec_env["URB_EXECUTOR_ID"] = executor_id_value_unique
             exec_env["MESOS_NATIVE_LIBRARY"] = self.urb_lib_path # will be deprecated in future mesos releases
             exec_env["MESOS_NATIVE_JAVA_LIBRARY"] = self.urb_lib_path
             exec_env["MESOS_DIRECTORY"] = self.executor_runner.mesos_work_dir
+
+            # for http api
+            exec_env["MESOS_FRAMEWORK_ID"] = exec_env["URB_FRAMEWORK_ID"]
+            exec_env["MESOS_EXECUTOR_ID"] = exec_env["URB_EXECUTOR_ID"]
+            if "MESOS_AGENT_ENDPOINT" in exec_env:
+                exec_env["MESOS_SLAVE_PID"] = "@" + exec_env["MESOS_AGENT_ENDPOINT"]
+            if "MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD" not in exec_env:
+                exec_env["MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD"] = "60secs"
 
             if "LD_LIBRARY_PATH" in exec_env and exec_env["LD_LIBRARY_PATH"] != self.ld_library_path:
                 self.logger.debug("Custom LD_LIBRARY_PATH provided: %s, appending default one from the global executor config: %s" % \
@@ -349,7 +336,7 @@ class ExecutorHandler(MessageHandler):
             signal.signal(signal.SIGCHLD, self.__sig_child_handler)
             newpid = os.fork()
             if newpid == 0:
-                signal.signal(signal.SIGCHLD,  signal.SIG_DFL)
+                signal.signal(signal.SIGCHLD, signal.SIG_DFL)
                 os.chdir(self.executor_runner.mesos_work_dir)
                 # Have to run these commands through bash
                 os.execve("/bin/bash",["executor","-c",executor_command['value']],exec_env)

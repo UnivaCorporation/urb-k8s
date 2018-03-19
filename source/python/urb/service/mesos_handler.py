@@ -110,8 +110,8 @@ class MesosHandler(MessageHandler):
         if platform.system() == "Linux":
             gevent.spawn(self.__watch_config)
         self.service_hostname = socket.gethostname()
-        self.http_service = MesosHttp(self.http_port) if self.http_enabled else None
-        self.slave_http_service = SlaveHttp() if self.http_service else None
+        self.http_service = MesosHttp(self.scheduler_http_port) if self.http_enabled else None
+        self.slave_http_service = SlaveHttp(self.executor_http_port) if self.http_service else None
 
     def configure(self):
         cm = ConfigManager.get_instance()
@@ -131,18 +131,24 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Executor runner config file is set to %s' % (self.executor_runner_config_file))
         self.http_enabled = cm.get_config_option("Http", "enabled", True)
         if self.http_enabled:
-            http_port = cm.get_config_option("Http", "port")
-            if not http_port:
-                self.logger.warn("Could not get http port from configuration file, defaulting to port 5050")
-                self.http_port = 5050
+            scheduler_http_port = cm.get_config_option("Http", "scheduler_port")
+            if not scheduler_http_port:
+                self.logger.warn("Could not get scheduler http port from configuration file, defaulting to port 5050")
+                self.scheduler_http_port = 5050
             else:
-                self.http_port = int(http_port)
+                self.scheduler_http_port = int(scheduler_http_port)
             interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
             if not interval:
                 self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
                 self.heartbeat_interval = 15
             else:
                 self.heartbeat_interval = int(interval)
+            executor_http_port = cm.get_config_option("Http", "executor_port")
+            if not executor_http_port:
+                self.logger.warn("Could not get executor http port from configuration file, defaulting to port 5051")
+                self.executor_http_port = 5051
+            else:
+                self.executor_http_port = int(executor_http_port)
         else:
             self.logger.info("HTTP API disabled")
 
@@ -191,8 +197,11 @@ class MesosHandler(MessageHandler):
                 self.configure_framework(val)
         self.adapter.config_update()
 
-    def get_http_port(self):
-        return self.http_port
+    def get_scheduler_http_port(self):
+        return self.scheduler_http_port
+
+    def get_executor_http_port(self):
+        return self.executor_http_port
 
     def get_heartbeat_interval(self):
         return self.heartbeat_interval
@@ -594,7 +603,6 @@ class MesosHandler(MessageHandler):
                 self.send_offers(framework, offers)
 
     def __generate_offers(self, framework_id):
-        self.logger.info("Starting offer loop for framework id %s" % framework_id['value'])
         framework = FrameworkTracker.get_instance().get(framework_id['value'])
         offer_event = framework.get('offer_event')
         self.logger.info("Starting offer loop for framework id %s with offer event %s" % (framework_id['value'], offer_event))
@@ -604,7 +612,7 @@ class MesosHandler(MessageHandler):
                 if framework is None:
                     if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                         self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
-                    self.logger.info("Framework id %s is not active, exiting offer loop" %(framework_id['value']))
+                    self.logger.info("Framework id %s is not active, exiting offer loop" % framework_id['value'])
                     break
 
                 # Make sure we don't thrash
@@ -651,34 +659,34 @@ class MesosHandler(MessageHandler):
                 offer_event.wait(time_to_wait)
                 self.logger.debug("event triggered")
             except Exception, ex:
-                self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
+                self.logger.error("Exception in offer loop for framework id %s" % framework_id['value'])
                 self.logger.exception(ex)
-        self.logger.info("Exiting offer loop for framework id %s" %(framework_id['value']))
+        self.logger.info("Exiting offer loop for framework id %s" % framework_id['value'])
 
     def http_generate_offers(self, framework_id):
         self.logger.info("HTTP: Starting offer loop for framework id %s" % framework_id['value'])
-        framework = FrameworkTracker.get_instance().get(framework_id['value'])
+#        framework = FrameworkTracker.get_instance().get(framework_id['value'])
         last_heartbeat_time = time.time()
 #        framework['offer_event'] = gevent.event.AsyncResult()
 #        offer_event = framework.get('offer_event')
-        self.logger.info("Starting offer loop for framework %s with offer event %s" % (framework_id['value'], repr(framework['offer_event'])))
         while True:
             try:
                 framework = FrameworkTracker.get_instance().get(framework_id['value'])
                 if framework is None:
                     if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                         self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
-                    self.logger.info("Framework id %s is not active, exiting offer loop" %(framework_id['value']))
+                    self.logger.info("Framework id %s is not active, exiting offer loop" % framework_id['value'])
                     break
 
                 if not self.__master_broker:
                     # In case we need to restart when we reregister,
                     # remove offer event
-                    self.logger.debug("No master broker")
+                    self.logger.debug("No master broker, exiting offer loop")
                     if framework.has_key('offer_event'):
                         self.logger.debug("Deleting offer event: %s" % framework['offer_event'])
                         del framework['offer_event']
                     break
+                self.logger.debug("In offer loop for framework %s with offer event %s" % (framework_id['value'], repr(framework['offer_event'])))
 
                 last_offer_time = framework.get("__last_offer_time", 0)
                 current_time = time.time()
@@ -749,9 +757,10 @@ class MesosHandler(MessageHandler):
 #                    event_delta = 0
                 #offer_event = gevent.event.AsyncResult()
             except Exception, ex:
-                self.logger.error("Exception in offer loop for framework id %s" %(framework_id['value']))
+                self.logger.error("Exception in offer loop for framework id %s" % framework_id['value'])
                 self.logger.exception(ex)
-        self.logger.info("Exiting offer loop for framework id %s" %(framework_id['value']))
+        self.logger.info("Exiting offer loop for framework id %s" % framework_id['value'])
+
 
     def authenticate(self, request):
         self.logger.info('Authenticate: %s' % request)
@@ -824,13 +833,16 @@ class MesosHandler(MessageHandler):
         if framework:
             http = True if framework['channel_name'] == "http" else False
             if http:
+                # framework id is not a part of the message
+#                if 'framework_id' in message:
+#                    del message['framework_id']
                 http_resp = {'type' : 'MESSAGE',
                             'message' : message}
                 offer_event = framework.get('offer_event')
                 self.logger.debug("Setting AsyncResult: %s" % repr(offer_event))
                 offer_event.set(http_resp)
             else:
-                self.send_executor_message(framework,message)
+                self.send_executor_message(framework, message)
         else:
             self.logger.warn("Received message to unknown framework: %s", framework_id['value'])
             self.retry_manager.retry(request)
@@ -1308,7 +1320,7 @@ class MesosHandler(MessageHandler):
         source_id = request.get('source_id')
         http = False if source_id else True
         endpoint_id = MessagingUtility.get_endpoint_id(source_id)
-        reply_to = request.get('payload').get('reply_to')
+        reply_to = request.get('reply_to')
         scheduler_channel_name = MessagingUtility.get_notify_channel_name(
             reply_to=reply_to, endpoint_id=endpoint_id)
 
@@ -1553,8 +1565,10 @@ class MesosHandler(MessageHandler):
         self.logger.debug('Register executor runner on channel %s, slave info: %s' % (slave_channel_name, slave))
 
         slave_dict = framework.get('slave_dict', {})
+        self.logger.debug("slave_dict before: %s" % slave_dict)
         slave_dict[slave_id['value']] = slave
         framework['slave_dict'] = slave_dict
+        self.logger.debug("slave_dict after: %s" % slave_dict)
 
         # Make sure that this jobid is in our framework
         job_ids = framework.get('job_ids', [])
@@ -1801,6 +1815,8 @@ class MesosHandler(MessageHandler):
         slave['offerable'] = True
 
     def register_executor(self, request):
+        self.logger.debug("register_executor request=%s" % request)
+        http = False if request['source_id'] else True
         """ Just track this and send it on to our executor runner """
         message = request.get('payload', {}).get('mesos.internal.RegisterExecutorMessage')
         if not message:
@@ -1812,7 +1828,7 @@ class MesosHandler(MessageHandler):
         framework = FrameworkTracker.get_instance().get_framework_and_store_request_framework_id(request, framework_id['value'])
         if framework is None:
             self.logger.info("No framework (%s) for executor. Waiting for framework register." % framework_id)
-            return
+            return None, None
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
@@ -1820,17 +1836,22 @@ class MesosHandler(MessageHandler):
         # In our message we should have the reply_to field set to the channel name of our
         # executor runner...
         for slave in framework['slave_dict'].values():
-            if slave['channel'].name == request['reply_to']:
-                # This is our slave!
-                break
+            self.logger.debug("Iterating slave: %s" % slave)
+            if http:
+                if slave.get('executor',{}).get('executor_id',{}).get('value') == executor_id_val:
+                    break
+            else:
+                if slave['channel'].name == request['reply_to']:
+                    # This is our slave!
+                    break
         else:
             err_msg = 'Unknown slave for framework %s, push to retry manager' % framework_id
             self.logger.info(err_msg)
             self.retry_manager.retry(request)
-            return
+            return None, None
 
+        self.logger.debug("Our slave: %s" % slave)
         is_command_executor = slave.get('is_command_executor', False)
-
         if is_command_executor:
             executor_slave = slave['command_executors'].get(executor_id_val)
             if executor_slave:
@@ -1840,27 +1861,36 @@ class MesosHandler(MessageHandler):
                                   (slave['channel'].name, executor_id_val))
                 self.logger.debug("Slave: %s" % slave)
                 self.retry_manager.retry(request)
-                return
+                return None, None
         else:
             executor_info = slave.get('executor')
 
         framework_info = self.__get_framework_info(framework)
         slave_id = slave["id"]
-        slave_info = {}
-        slave_info["hostname"] = slave["hostname"]
-        slave_info["port"] = slave["port"]
-        slave_info["id"] = slave["id"]
+        slave_info = {
+            'hostname' : slave['hostname'],
+            'port' : slave['port'],
+            'id' : slave['id']
+        }
 
-        # Save this executor channel in the slave
-        executor_endpoint_id = MessagingUtility.get_endpoint_id(request['source_id'])
-        executor_channel_name = MessagingUtility.get_notify_channel_name(
-            reply_to=None, endpoint_id=executor_endpoint_id)
-        cf = ChannelFactory.get_instance()
-        executor_channel = cf.create_channel(executor_channel_name)
-        slave['executor_channel'] = executor_channel
+        if not http:
+            # Save this executor channel in the slave
+            executor_endpoint_id = MessagingUtility.get_endpoint_id(request['source_id'])
+            executor_channel_name = MessagingUtility.get_notify_channel_name(
+                reply_to=None, endpoint_id=executor_endpoint_id)
+            cf = ChannelFactory.get_instance()
+            executor_channel = cf.create_channel(executor_channel_name)
+            slave['executor_channel'] = executor_channel
 
-        self.executor_registered(executor_channel, executor_info, framework_id, framework_info, slave_id,
-             slave_info)
+            self.executor_registered(executor_channel, executor_info, framework_id,
+                                    framework_info, slave_id, slave_info)
+        else:
+            subscribed = {
+                'executor_info' : executor_info,
+                'framework_info' : framework_info,
+                'agent_info' : slave_info
+            }
+
         slave['executor_registered_time'] = time.time()
 
         # TODO: Fix this...CPP is sending a reply_to now when it shouldn't
@@ -1871,6 +1901,7 @@ class MesosHandler(MessageHandler):
         # Now we get to run some tasks...
         slave_job_id = NamingUtility.get_job_id_from_slave_id(slave_id['value'])
         self.logger.debug("Register Executor: slave_job_id=%s " % slave_job_id)
+        launch = []
         for t in framework.get('task_dict').values():
             if slave_job_id is None:
                 self.logger.error("Cannot register executor: incorrect job id: %s" % slave['id']['value'])
@@ -1887,7 +1918,10 @@ class MesosHandler(MessageHandler):
                 # for custom executor always run all tasks
                 if not is_command_executor or cet:
                     self.logger.debug("Run task: %s" % t)
-                    self.run_task(executor_channel, t['task_info'], framework_info)
+                    if http:
+                        launch.append(t['task_info'])
+                    else:
+                        self.run_task(executor_channel, t['task_info'], framework_info)
                 else:
                     self.logger.debug("Skip command executor task: %s" % t)
             else:
@@ -1922,6 +1956,11 @@ class MesosHandler(MessageHandler):
         else:
             #framework['__placeholder_offerable_after'] = 0 # something can be done here to accelerate offers generation?
             self.logger.debug("Do not scale up since registered executor is runnig in docker or command executor")
+
+        if http:
+            return subscribed, launch
+        else:
+            return None, None
 
     def register_framework(self, request):
         self.logger.info('Register framework: %s' % request)
@@ -1970,13 +2009,13 @@ class MesosHandler(MessageHandler):
         internal = "mesos.internal.ReregisterFrameworkMessage" if framework_info.get('id') else "mesos.internal.RegisterFrameworkMessage"
             
         payload = {
-                'reply_to' : 'http',
                     internal : {
                        'framework' : framework_info
                     }
                   }
         request = {
             'source_id' : None, # indicate http type
+            'reply_to' : 'http',
             'message_id' : str(uuid.uuid1()),
             'payload' : payload
             }
@@ -2005,7 +2044,7 @@ class MesosHandler(MessageHandler):
         else:
             self.logger.debug("Framework registration: using existing framework id %s" % framework_id['value'])
 
-        reply_to = request.get('payload').get('reply_to')
+        reply_to = request.get('reply_to')
         scheduler_channel_name = MessagingUtility.get_notify_channel_name(
             reply_to=reply_to, endpoint_id=endpoint_id)
         framework = message['framework']
@@ -2013,7 +2052,7 @@ class MesosHandler(MessageHandler):
 
         # Form response payload
         if http:
-            port = self.http_port
+            port = self.scheduler_http_port
             host = self.service_hostname
         else:
             cf = ChannelFactory.get_instance()
@@ -2023,7 +2062,8 @@ class MesosHandler(MessageHandler):
         ip_addr = socket.gethostbyname(host)
         int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
 #        ip_addr = "127.0.0.1"
-#        int_addr = struct.unpack('I', socket.inet_aton(ip_addr))[0]
+        ip_addr = "10.0.2.15"
+        int_addr = struct.unpack('I', socket.inet_aton(ip_addr))[0]
 
         master_info = {}
         master_info['id'] = 'master-' + host
@@ -2249,7 +2289,7 @@ class MesosHandler(MessageHandler):
         
         if self.handle_status_update(framework, update):
             self.retry_manager.retry(request)
-        return None, None
+        return framework, None
 
     def handle_status_update(self, framework, update):
         task_id = update['status']['task_id']
@@ -2273,35 +2313,44 @@ class MesosHandler(MessageHandler):
                 if task.get('start_time') is None or len(str(task.get('start_time'))) == 0:
                     task['start_time'] = time.time()
             # If this slave has finished we can send another offer...
-            slave = framework['slave_dict'].get(update['slave_id']['value'])
-            if slave and (state == "TASK_FINISHED" or state == 'TASK_FAILED'):
-                if not slave.get('is_command_executor', False):
-                    self.__credit_resources(slave,task['task_info'])
-                    #slave['offerable'] = True #ST consider to uncomment
-                    offer_event = framework.get('offer_event')
-                    self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
-                    offer_event.set()
-                else:
-                    # Delete slave if no more running tasks
-                    executor_channel = slave['command_executors'][task_id['value']]['channel']
-                    self.logger.debug("Deleting command executor with channel %s due to finished task: %s" %
-                                      (executor_channel.name, task_id['value']))
-                    self.__delete_channel_with_delay(executor_channel.name)
-                    slave['command_executors'][task_id['value']]['active'] = False
-                    delete_slave = True
-                    for val in slave['command_executors'].values():
-                        if val['active']:
-                            delete_slave = False
-                            break
-                    if delete_slave:
-                        self.logger.debug("All command executors done, delete salve %s" % slave['id']['value'])
-                        self.update_completed_executor_summary_db(slave)
-                        self.__add_delete_element(framework['slave_dict'], slave['id']['value'])
-                        slave_channel = slave['channel']
-                        self.__delete_channel_with_delay(slave_channel.name)
-                task['end_time'] = time.time()
-                self.logger.debug("Adding task %s for deletion from dictionary" % task_id['value'])
-                self.__add_delete_element(task_dict, task_id['value'])
+            slave_id = update['slave_id'] if 'slave_id' in update else update.get('agent_id')
+            if not slave_id:
+                slave_id = task['task_info']['slave_id'] if 'slave_id' in task['task_info'] else task['task_info'].get('agent_id')
+            if slave_id:
+                slave_id_value = slave_id['value']
+                slave = framework['slave_dict'].get(slave_id_value)
+                if slave and (state == "TASK_FINISHED" or state == 'TASK_FAILED'):
+                    if not slave.get('is_command_executor', False):
+                        self.__credit_resources(slave, task['task_info'])
+                        #slave['offerable'] = True #ST consider to uncomment
+                        offer_event = framework.get('offer_event')
+                        self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
+                        offer_event.set()
+                    else:
+                        # Delete slave if no more running tasks
+                        executor_channel = slave['command_executors'][task_id['value']]['channel']
+                        self.logger.debug("Deleting command executor with channel %s due to finished task: %s" %
+                                        (executor_channel.name, task_id['value']))
+                        self.__delete_channel_with_delay(executor_channel.name)
+                        slave['command_executors'][task_id['value']]['active'] = False
+                        delete_slave = True
+                        for val in slave['command_executors'].values():
+                            if val['active']:
+                                delete_slave = False
+                                break
+                        if delete_slave:
+                            self.logger.debug("All command executors done, delete salve %s" % slave['id']['value'])
+                            self.update_completed_executor_summary_db(slave)
+                            self.__add_delete_element(framework['slave_dict'], slave['id']['value'])
+                            slave_channel = slave['channel']
+                            self.__delete_channel_with_delay(slave_channel.name)
+                    task['end_time'] = time.time()
+                    self.logger.debug("Adding task %s for deletion from dictionary" % task_id['value'])
+                    self.__add_delete_element(task_dict, task_id['value'])
+            else:
+                self.logger.warn("No slave id information in both update: %s and task_info of task_dict: %s" %
+                                 (update, task['task_info']))
+                return True
         else:
             self.logger.warn('Unable to update status on unknown task: %s' % task_id['value'])
             #self.logger.trace("task_dict=%s" % task_dict)
@@ -2885,7 +2934,7 @@ class MesosHandler(MessageHandler):
           'slave_id' : slave_id,
           'slave_info' : slave_info,
         }
-        response_payload =  executor_registered
+        response_payload = executor_registered
         message = ExecutorRegisteredMessage(self.channel.name, response_payload)
 
 #        cf = ChannelFactory.get_instance()
@@ -2946,6 +2995,8 @@ class MesosHandler(MessageHandler):
             'URB_MASTER' : cf.get_message_broker_connection_url(),
             'URB_FRAMEWORK_NAME' : scrubbed_framework_name,
         }
+        if framework['channel_name'] == "http":
+            framework_env['MESOS_AGENT_ENDPOINT'] = "%s:%d" % (self.service_hostname, self.executor_http_port)
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
         job_submit_options = framework_config.get('job_submit_options', '')
@@ -2986,29 +3037,40 @@ class MesosHandler(MessageHandler):
 
             scheduler_channel.write(response.to_json())
 
-    def send_kill_task(self,framework_id,slave,task_id):
-        message = {}
-        message['framework_id'] = framework_id
-        message['task_id'] = task_id
-        response = KillTaskMessage(self.channel.name, message)
-#        self.logger.debug("send_kill_task: task=%s, slave=%s" % (task_id, slave))
-        if slave.get('is_command_executor', False):
-            executor = slave['command_executors'].get(task_id['value'])
-            if executor:
-                executor_channel = executor.get('channel')
-            else:
-                self.logger.error("Cannot find command executor info in slave for task %s" % task_id['value'])
-                self.logger.debug("Slave: %s" % slave)
-        else:
-            executor_channel = slave.get('executor_channel')
-
-        if executor_channel:
-            self.logger.debug('Sending kill task message via channel %s: %s' % (executor_channel.name, response))
-            executor_channel.write(response.to_json())
+    def send_kill_task(self, framework_id, slave, task_id, http = False):
+        if http:
+            kill_event = {
+                'type' : 'KILL',
+                'kill' : {
+                    'task_id' : task_id
+                }
+            }
+            self.logger.debug("HTTP: send_kill_task to executor, before set event")
+            slave['async_result'].set(kill_event)
             return True
         else:
-            self.logger.warn('Unable to send kill task on unknown executor')
-            return False
+            message = {}
+            message['framework_id'] = framework_id
+            message['task_id'] = task_id
+            response = KillTaskMessage(self.channel.name, message)
+    #        self.logger.debug("send_kill_task: task=%s, slave=%s" % (task_id, slave))
+            if slave.get('is_command_executor', False):
+                executor = slave['command_executors'].get(task_id['value'])
+                if executor:
+                    executor_channel = executor.get('channel')
+                else:
+                    self.logger.error("Cannot find command executor info in slave for task %s" % task_id['value'])
+                    self.logger.debug("Slave: %s" % slave)
+            else:
+                executor_channel = slave.get('executor_channel')
+
+            if executor_channel:
+                self.logger.debug('Sending kill task message via channel %s: %s' % (executor_channel.name, response))
+                executor_channel.write(response.to_json())
+                return True
+            else:
+                self.logger.warn('Unable to send kill task on unknown executor')
+                return False
 
     def scrub_framework_name(self, framework_name):
         scrubbed_framework_name = re.sub('[\s|(|)|(:)|(,)|(.)|(^)|($)|(+)|(?)|(\{)|(\})|(\[)|(\])|(\\)|(\()|(\))]+', '',
@@ -3234,6 +3296,145 @@ class MesosHandler(MessageHandler):
 
     def http_request(self, framework_id, agent_id, resources):
         self.logger.debug("http_request")
+
+    def http_subscribe_executor(self, content):
+        framework_id_value = content['framework_id']['value']
+        executor_id_value = content['executor_id']['value']
+        unacknowledged_tasks = content['subscribe'].get('unacknowledged_tasks')
+        unacknowledged_updates = content['subscribe'].get('unacknowledged_updates')
+        self.logger.info("HTTP: Subscribe executor for framework id %s and executor id %s" %
+                         (framework_id_value, executor_id_value))
+        framework = FrameworkTracker.get_instance().get(framework_id_value)
+        if not framework:
+            self.logger.error("No framework with id: %s" % framework_id_value)
+            return {}, {}
+        self.logger.debug("Current framework: %s" % framework)
+        if unacknowledged_tasks:
+            self.logger.warn("There are unacknowledged tasks: %s" % unacknowledged_tasks)
+        if unacknowledged_updates:
+            self.logger.warn("There are unacknowledged updates: %s" % unacknowledged_updates)
+
+        payload = {
+             'mesos.internal.RegisterExecutorMessage' : {
+                 'executor_id' : content['executor_id'],
+                 'framework_id' : content['framework_id'],
+             }
+        }
+        request = {
+            'source_id' : None, # indicate http type
+            'reply_to' : 'http',
+            'message_id' : str(uuid.uuid1()),
+            'payload' : payload
+            }
+
+        subscribed, tasks = self.register_executor(request)
+        self.__release_framework_lock(framework)
+        return subscribed, tasks
+
+    def http_update_executor(self, content):
+        self.logger.info("HTTP: Update from executor for framework id %s and executor id %s" %
+                         (content['framework_id']['value'], content['executor_id']['value']))
+        update = content['update']
+        update['executor_id'] = content['executor_id']
+        update['framework_id'] = content['framework_id']
+        payload = {
+             'mesos.internal.StatusUpdateMessage' : {
+                 'update' : content['update']
+             }
+        }
+        request = {
+            'source_id' : None, # indicate http type
+            'reply_to' : 'http',
+            'message_id' : str(uuid.uuid1()),
+            'payload' : payload
+            }
+
+        framework, _ = self.status_update(request)
+        if framework:
+            self.__release_framework_lock(framework)
+
+    def http_message_executor(self, content):
+        self.logger.info("HTTP: Message from executor for framework id %s and executor id %s" %
+                         (content['framework_id']['value'], content['executor_id']['value']))
+        framework_id_value = content['framework_id']['value']
+        framework = FrameworkTracker.get_instance().get(framework_id_value)
+        if not framework:
+            self.logger.error("No framework with id: %s" % framework_id_value)
+            return
+        self.logger.debug("Current framework: %s" % framework)
+        
+        payload = {
+             'mesos.internal.ExecutorToFrameworkMessage' : {
+                 'framework_id' : content['framework_id'],
+#                 'agent_id' : 'agent_id_massa', # find a way to get agent_id!!!
+                 'executor_id' : content['executor_id'],
+                 'data' : content['message']['data']
+             }
+        }
+        request = {
+            'source_id' : None, # indicate http type
+            'reply_to' : 'http',
+            'message_id' : str(uuid.uuid1()),
+            'payload' : payload
+            }
+
+        framework, _ = self.executor_to_framework(request)
+        if framework:
+            self.__release_framework_lock(framework)
+
+    def http_handle_executor(self, content, agent_id):
+        framework_id_value = content['framework_id']['value']
+        executor_id_value = content['executor_id']['value']
+        agent_id_value = agent_id['value']
+        self.logger.info("HTTP: Starting executor events handler loop for framework %s, executor %s, agent %s" %
+                         (framework_id_value, executor_id_value, agent_id_value))
+        while True:
+            try:
+                framework = FrameworkTracker.get_instance().get(framework_id_value)
+                self.logger.debug("framework: %s" % framework)
+                if framework is None:
+                    if self.framework_db_interface is not None and self.framework_db_interface.is_active():
+                        self.framework_db_interface.set_framework_summary_status_inactive(framework_id_value)
+                    self.logger.info("Framework id %s is not active, exiting executor events loop" % framework_id_value)
+                    break
+
+                if not self.__master_broker:
+                    # In case we need to restart when we reregister,
+                    # remove offer event
+                    self.logger.debug("No master broker")
+#                    if framework.has_key('offer_event'):
+#                        self.logger.debug("Deleting offer event: %s" % framework['offer_event'])
+#                        del framework['offer_event']
+                    break
+
+#                self.__acquire_framework_lock(framework)
+                slave = framework['slave_dict'].get(agent_id_value)
+                slave['async_result'] = gevent.event.AsyncResult()
+                self.logger.debug("HTTP: Executor event loop: before wait")
+                slave['async_result'].wait()
+                data = slave['async_result'].value
+                if data:
+                    yield data
+                    self.logger.debug("After yielded data")
+
+                self.logger.debug("HTTP: Executor event loop: renew AsyncResult, old=%s" % repr(slave['async_result']))
+#                self.__acquire_framework_lock(framework)
+                del framework['slave_dict']['agent_id_value']['async_result']
+                framework['slave_dict']['agent_id_value']['async_result'] = gevent.event.AsyncResult()
+#                self.__release_framework_lock(framework)
+                self.logger.debug("New AsyncResult=%s" % repr(framework['slave_dict']['agent_id_value']['async_result']))
+
+            except Exception, ex:
+                self.logger.error("Exception in executor events loop for framework id %s and executor_id %s" %
+                                  (framework_id['value'], executor_id['value']))
+                self.logger.exception(ex)
+            finally:
+                # Release lock
+                self.logger.debug("In finally before release lock")
+ #               self.__release_framework_lock(framework)
+ 
+        self.logger.info("HTTP: Exiting executor events loop for framework id %s" %(framework_id['value']))
+
 
 # Testing
 if __name__ == '__main__':
