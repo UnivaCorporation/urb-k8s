@@ -228,20 +228,6 @@ def scheduler():
                         else:
                             logger.debug("protobuf subscribed response")
                             subscribed_msg = json_format.Parse(subscribed_json, scheduler_pb2.Event(), ignore_unknown_fields=False)
-
-#                            subscribed_event = scheduler_pb2.Event()
-#                            subscribed_event.type = scheduler_pb2.Event.SUBSCRIBED
-#                            subscribed_event.subscribed.framework_id.value = framework_name
-#                            subscribed_event.subscribed.heartbeat_interval_seconds = mesos_handler.get_heartbeat_interval()
-#                            subscribed_event.subscribed.master_info.id = master_info['id']
-#                            subscribed_event.subscribed.master_info.ip = master_info['ip']
-#                            subscribed_event.subscribed.master_info.port = master_info['port']
-#                            subscribed_event.subscribed.master_info.hostname = master_info['hostname']
-#                            subscribed_event.subscribed.master_info.version = master_info['version']
-#                            subscribed_event.subscribed.master_info.address.ip = master_info['address']['ip']
-#                            subscribed_event.subscribed.master_info.address.hostname = master_info['address']['hostname']
-#                            subscribed_event.subscribed.master_info.address.port = master_info['address']['port']
-
                             subscribed = subscribed_msg.SerializeToString()
 
                         length = len(subscribed)

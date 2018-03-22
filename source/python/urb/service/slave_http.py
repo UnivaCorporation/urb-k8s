@@ -174,13 +174,14 @@ def executor():
                         logger.debug("before event loop")
                         for event in mesos_handler.http_handle_executor(content, executor_subscribed['agent_info']['id']):
                             if event:
+                                logger.debug("event=%s" % event)
                                 if request.is_json:
                                     resp_event = json.dumps(event)
                                     logger.debug("json event response")
                                 else:
                                     ev_msg = json_format.Parse(json.dumps(event), executor_pb2.Event(), ignore_unknown_fields=False)
                                     resp_event = ev_msg.SerializeToString()
-                                    logger.debug("protobuf offer response")
+                                    logger.debug("protobuf event response")
                                 length = len(resp_event)
                                 buf = str(length) + "\n" + resp_event
                                 logger.debug("event: %s, yield it as recordio" % resp_event)
