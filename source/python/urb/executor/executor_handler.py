@@ -36,7 +36,7 @@ from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
 
 class ExecutorHandler(MessageHandler):
     # Actual Mesos version has to be set by the build procedure
-    MESOS_VERSION = "3.0.0"
+    MESOS_VERSION = "1.4.0"
 
     def __init__(self, channelName,executor_runner):
         MessageHandler.__init__(self, channelName)

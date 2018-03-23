@@ -91,7 +91,7 @@ class MesosHandler(MessageHandler):
     SLAVE_GRACE_PERIOD = 120
     DEFAULT_FRAMEWORK_MAX_TASKS = 10
     # Actual Mesos version has to be set by the build procedure
-    MESOS_VERSION = "3.0.0"
+    MESOS_VERSION = "1.4.0"
 
     def __init__(self, channel_name, initial_retry_interval, max_retry_count):
         MessageHandler.__init__(self, channel_name)
