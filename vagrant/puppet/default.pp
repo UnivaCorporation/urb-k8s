@@ -84,6 +84,48 @@ package { "zlib-devel":
   ensure => "installed"
 }
 
+exec { "install_six":
+   unless => "/usr/bin/env python -c 'import six'",
+   command => "/usr/bin/easy_install six",
+   require => Package['python-setuptools']
+}
+
+exec { "install_Jinja2":
+   unless => "/usr/bin/env python -c 'import jinja2'",
+   command => "/usr/bin/easy_install Jinja2",
+   require => Package['python-setuptools']
+}
+
+exec { "install_Werkzeug":
+   unless => "/usr/bin/env python -c 'import werkzeug'",
+   command => "/usr/bin/easy_install Werkzeug",
+   require => Package['python-setuptools']
+}
+
+exec { "install_itsdangerous":
+   unless => "/usr/bin/env python -c 'import itsdangerous'",
+   command => "/usr/bin/easy_install itsdangerous",
+   require => Package['python-setuptools']
+}
+
+exec { "install_click":
+   unless => "/usr/bin/env python -c 'import click'",
+   command => "/usr/bin/easy_install click",
+   require => Package['python-setuptools']
+}
+
+exec { "install_Flask":
+   unless => "/usr/bin/env python -c 'import flask'",
+   command => "/usr/bin/easy_install Flask",
+   require => Package['python-setuptools']
+}
+
+exec { "install_protobuf":
+   unless => "/usr/bin/env python -c 'import google.protobuf'",
+   command => "/usr/bin/easy_install protobuf",
+   require => Package['python-setuptools']
+}
+
 exec { "install_nose":
    unless => "/usr/bin/env python -c 'import nosexcover'",
    command => "/usr/bin/easy_install nosexcover",
@@ -143,6 +185,12 @@ exec { "install_redis":
    unless => "/usr/bin/env python -c 'import redis'",
    command => "/usr/bin/easy_install redis",
    timeout => 600,
+   require => Package['python-setuptools']
+}
+
+exec { "install_mesoshttp":
+   unless => "/usr/bin/env python -c 'import mesoshttp'",
+   command => "/usr/bin/pip install mesoshttp",
    require => Package['python-setuptools']
 }
 
