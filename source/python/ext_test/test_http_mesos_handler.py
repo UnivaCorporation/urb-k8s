@@ -47,7 +47,7 @@ monkey.patch_all()
 SERVICE_THREAD = create_service_thread(serve_time=100)
 
 CM = ConfigManager.get_instance()
-HTTP_PORT = CM.get_config_option("Http", "port", "5050")
+HTTP_PORT = CM.get_config_option("Http", "scheduler_port", "5060")
 URL = "http://127.0.0.1:" + HTTP_PORT
 
 class Test(object):
