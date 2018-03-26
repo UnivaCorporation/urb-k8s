@@ -61,9 +61,6 @@ GEVENTINOTIFYX_EGG=$(GEVENTINOTIFYX_NAME)-py$(EGG_PYV).egg
 FLASK_ARCHIVE=$(shell ls Flask-*.tar.gz)
 FLASK_NAME=$(subst .tar.gz,,$(FLASK_ARCHIVE))
 FLASK_EGG=$(FLASK_NAME)-py$(EGG_PYV).egg
-PROTOBUF_TO_DICT_ARCHIVE=$(shell ls protobuf-to-dict-*.tar.gz)
-PROTOBUF_TO_DICT_NAME=$(subst .tar.gz,,$(PROTOBUF_TO_DICT_ARCHIVE))
-PROTOBUF_TO_DICT_EGG=$(PROTOBUF_TO_DICT_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -75,8 +72,7 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
           $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
-          $(DIST_DIR)/$(FLASK_EGG) \
-          $(DIST_DIR)/$(PROTOBUF_TO_DICT_EGG)
+          $(DIST_DIR)/$(FLASK_EGG)
 
 # some packages can be used directly as prebuild eggs or wheels
 SIX_ARCHIVE=$(shell ls six-*.whl)
@@ -163,10 +159,6 @@ $(DIST_DIR)/$(GEVENTINOTIFYX_EGG): $(GEVENTINOTIFYX_ARCHIVE)
 $(DIST_DIR)/$(FLASK_EGG): $(FLASK_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(FLASK_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
-
-$(DIST_DIR)/$(PROTOBUF_TO_DICT_EGG): $(PROTOBUF_TO_DICT_ARCHIVE)
-	$(TAR) xzvf $< -C $(BUILDDIR)
-	cd $(BUILDDIR)/$(PROTOBUF_TO_DICT_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
 $(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
 	cp $< $(DIST_DIR)
