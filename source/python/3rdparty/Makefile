@@ -61,6 +61,9 @@ GEVENTINOTIFYX_EGG=$(GEVENTINOTIFYX_NAME)-py$(EGG_PYV).egg
 FLASK_ARCHIVE=$(shell ls Flask-*.tar.gz)
 FLASK_NAME=$(subst .tar.gz,,$(FLASK_ARCHIVE))
 FLASK_EGG=$(FLASK_NAME)-py$(EGG_PYV).egg
+MARKUPSAFE_ARCHIVE=$(shell ls MarkupSafe-*.tar.gz)
+MARKUPSAFE_NAME=$(subst .tar.gz,,$(MARKUPSAFE_ARCHIVE))
+MARKUPSAFE_EGG=$(MARKUPSAFE_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -72,7 +75,8 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
           $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
-          $(DIST_DIR)/$(FLASK_EGG)
+          $(DIST_DIR)/$(FLASK_EGG) \
+          $(DIST_DIR)/$(MARKUPSAFE_EGG)
 
 # some packages can be used directly as prebuild eggs or wheels
 SIX_ARCHIVE=$(shell ls six-*.whl)
@@ -159,6 +163,10 @@ $(DIST_DIR)/$(GEVENTINOTIFYX_EGG): $(GEVENTINOTIFYX_ARCHIVE)
 $(DIST_DIR)/$(FLASK_EGG): $(FLASK_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(FLASK_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
+$(DIST_DIR)/$(MARKUPSAFE_EGG): $(MARKUPSAFE_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(MARKUPSAFE_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
 $(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
 	cp $< $(DIST_DIR)
