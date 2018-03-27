@@ -1603,7 +1603,7 @@ class MesosHandler(MessageHandler):
                 # We know that this is a deleted framework... shutdown the slave immediately
                 self.logger.debug("Register executor runner: framework %s is deleted" % framework_id)
                 self.send_slave_shutdown_message(slave_channel_name)
-                return
+                return None, None
             retry_count = payload.get('retry_count', 0)
             if retry_count > 0:
                 self.logger.debug("Register executor runner: retry count=%d" % retry_count)
@@ -1616,7 +1616,7 @@ class MesosHandler(MessageHandler):
                 # Schedule a future delete if the framework doesn't show up
                 self.logger.debug("Register executor runner: schedule a future delete if framework %s doesn't show up" % framework_id)
                 self.__shutdown_if_no_framework_with_delay(framework_name, slave_channel_name, slave_id['value'])
-            return
+            return None, None
 
 #        http = framework.get('http', False)
         http = True if framework['channel_name'] == "http" else False
@@ -1684,7 +1684,7 @@ class MesosHandler(MessageHandler):
                 # We need to deduct the slave resources since we have a running task
                 self.__debit_resources(slave,task_record['task_info'])
 #            self.adapter.register_executor_runner(self, framework_id, slave_id)
-            return
+            return framework, None
 
         executor_in_docker = False
         task_in_docker = False
@@ -1769,6 +1769,7 @@ class MesosHandler(MessageHandler):
         #self.offer_event.set()
 
         self.adapter.register_executor_runner(self, framework_id, slave_id)
+        return framework, None
 
     def reregister_executor(self, request):
         """ Reregistering a lost executor """
@@ -1782,7 +1783,7 @@ class MesosHandler(MessageHandler):
         if framework is None:
             self.logger.info("No framework (%s) for executor. Waiting for framework reregister." % framework_id['value'])
             #self.retry_manager.retry(request)
-            return
+            return None, None
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
@@ -1795,7 +1796,7 @@ class MesosHandler(MessageHandler):
                 break
         else:
             self.logger.info("Unknown slave for framework %s" % framework_id)
-            return
+            return framework, None
 
 #        executor_info = slave.get('executor')
         framework_info = self.__get_framework_info(framework)
@@ -1816,7 +1817,7 @@ class MesosHandler(MessageHandler):
         slave_job_id = NamingUtility.get_job_id_from_slave_id(slave["id"]["value"])
         if slave_job_id is None:
             self.logger.error("Cannot reregister executor: incorrect slave job id: %s" % slave["id"]["value"])
-            return
+            return framework, None
         job_id = slave_job_id
 
         # Check to see if we have uncompleted tasks...
@@ -1871,8 +1872,9 @@ class MesosHandler(MessageHandler):
         # the executor_runner and the executor... has to stay for now.
         del request["reply_to"]
 
-        # Finally mark ourselves as offerable again.  Our available resources should be correct
+        # Finally mark ourselves as offerable again. Our available resources should be correct
         slave['offerable'] = True
+        return framework, None
 
     def register_executor(self, request):
         self.logger.debug("register_executor request=%s" % request)

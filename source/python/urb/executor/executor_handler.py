@@ -159,8 +159,6 @@ class ExecutorHandler(MessageHandler):
 
             ret = 0
             if len(self.executor_pids) == 0:
-                if self.http_service:
-                    self.http_service.stop()
                 self.logger.trace("Statuses of all executors: %s" % self.executor_rets)
                 for st, sg, co in self.executor_rets:
                     if st is not None and st != 0:
@@ -185,6 +183,7 @@ class ExecutorHandler(MessageHandler):
             self.executor_runner.register_executor_runner(tasks)
         else:
             self.executor_runner.register_executor_runner()
+        return None, None
 
     def slave_shutdown(self, request):
         self.logger.debug('Slave shutdown received, exiting')
@@ -226,12 +225,12 @@ class ExecutorHandler(MessageHandler):
             executor = executor_tracker.get(executor_id_value)
             if executor is not None:
                 self.logger.warn('Executor %s is already running'  % executor_id_value)
-                return
+                return None, None
 
             executor_command = e.get('command')
             if executor_command is None:
                 self.logger.warn('No command provided for executor %s' % executor_id_value)
-                return
+                return None, None
 
             # First allocate the executor
             executor = {
@@ -344,6 +343,7 @@ class ExecutorHandler(MessageHandler):
                 self.logger.debug('Launched task %s with pid: %s' % (task_id['value'], newpid))
                 self.executor_pids.append(newpid)
                 self.logger.debug('All child processes: %s' % self.executor_pids)
+        return None, None
 
     def __get_user_env(self, user_env_file, env_var_name, env_var_value):
         ignore = ['_', 'SHLVL', 'PWD']
