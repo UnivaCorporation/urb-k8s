@@ -90,7 +90,7 @@ class MessageHandler:
             self.logger.trace('Got request: %s' % request)
             target = request.get('target')
             if target is None:
-                self.logger.error('Wrong target: %s' % target)
+                self.logger.error('Wrong target: %s in request: %s' % (target, request))
 
             # Assign message id.
             request['message_id'] = str(uuid.uuid1())
