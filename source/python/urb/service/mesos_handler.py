@@ -1413,6 +1413,12 @@ class MesosHandler(MessageHandler):
                 if not slave_id:
                     ti = t.get('task_info',{})
                     slave_id = ti['slave_id'] if 'slave_id' in ti else ti.get('agent_id')
+                if slave_id and slave_id['value'].startswith("place-holder"):
+                    slave_id_value = framework.get('placeholder_to_slave',{}).get(slave_id['value'])
+                    self.logger.debug("Reconcile: slave_id found in placeholder: %s" % slave_id_value)
+                    if slave_id_value:
+                        slave_id['value'] = slave_id_value
+
 #                    slave_id = t.get('task_info',{}).get('slave_id')
                 self.logger.debug("Reconcile: task %s: info found: %s, slave_id: %s" % (task_id, t, slave_id))
 
@@ -1472,7 +1478,7 @@ class MesosHandler(MessageHandler):
                         else:
                             job_status = "TASK_LOST"
                             self.logger.error("Reconcile: cannot get job id form slave id: %s, set task status to %s" % \
-                                              (slave_id['value'],job_status))
+                                              (slave_id['value'], job_status))
 
                     else:
                         # ... And we don't have a slave to use to query backend scheduler
