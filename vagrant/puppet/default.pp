@@ -84,6 +84,10 @@ package { "zlib-devel":
   ensure => "installed"
 }
 
+package { "libasan":
+  ensure => "installed"
+}
+
 exec { "install_six":
    unless => "/usr/bin/env python -c 'import six'",
    command => "/usr/bin/easy_install six",
