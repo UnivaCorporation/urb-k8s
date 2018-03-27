@@ -42,9 +42,10 @@ PICOJSON_FLAGS=-DPICOJSON_USE_INT64 -D__STDC_FORMAT_MACROS
 CFLAGS=-Wall -fPIC -Wextra $(DISABLED_WARNINGS) $(ENABLED_WARNINGS) $(PICOJSON_FLAGS) $(JSONCPP_FLAGS)
 LDFLAGS=-shared -Wl,-soname,$(LIB_SONAME)
 ifdef DEBUG_BUILD
-  CFLAGS += -DDEBUG -O0 -g3 -fsanitize=address -fsanitize=leak -fsanitize=undefined
+  # -fsanitize=leak -fsanitize=undefined (not supported by 4.8.5)
+  # -fsanitize=thread
+  CFLAGS += -DDEBUG -O0 -g3 -fsanitize=address
   LDFLAGS += -lasan
-#-fsanitize=thread
 else
   CFLAGS += -DNDEBUG -O2
 endif
