@@ -33,6 +33,7 @@ from common_utils import needs_setup
 from common_utils import needs_cleanup
 from common_utils import create_service_thread
 from common_utils import create_service_channel
+from common_utils import need_python_27
 
 from urb.config.config_manager import ConfigManager
 
@@ -220,11 +221,13 @@ class Test(object):
 URB_TEST = Test(URL)
 
 @needs_setup
+@need_python_27
 def test_setup():
     print 'HTTP Test Starting service thread'
     SERVICE_THREAD.start()
     gevent.sleep(3)
 
+@need_python_27
 def test_subscribe():
     gevent.sleep(3)
     print 'HTTP Test Subscribe'
@@ -232,12 +235,14 @@ def test_subscribe():
     print("HTTP Test Subscribe, started, URB_TEST=%s" % repr(URB_TEST))
     gevent.sleep(2)
 
+@need_python_27
 def test_launch_long_task():
     print("HTTP Test Launch long task")
     print("URB_TEST=%s" % repr(URB_TEST))
     assert URB_TEST.wait_offer(15)
     URB_TEST.run_task(30)
 
+@need_python_27
 def test_status_update_long_task():
     print("HTTP Test Status update long task")
     update = URB_TEST.wait_update(15)
@@ -245,6 +250,7 @@ def test_status_update_long_task():
     assert update['status']['state'] == 'TASK_LOST'
 #    assert update['status']['state'] == 'TASK_RUNNING'
 
+@need_python_27
 def test_reconcile_long_task():
     print("HTTP Test reconcile")
     URB_TEST.reset_update()
@@ -258,6 +264,7 @@ def test_reconcile_long_task():
 #    print("HTTP Test message long task")
 #    URB_TEST.send_message("message")
 
+@need_python_27
 def test_kill_long_task():
     print("HTTP Test Kill long task")
     update = URB_TEST.reset_update()
@@ -282,6 +289,7 @@ def test_kill_long_task():
 
 
 @needs_cleanup
+@need_python_27
 def test_cleanup():
     print("HTTP Test cleanup")
     URB_TEST.shutdown()
