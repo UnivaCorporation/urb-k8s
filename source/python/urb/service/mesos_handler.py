@@ -73,8 +73,14 @@ from urb.config.config_manager import ConfigManager
 from urb.log.log_manager import LogManager
 from urb.db.db_manager import DBManager
 
-from urb.service.mesos_http import MesosHttp
-from urb.service.slave_http import SlaveHttp
+import sys
+if sys.version_info >= (2,7)
+    from urb.service.mesos_http import MesosHttp
+    from urb.service.slave_http import SlaveHttp
+else:
+    m = "Python 2.7 or later required to run URB service with HTTP API support\n"
+    sys.stderr.write(m)
+    sys.stdout.write(m)
 
 from urb.exceptions.registration_error import RegistrationError
 from urb.exceptions.unknown_job import UnknownJob
@@ -129,28 +135,32 @@ class MesosHandler(MessageHandler):
             self.logger.warn('Could not find executor runner config file %s, falling back to default %s' % (self.executor_runner_config_file, default_config_file))
             self.executor_runner_config_file = default_config_file
         self.logger.debug('Executor runner config file is set to %s' % (self.executor_runner_config_file))
-        self.http_enabled = cm.get_config_option("Http", "enabled", True)
-        if self.http_enabled:
-            scheduler_http_port = cm.get_config_option("Http", "scheduler_port")
-            if not scheduler_http_port:
-                self.logger.warn("Could not get scheduler http port from configuration file, defaulting to port 5050")
-                self.scheduler_http_port = 5050
+        if sys.version_info >= (2,7):
+            self.http_enabled = cm.get_config_option("Http", "enabled", True)
+            if self.http_enabled:
+                scheduler_http_port = cm.get_config_option("Http", "scheduler_port")
+                if not scheduler_http_port:
+                    self.logger.warn("Could not get scheduler http port from configuration file, defaulting to port 5050")
+                    self.scheduler_http_port = 5050
+                else:
+                    self.scheduler_http_port = int(scheduler_http_port)
+                interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
+                if not interval:
+                    self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
+                    self.heartbeat_interval = 15
+                else:
+                    self.heartbeat_interval = int(interval)
+                executor_http_port = cm.get_config_option("Http", "executor_port")
+                if not executor_http_port:
+                    self.logger.warn("Could not get executor http port from configuration file, defaulting to port 5051")
+                    self.executor_http_port = 5051
+                else:
+                    self.executor_http_port = int(executor_http_port)
             else:
-                self.scheduler_http_port = int(scheduler_http_port)
-            interval = cm.get_config_option("Http", "heartbeat_interval_seconds")
-            if not interval:
-                self.logger.warn("Could not get heartbeat interval from configuration file, defaulting to port 15 seconds")
-                self.heartbeat_interval = 15
-            else:
-                self.heartbeat_interval = int(interval)
-            executor_http_port = cm.get_config_option("Http", "executor_port")
-            if not executor_http_port:
-                self.logger.warn("Could not get executor http port from configuration file, defaulting to port 5051")
-                self.executor_http_port = 5051
-            else:
-                self.executor_http_port = int(executor_http_port)
+                self.logger.info("HTTP API disabled in etc/urb.conf")
         else:
-            self.logger.info("HTTP API disabled")
+            self.logger.warn("Disabling HTTP API, python 2.7 or later required to run URB service with HTTP API support")
+            self.http_enabled = False
 
     def __watch_config(self):
         # IN_CLOSE_WRITE handles completion of the config file modification

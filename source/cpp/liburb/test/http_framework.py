@@ -136,5 +136,6 @@ class Test(object):
         self.launched_tasks+=1
 
 url = "http://127.0.0.1:5050" if len(sys.argv) == 1 else sys.argv[1]
+max_tasks = int(sys.argv[2]) if len(sys.argv) == 3 else 5
 
 test_mesos = Test(url)
