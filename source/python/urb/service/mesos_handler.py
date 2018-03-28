@@ -74,7 +74,7 @@ from urb.log.log_manager import LogManager
 from urb.db.db_manager import DBManager
 
 import sys
-if sys.version_info >= (2,7)
+if sys.version_info >= (2,7):
     from urb.service.mesos_http import MesosHttp
     from urb.service.slave_http import SlaveHttp
 else:
