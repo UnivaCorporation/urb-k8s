@@ -64,6 +64,9 @@ FLASK_EGG=$(FLASK_NAME)-py$(EGG_PYV).egg
 MARKUPSAFE_ARCHIVE=$(shell ls MarkupSafe-*.tar.gz)
 MARKUPSAFE_NAME=$(subst .tar.gz,,$(MARKUPSAFE_ARCHIVE))
 MARKUPSAFE_EGG=$(MARKUPSAFE_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
+ITSDANGEROUS_ARCHIVE=$(shell ls itsdangerous-*.tar.gz)
+ITSDANGEROUS_NAME=$(subst .tar.gz,,$(ITSDANGEROUS_ARCHIVE))
+ITSDANGEROUS_EGG=$(ITSDANGEROUS_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -76,17 +79,19 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
           $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
           $(DIST_DIR)/$(FLASK_EGG) \
-          $(DIST_DIR)/$(MARKUPSAFE_EGG)
+          $(DIST_DIR)/$(MARKUPSAFE_EGG) \
+          $(DIST_DIR)/$(ITSDANGEROUS_EGG)
 
 # some packages can be used directly as prebuild eggs or wheels
 SIX_ARCHIVE=$(shell ls six-*.whl)
 WERKZEUG_ARCHIVE=$(shell ls Werkzeug-*.whl)
 JINJA2_ARCHIVE=$(shell ls Jinja2-*.whl)
-ITSDANGEROUS_ARCHIVE=$(shell ls itsdangerous-*.whl)
 CLICK_ARCHIVE=$(shell ls click-*.whl)
 
-DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE) $(DIST_DIR)/$(WERKZEUG_ARCHIVE) $(DIST_DIR)/$(JINJA2_ARCHIVE) \
-              $(DIST_DIR)/$(ITSDANGEROUS_ARCHIVE) $(DIST_DIR)/$(CLICK_ARCHIVE)
+DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE) \
+              $(DIST_DIR)/$(WERKZEUG_ARCHIVE) \
+              $(DIST_DIR)/$(JINJA2_ARCHIVE) \
+              $(DIST_DIR)/$(CLICK_ARCHIVE)
 
 ifeq ($(shell uname -s),SunOS)
   SETUP_ENV=PYCC_CC=gcc
@@ -168,6 +173,10 @@ $(DIST_DIR)/$(MARKUPSAFE_EGG): $(MARKUPSAFE_ARCHIVE)
 	$(TAR) xzvf $< -C $(BUILDDIR)
 	cd $(BUILDDIR)/$(MARKUPSAFE_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
+$(DIST_DIR)/$(ITSDANGEROUS_EGG): $(ITSDANGEROUS_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(ITSDANGEROUS_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
 $(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
 	cp $< $(DIST_DIR)
 
@@ -175,9 +184,6 @@ $(DIST_DIR)/$(WERKZEUG_ARCHIVE): $(WERKZEUG_ARCHIVE)
 	cp $< $(DIST_DIR)
 
 $(DIST_DIR)/$(JINJA2_ARCHIVE): $(JINJA2_ARCHIVE)
-	cp $< $(DIST_DIR)
-
-$(DIST_DIR)/$(ITSDANGEROUS_ARCHIVE): $(ITSDANGEROUS_ARCHIVE)
 	cp $< $(DIST_DIR)
 
 $(DIST_DIR)/$(CLICK_ARCHIVE): $(CLICK_ARCHIVE)
