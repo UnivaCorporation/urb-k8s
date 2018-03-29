@@ -1,3 +1,20 @@
+#!/usr/bin/env python
+
+# Copyright 2018 Univa Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import json
 import datetime
 import time
@@ -32,13 +49,14 @@ class Test(object):
     def __init__(self, url="http://127.0.0.1:5050"):
         logging.basicConfig()
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
         self.launched_tasks = 0
         self.running_tasks = 0
         self.finished_tasks = 0
         self.killed_tasks = 0
         self.lost_tasks = []
         #signal.signal(signal.SIGINT, signal.SIG_IGN)
-        logging.getLogger('mesoshttp').setLevel(logging.INFO)
+        logging.getLogger('mesoshttp').setLevel(logging.DEBUG)
         self.driver = None
         self.client = MesosClient(mesos_urls=[url], frameworkId=None, frameworkName='Python HTTP framework', frameworkUser=getpass.getuser())
         self.client.on(MesosClient.SUBSCRIBED, self.subscribed)
@@ -67,27 +85,24 @@ class Test(object):
         self.driver = driver
 
     def status_update(self, update):
-        if update['status']['state'] == 'TASK_RUNNING':
+        status = update['status']['state']
+        task = update['status']['task_id']['value']
+        self.logger.info("Task %s: %s" % (task, status))
+        if status == 'TASK_RUNNING':
             self.running_tasks+=1
-            self.logger.info("Task %s (%d/%d/%d): TASK_RUNNING" % (update['status']['task_id']['value'], self.launched_tasks, self.running_tasks, max_tasks))
-            if self.running_tasks%2:
-                self.logger.info("Killing task: %s" % update['status']['task_id']['value'])
-                self.driver.kill(update['status']['agent_id']['value'], update['status']['task_id']['value'])
-        elif update['status']['state'] == 'TASK_FINISHED':
-            self.logger.info("Task %s (%d/%d/%d): TASK_FINISHED" % (update['status']['task_id']['value'], self.launched_tasks, self.finished_tasks, max_tasks))
+            if not self.running_tasks%3:
+                self.logger.info("Killing task: %s" % task)
+                self.driver.kill(update['status']['agent_id']['value'], task)
+        elif status == 'TASK_FINISHED':
             self.finished_tasks+=1
             if self.finished_tasks >= max_tasks:
                 self.logger.info("All %d tasks finished, shutdown now" % self.finished_tasks)
                 self.shutdown()
-        elif update['status']['state'] == 'TASK_KILLED':
-            self.logger.info("Task %s: TASK_KILLED" % update['status']['task_id']['value'])
-        elif update['status']['state'] == 'TASK_FAILED':
-            self.logger.info("Task %s: TASK_FAILED" % update['status']['task_id']['value'])
-        elif update['status']['state'] == 'TASK_LOST':
-            self.logger.info("Task %s: TASK_LOST" % update['status']['task_id']['value'])
-            self.lost_tasks.append(update['status']['task_id']['value'])
+        elif status == 'TASK_LOST':
+            self.lost_tasks.append(task)
         else:
             self.logger.info("Status update: %s" % update['status']['state'])
+        self.logger.info("(l%d/f%d/r%d/m%d)" % (self.launched_tasks, self.finished_tasks, self.running_tasks, max_tasks))
 
     def offer_received(self, offers):
         self.logger.info('OFFER: %s' % (str(offers)))
@@ -108,7 +123,7 @@ class Test(object):
 #    def run_job(self, mesos_offer, task_name = uuid.uuid4().hex):
     def run_job(self, mesos_offer, task_name):
         offer = mesos_offer.get_offer()
-        cmd = "sleep 3" if self.launched_tasks%3 else 'sleep 2; exit 1'
+        cmd = "sleep 3" if self.launched_tasks%4 else 'sleep 2; exit 1'
 #        print(str(offer))
         task = {
             'name': 'sample test',
@@ -118,12 +133,12 @@ class Test(object):
             {
                 'name': 'cpus',
                 'type': 'SCALAR',
-                'scalar': {'value': 1}
+                'scalar': {'value': 0.1}
             },
             {
                 'name': 'mem',
                 'type': 'SCALAR',
-                'scalar': {'value': 1000}
+                'scalar': {'value': 100}
             }
             ],
             'command': {'value': cmd},

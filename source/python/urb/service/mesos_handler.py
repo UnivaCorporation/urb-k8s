@@ -873,7 +873,7 @@ class MesosHandler(MessageHandler):
                     'message' : message
                 }
                 offer_event = framework.get('offer_event')
-                self.logger.debug("Setting AsyncResult: %s" % repr(offer_event))
+                self.logger.debug("Setting framework AsyncResult: %s" % repr(offer_event))
                 offer_event.set(http_resp)
                 gevent.sleep(0)
             else:
@@ -967,17 +967,26 @@ class MesosHandler(MessageHandler):
             self.send_status_update(channel, framework, status_update)
             # Scheduler gets the task update, send shutdown to the executor
             slave_dict = framework.get('slave_dict',{})
+            self.logger.trace("slave_dict=%s" % slave_dict)
             if slave_id:
                 slave = slave_dict.get(slave_id['value'])
+                if not slave:
+                    if slave_id['value'].startswith("place-holder"):
+                        self.logger.trace("placeholder_to_slave=%s" % framework.get('placeholder_to_slave'))
+                        slave_val = framework.get('placeholder_to_slave',{}).get(slave_id['value'])
+                        if slave_val:
+                            slave = slave_dict.get(slave_val)
                 if slave:
                     if not slave.get('is_command_executor', False):
                         self.__credit_resources(slave, task['task_info'])
                     if not self.send_kill_task(framework_id, slave, task_id, http):
                         self.retry_manager.retry(request)
                 else:
-                    self.logger.warn("Shutdown on task [%s] without a slave [%s] in slave dict" % (task_name, slave_id['value']))
+                    self.logger.warn("Cannot send kill task on task [%s] without a slave [%s] in slave dict or placehoder dict" %
+                                     (task_name, slave_id['value']))
             else:
-                self.logger.warn("Shutdown on task [%s] without a slave in task dict: task_info=%s" % (task_name, task['task_info']))
+                self.logger.warn("Cannot send kill task on task [%s] without a slave in task dict: task_info=%s" %
+                                 (task_name, task['task_info']))
             #slave['offerable'] = True
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
@@ -2330,7 +2339,23 @@ class MesosHandler(MessageHandler):
                     slave_id_value = framework.get('placeholder_to_slave',{}).get(slave_id_value)
                 slave = framework.get('slave_dict',{}).get(slave_id_value)
                 if slave:
-                    if http:
+                    executor_channel = None
+                    if slave.get('is_command_executor', False):
+                        task_name = message['task_id']['value']
+                        if task_name in slave['command_executors']:
+                            executor_channel = slave['command_executors'][task_name].get('channel')
+                        else:
+                            self.logger.error('Command executor not found for task %s' % task_name)
+                    else:
+                        executor_channel = slave.get('executor_channel')
+                    # Forward the ack to the executor
+                    if executor_channel:
+                        m = StatusUpdateAcknowledgementMessage(self.channel.name, message)
+                        self.logger.debug('Sending status acknowledgement message via channel %s: %s' %
+                                        (executor_channel.name, m))
+                        executor_channel.write(m.to_json())
+                    # check if it is http executor
+                    elif 'async_result' in slave:
                         ack_event = {
                             'type' : 'ACKNOWLEDGED',
                             'acknowledged' : {
@@ -2341,23 +2366,7 @@ class MesosHandler(MessageHandler):
                         self.logger.debug("HTTP: acknowledgement to executor, before set event")
                         slave['async_result'].set(ack_event)
                     else:
-                        executor_channel = None
-                        if slave.get('is_command_executor', False):
-                            task_name = message['task_id']['value']
-                            if task_name in slave['command_executors']:
-                                executor_channel = slave['command_executors'][task_name].get('channel')
-                            else:
-                                self.logger.error('Command executor not found for task %s' % task_name)
-                        else:
-                            executor_channel = slave.get('executor_channel')
-                        # Forward the ack to the executor
-                        if executor_channel:
-                            m = StatusUpdateAcknowledgementMessage(self.channel.name, message)
-                            self.logger.debug('Sending status acknowledgement message via channel %s: %s' %
-                                            (executor_channel.name, m))
-                            executor_channel.write(m.to_json())
-                        else:
-                            self.logger.warn('Not sending status acknowledgement message: no channel')
+                        self.logger.error('Cannot send status acknowledgement message: no channel, no async_result')
                 else:
                     self.logger.warn("Not sending status acknowledgement message: no slave for slave id: %s" % slave_id_value)
             else:
@@ -2458,18 +2467,17 @@ class MesosHandler(MessageHandler):
                     self.logger.debug("Adding task %s for deletion from dictionary" % task_id['value'])
                     self.__add_delete_element(task_dict, task_id['value'])
             else:
-                # just redirect status update to framework
-                self.send_status_update(framework.get('channel_name'), framework, update)
                 self.logger.warn("No slave id information in both update: %s and task_info of task_dict: %s" %
                                  (update, task['task_info']))
-                return True
+                # just redirect status update to framework
+                self.send_status_update(framework.get('channel_name'), framework, update)
         else:
             # just redirect status update to framework
+            self.logger.debug('Task %s already not in task_dict' % task_id['value'])
             self.send_status_update(framework.get('channel_name'), framework, update)
-            self.logger.warn('Unable to update status on unknown task: %s' % task_id['value'])
             #self.logger.trace("task_dict=%s" % task_dict)
             # We should retry
-            return True
+            #return True
         return False
 
     def http_teardown(self, framework_id):
@@ -2892,8 +2900,7 @@ class MesosHandler(MessageHandler):
     def send_status_update(self, channel_name, framework, update):
         self.logger.trace("send_status_update: channel_name=%s, framework=%s" % (channel_name, framework))
         self.logger.debug("send_status_update: update=%s" % update)
-        response = StatusUpdateMessage(self.channel.name,
-                     {"update":update} )
+        response = StatusUpdateMessage(self.channel.name, {"update" : update} )
 
         http = True if framework['channel_name'] == "http" else False
         if http:
@@ -2903,10 +2910,12 @@ class MesosHandler(MessageHandler):
                 status['agent_id'] = status['slave_id']
                 del status['slave_id']
             self.logger.debug("HTTP: Sending status: %s" % status)
-            http_resp = {'type' : 'UPDATE',
-                         'update' : { 'status' : status} }
+            http_resp = {
+                'type' : 'UPDATE',
+                'update' : { 'status' : status}
+            }
             offer_event = framework.get('offer_event')
-            self.logger.debug("Setting AsyncResult: %s" % repr(offer_event))
+            self.logger.debug("Setting framework AsyncResult: %s" % repr(offer_event))
             offer_event.set(http_resp)
             gevent.sleep(0)
         else:
@@ -2993,7 +3002,7 @@ class MesosHandler(MessageHandler):
             }
             ar = slave.get('async_result')
             if ar:
-                self.logger.debug("HTTP: Setting AsyncResult: %s" % repr(ar))
+                self.logger.debug("HTTP: Setting slave AsyncResult: %s" % repr(ar))
                 ar.set(http_shutdown)
             else:
                 self.logger.warn("HTTP: No executor channels to send message to. Shutdown executor runner instead.")
@@ -3155,7 +3164,7 @@ class MesosHandler(MessageHandler):
             http_resp = {'type' : 'RESCIND',
                          'rescind' : offer_id}
             offer_event = framework.get('offer_event')
-            self.logger.debug("Setting AsyncResult: %s" % repr(offer_event))
+            self.logger.debug("Setting framework AsyncResult: %s" % repr(offer_event))
             offer_event.set(http_resp)
         else:
             # Need to get the scheduler channel
@@ -3166,7 +3175,28 @@ class MesosHandler(MessageHandler):
             scheduler_channel.write(response.to_json())
 
     def send_kill_task(self, framework_id, slave, task_id, http = False):
-        if http:
+        self.logger.debug("send_kill_task: task=%s, slave=%s" % (task_id, slave))
+        if slave.get('is_command_executor', False):
+            executor = slave['command_executors'].get(task_id['value'])
+            if executor:
+                executor_channel = executor.get('channel')
+            else:
+                self.logger.error("Cannot find command executor info in slave for task %s" % task_id['value'])
+                self.logger.debug("Slave: %s" % slave)
+        else:
+            executor_channel = slave.get('executor_channel')
+
+        if executor_channel:
+            message = {
+                'framework_id' : framework_id,
+                'task_id' : task_id
+            }
+            response = KillTaskMessage(self.channel.name, message)
+            self.logger.debug('Sending kill task message via channel %s: %s' % (executor_channel.name, response))
+            executor_channel.write(response.to_json())
+            return True
+        # check for http executor
+        elif 'async_result' in slave:
             kill_event = {
                 'type' : 'KILL',
                 'kill' : {
@@ -3177,28 +3207,8 @@ class MesosHandler(MessageHandler):
             slave['async_result'].set(kill_event)
             return True
         else:
-            message = {}
-            message['framework_id'] = framework_id
-            message['task_id'] = task_id
-            response = KillTaskMessage(self.channel.name, message)
-    #        self.logger.debug("send_kill_task: task=%s, slave=%s" % (task_id, slave))
-            if slave.get('is_command_executor', False):
-                executor = slave['command_executors'].get(task_id['value'])
-                if executor:
-                    executor_channel = executor.get('channel')
-                else:
-                    self.logger.error("Cannot find command executor info in slave for task %s" % task_id['value'])
-                    self.logger.debug("Slave: %s" % slave)
-            else:
-                executor_channel = slave.get('executor_channel')
-
-            if executor_channel:
-                self.logger.debug('Sending kill task message via channel %s: %s' % (executor_channel.name, response))
-                executor_channel.write(response.to_json())
-                return True
-            else:
-                self.logger.warn('Unable to send kill task on unknown executor')
-                return False
+            self.logger.error('Unable to send kill task: unknown executor')
+            return False
 
     def scrub_framework_name(self, framework_name):
         scrubbed_framework_name = re.sub('[\s|(|)|(:)|(,)|(.)|(^)|($)|(+)|(?)|(\{)|(\})|(\[)|(\])|(\\)|(\()|(\))]+', '',

@@ -224,7 +224,7 @@ class ExecutorHandler(MessageHandler):
             executor_tracker = ExecutorTracker.get_instance()
             executor = executor_tracker.get(executor_id_value)
             if executor is not None:
-                self.logger.warn('Executor %s is already running'  % executor_id_value)
+                self.logger.debug('Executor %s is already running'  % executor_id_value)
                 return None, None
 
             executor_command = e.get('command')
