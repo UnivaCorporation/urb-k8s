@@ -716,10 +716,10 @@ class MesosHandler(MessageHandler):
                 next_offer_time = framework.get('__next_offer_time',0)
                 if current_time < next_offer_time:
                     time_to_wait = next_offer_time - current_time
-                    self.logger.debug("HTTP event loop: accelerated offer: next_offer_time=%d" % next_offer_time)
+                    self.logger.debug("HTTP framework event loop: accelerated offer: next_offer_time=%d" % next_offer_time)
                 else:
                     time_to_wait = framework['config']['offer_period']
-                self.logger.debug("HTTP event loop: current_time=%d, last_offer_time=%d, since_last_offer=%d, time_to_wait=%d" %
+                self.logger.debug("HTTP framework event loop: current_time=%d, last_offer_time=%d, since_last_offer=%d, time_to_wait=%d" %
                                   (current_time, last_offer_time, since_last_offer, time_to_wait))
                 framework['__next_offer_time'] = 0
 
@@ -1006,7 +1006,7 @@ class MesosHandler(MessageHandler):
             # Aurora framework complains of illegal state transition LOST->KILLED
             # when status update sent on a kill for the task which is already lost
             # on the other hand Marathon gets stuck if status update is not sent here
-            if False:
+            if True:
                 self.logger.warn('Not sending status update on request to kill unknown task')
             else:
                 self.logger.warn('Sending status update on request to kill unknown task')
