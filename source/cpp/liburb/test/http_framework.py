@@ -55,6 +55,7 @@ class Test(object):
         self.finished_tasks = 0
         self.killed_tasks = 0
         self.lost_tasks = []
+#        self.failed_tasks = []
         #signal.signal(signal.SIGINT, signal.SIG_IGN)
         logging.getLogger('mesoshttp').setLevel(logging.DEBUG)
         self.driver = None
@@ -91,6 +92,7 @@ class Test(object):
         if status == 'TASK_RUNNING':
             self.running_tasks+=1
             if not self.running_tasks%3:
+#            if not self.running_tasks%3 and task not in self.failed_tasks:
                 self.logger.info("Killing task: %s" % task)
                 self.driver.kill(update['status']['agent_id']['value'], task)
         elif status == 'TASK_FINISHED':
@@ -99,7 +101,13 @@ class Test(object):
                 self.logger.info("All %d tasks finished, shutdown now" % self.finished_tasks)
                 self.shutdown()
         elif status == 'TASK_LOST':
-            self.lost_tasks.append(task)
+#            self.lost_tasks.append(task)
+            self.logger.info("Reconcile on lost task")
+            self.driver.reconcile([])
+        elif status == 'TASK_FAILED':
+            self.failed_tasks.append(task)
+            self.logger.info("Reconcile on failed task")
+            self.driver.reconcile([])
         else:
             self.logger.info("Status update: %s" % update['status']['state'])
         self.logger.info("(l%d/f%d/r%d/m%d)" % (self.launched_tasks, self.finished_tasks, self.running_tasks, max_tasks))
