@@ -3176,6 +3176,7 @@ class MesosHandler(MessageHandler):
 
     def send_kill_task(self, framework_id, slave, task_id, http = False):
         self.logger.debug("send_kill_task: task=%s, slave=%s" % (task_id, slave))
+        executor_channel = None
         if slave.get('is_command_executor', False):
             executor = slave['command_executors'].get(task_id['value'])
             if executor:
