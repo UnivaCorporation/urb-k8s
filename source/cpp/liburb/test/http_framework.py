@@ -101,11 +101,11 @@ class Test(object):
                 self.logger.info("All %d tasks finished, shutdown now" % self.finished_tasks)
                 self.shutdown()
         elif status == 'TASK_LOST':
-#            self.lost_tasks.append(task)
+            self.lost_tasks.append(task)
             self.logger.info("Reconcile on lost task")
             self.driver.reconcile([])
         elif status == 'TASK_FAILED':
-            self.failed_tasks.append(task)
+#            self.failed_tasks.append(task)
             self.logger.info("Reconcile on failed task")
             self.driver.reconcile([])
         else:
