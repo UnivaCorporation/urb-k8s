@@ -150,7 +150,7 @@ class FrameworkDBInterface(object):
             task_summary['stopped'] = task.get('end_time', '')
 
             task_state = task.get('state', '')
-            if framework_finished:
+            if framework_finished and task_state == "":
                 task_summary['state'] = 'TASK_FINISHED'
             else:
                 task_summary['state'] = task_state
