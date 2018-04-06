@@ -9,8 +9,8 @@ both a resource requesting and resource providing pluggable interface giving the
 distrubted resource API's to a single resource provider.  Universal Resource Broker is an enterprise ready application
 engine for your datacenter.
 
-Presently URB supports an Apache Mesos API compatible resource requesting plugin as well as a Univa Grid
-Engine and localhost backend.  A Kubernetes backend is actively being developed.
+Presently URB supports an Native and HTTP Apache Mesos API compatible resource requesting plugin as well as a Univa Grid
+Engine, Kubernetes and localhost backend.
 
 This project includes Universal Resource Broker core components only. For the Universal Resource Broker to be
 fully functioning the scheduler back end adapter has to be implemented in Python, based on interface located in
@@ -47,7 +47,7 @@ The URB system is designed around a three key requirements:
 
 These requirements are implemented through the following components:
 
-- The URB Service responsible for managing the lifecycle of all Frameworks and interfacing with pluggable scheduler
+- The URB Service responsible for managing the lifecycle of all Frameworks, handling Mesos Native and v1 HTTP API and interfacing with pluggable scheduler
 - The URB C++ shared library linked by all Frameworks in order to access the URB Service
     - Standard library implementing published interface
     - Extended library implementing all Apache Mesos binary symbols (not built by default, requires prebuilt Mesos binaries)
