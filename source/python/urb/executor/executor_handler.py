@@ -118,6 +118,8 @@ class ExecutorHandler(MessageHandler):
 
     def __sig_child_handler(self, signum, frame):
         # Our child exits with sig 9 when all is good... so map that to 0
+        ret = 0
+        pid = None
         try:
             status = None
             sig = None
@@ -171,7 +173,7 @@ class ExecutorHandler(MessageHandler):
         except Exception, ex:
             self.logger.error("Error waiting for child process: %s" % ex)
             if len(self.executor_pids) <= 1:
-                self.logger.warn("No more child processes, exit with success: pids=%s, pid=%s, ret=%s" % (self.executor_pids, pid, ret))
+                self.logger.warn("No more child processes, exit with success: pids=%s, last pid=%s, ret=%s" % (self.executor_pids, pid, ret))
                 sys.exit(0)
             else:
                 self.logger.info("Children left: %s" % self.executor_pids)
