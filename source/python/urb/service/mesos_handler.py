@@ -980,7 +980,7 @@ class MesosHandler(MessageHandler):
                     if not slave.get('is_command_executor', False):
                         self.__credit_resources(slave, task['task_info'])
                     if not self.send_kill_task(framework_id, slave, task_id, http):
-                        self.retry_manager.retry(request)
+                        return False
                 else:
                     self.logger.warn("Cannot send kill task on task [%s] without a slave [%s] in slave dict or placehoder dict" %
                                      (task_name, slave_id['value']))
@@ -1014,7 +1014,8 @@ class MesosHandler(MessageHandler):
                 channel = framework['channel_name']
                 self.send_status_update(channel, framework, status_update)
                 # We are going to retry to see if we can actually kill this task if it comes back
-                self.retry_manager.retry(request)
+                return False
+        return True
 
     def kill_task(self, request):
         self.logger.info('Kill task: %s' % request)
@@ -1033,7 +1034,8 @@ class MesosHandler(MessageHandler):
 
         # Acquire framework lock
         self.__acquire_framework_lock(framework)
-        self.__kill_task(message['task_id'], framework_id, framework, http)
+        if not self.__kill_task(message['task_id'], framework_id, framework, http):
+            self.retry_manager.retry(request)
         return framework, None
 
     def __process_remaining_offers(self, framework, remaining_offers, filters):
