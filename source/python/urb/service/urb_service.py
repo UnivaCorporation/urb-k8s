@@ -33,6 +33,7 @@ from urb.config.config_manager import ConfigManager
 from urb.log.log_manager import LogManager
 from urb.service.master_elector import MasterElector
 from urb.messaging.channel_factory import ChannelFactory
+from urb.messaging.channel import Channel
 
 class URBService:
     """ URB service class. """
@@ -147,6 +148,7 @@ class URBService:
             print >>sys.stderr, 'Service exiting after unexpected error: %s ' \
                 % (ex) 
             self.remove_pid_file(pid_file_name)
+        self.logger.info("URB service exited\n\n\n")
 
 
     def start_daemon_process(self, pid_file_name):
@@ -208,6 +210,7 @@ class URBService:
         self.logger.info('Serving requests')
         while True:
             if self.shutdown:
+                self.logger.debug("Shutdown flag was set")
                 break
             if end_time is not None:
                 now = time.time()
@@ -218,7 +221,7 @@ class URBService:
             self.shutdown_event.wait(wait_time)
             #gevent.sleep(URBService.GREENLET_SLEEP_PERIOD_IN_SECONDS)
         master_elector.stop()
-        self.logger.info('Service exiting\n\n')
+        self.logger.info('Serving done')
 
     def serve_forever(self):
         self.serve()
@@ -238,6 +241,7 @@ class URBService:
     def shutdown_callback(self, request=None):
         self.logger.info('Service shutting down')
         self.demoted_callback()
+        gevent.sleep(Channel.MESSAGE_WAIT_PERIOD_IN_SECONDS)
         self.shutdown = True
         self.shutdown_event.set()
 #        self.demoted_callback()
