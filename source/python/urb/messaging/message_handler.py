@@ -145,6 +145,7 @@ class MessageHandler:
             
         except Exception, ex:
             self.logger.error('Wrong json format for message: %s' % message[1])
+            self.logger.error("Whole wrong message: %s" % message)
             self.logger.exception(ex)
 
     def elected_master_callback(self):
