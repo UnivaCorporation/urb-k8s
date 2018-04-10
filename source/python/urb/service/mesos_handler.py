@@ -2440,13 +2440,17 @@ class MesosHandler(MessageHandler):
                 update['status'][slave_id_nm] = slave_id
                 self.send_status_update(framework.get('channel_name'), framework, update)
                 slave = framework['slave_dict'].get(slave_id['value'])
+                self.logger.debug("slave: %s" % slave)
                 if slave and (state == "TASK_FINISHED" or state == 'TASK_FAILED'):
                     if not slave.get('is_command_executor', False):
                         self.__credit_resources(slave, task['task_info'])
                         #slave['offerable'] = True #ST consider to uncomment
                         offer_event = framework.get('offer_event')
-                        self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
-                        offer_event.set()
+                        if offer_event:
+                            self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
+                            offer_event.set()
+                        else:
+                            self.logger.warn("Handling status update: no offer_event, update=%s, framework=%s" % (update, framework))
                     else:
                         # Delete slave if no more running tasks
                         executor_channel = slave['command_executors'][task_id['value']]['channel']
