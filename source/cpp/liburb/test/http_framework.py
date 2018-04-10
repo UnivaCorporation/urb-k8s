@@ -134,7 +134,7 @@ class Test(object):
         cmd = "sleep 3" if self.launched_tasks%4 else 'sleep 2; exit 1'
 #        print(str(offer))
         task = {
-            'name': 'sample test',
+            'name': 'sample http task',
             'task_id': {'value': task_name},
             'agent_id': {'value': offer['agent_id']['value']},
             'resources': [
