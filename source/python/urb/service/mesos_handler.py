@@ -2450,7 +2450,7 @@ class MesosHandler(MessageHandler):
                             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
                             offer_event.set()
                         else:
-                            self.logger.warn("Handling status update: no offer_event, update=%s, framework=%s" % (update, framework))
+                            self.logger.error("Handling status update: no offer_event, update=%s, framework=%s" % (update, framework))
                     else:
                         # Delete slave if no more running tasks
                         executor_channel = slave['command_executors'][task_id['value']]['channel']
@@ -2921,9 +2921,12 @@ class MesosHandler(MessageHandler):
                 'update' : { 'status' : status}
             }
             offer_event = framework.get('offer_event')
-            self.logger.debug("Setting framework AsyncResult: %s" % repr(offer_event))
-            offer_event.set(http_resp)
-            gevent.sleep(0)
+            if offer_event:
+                self.logger.debug("Setting framework AsyncResult: %s" % repr(offer_event))
+                offer_event.set(http_resp)
+                gevent.sleep(0)
+            else:
+                self.logger.error("Sending status update to http framework: no offer_event, update=%s, framework=%s" % (update, framework))
         else:
             # Forward this to the framework...
             cf = ChannelFactory.get_instance()
