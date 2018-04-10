@@ -23,6 +23,7 @@ import sys
 import signal
 import time
 import gevent
+#import gc
 from gevent import event
 from exceptions import KeyboardInterrupt
 
@@ -69,7 +70,7 @@ class URBService:
 
         # Logger
         self.logger = LogManager.get_instance().get_logger('URBService')
-
+        self.logger.info("Starting URB service")
         # Configuration
         self.configure()
 
@@ -221,6 +222,7 @@ class URBService:
             self.shutdown_event.wait(wait_time)
             #gevent.sleep(URBService.GREENLET_SLEEP_PERIOD_IN_SECONDS)
         master_elector.stop()
+#        gevent.killall([obj for obj in gc.get_objects() if isinstance(obj, gevent.Greenlet)])
         self.logger.info('Serving done')
 
     def serve_forever(self):

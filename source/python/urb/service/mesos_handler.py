@@ -1498,7 +1498,7 @@ class MesosHandler(MessageHandler):
                                                   (job_id, slave_id['value'], ex))
                         else:
                             job_status = "TASK_LOST"
-                            self.logger.error("Reconcile: cannot get job id form slave id: %s, set task status to %s" % \
+                            self.logger.warn("Reconcile: cannot get job id form slave id: %s, set task status to %s" % \
                                               (slave_id['value'], job_status))
 
                     else:
