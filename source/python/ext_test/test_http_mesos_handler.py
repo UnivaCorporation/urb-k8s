@@ -221,7 +221,6 @@ class Test(object):
 URB_TEST = Test(URL)
 
 @needs_setup
-@need_python_27
 def test_setup():
     print 'HTTP Test Starting service thread'
     SERVICE_THREAD.start()
@@ -290,8 +289,8 @@ def test_kill_long_task():
 
 @needs_cleanup
 @need_python_27
-def test_cleanup():
-    print("HTTP Test cleanup")
+def test_cleanup_framework():
+    print("HTTP Test framework cleanup")
     URB_TEST.shutdown()
     print("Sent shutdown test framework")
     for i in range(10):
@@ -299,6 +298,11 @@ def test_cleanup():
             break
         gevent.sleep(2)
         print("waiting for framework shutdown... %d" % i)
+    print("HTTP Test framework cleanup, done")
+
+@needs_cleanup
+def test_cleanup_service():
+    print("HTTP Test service cleanup")
     # Try and signal a shutdown but just wait for the timeout if it fails
     try:
         from urb.service.urb_service_controller import URBServiceController
@@ -311,7 +315,7 @@ def test_cleanup():
         pass
     print("Joining service thread")
     SERVICE_THREAD.join()
-    print("HTTP Test cleanup, done")
+    print("HTTP Test service cleanup, done")
 
 
 # Testing
