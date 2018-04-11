@@ -685,7 +685,7 @@ class MesosHandler(MessageHandler):
                 if framework is None:
                     if self.framework_db_interface is not None and self.framework_db_interface.is_active():
                         self.framework_db_interface.set_framework_summary_status_inactive(framework_id['value'])
-                    self.logger.info("Framework id %s is not active, exiting offer loop" % framework_id['value'])
+                    self.logger.info("HTTP: Framework id %s is not active, exiting offer loop" % framework_id['value'])
                     break
 
                 if not self.__master_broker:
@@ -696,7 +696,7 @@ class MesosHandler(MessageHandler):
                         self.logger.debug("Deleting offer event: %s" % framework['offer_event'])
                         del framework['offer_event']
                     break
-                self.logger.debug("In offer loop for framework %s with offer event %s" % (framework_id['value'], repr(framework['offer_event'])))
+                self.logger.debug("HTTP: In offer loop for framework %s with offer event %s" % (framework_id['value'], repr(framework['offer_event'])))
 
                 last_offer_time = framework.get("__last_offer_time", 0)
                 current_time = time.time()
@@ -704,7 +704,7 @@ class MesosHandler(MessageHandler):
 
                 # Acquire framework lock
 #                self.__acquire_framework_lock(framework)
-                self.logger.debug("Renew scheduler AsyncResult, old=%s" % repr(framework['offer_event']))
+                self.logger.debug("HTTP: Renew scheduler AsyncResult, old=%s" % repr(framework['offer_event']))
                 if 'offer_event' in framework:
                     del framework['offer_event']
                 framework['offer_event'] = gevent.event.AsyncResult()
@@ -746,13 +746,13 @@ class MesosHandler(MessageHandler):
                             self.logger.debug("Skip empty offers")
                     framework['__last_offer_time'] = current_time
                 except Exception as e:
-                    self.logger.error("Offers not generated: %s" % e)
+                    self.logger.error("HTTP: Offers not generated: %s" % e)
                 finally:
                     # Release lock
-                    self.logger.debug("In finally before release lock")
+                    self.logger.debug("HTTP: In finally before release lock")
                     self.__release_framework_lock(framework)
 
-                self.logger.debug("Waiting for event %s, framework id %s for max %s sec" % (repr(framework['offer_event']), framework_id['value'], time_to_wait))
+                self.logger.debug("HTTP: Waiting for event %s, framework id %s for max %s sec" % (repr(framework['offer_event']), framework_id['value'], time_to_wait))
                 framework['offer_event'].wait(time_to_wait)
                 data = framework['offer_event'].value
                 self.logger.debug("event: %s, event data=%s" % (repr(framework['offer_event']), data))
@@ -767,9 +767,9 @@ class MesosHandler(MessageHandler):
 #                self.__release_framework_lock(framework)
 #                self.logger.debug("New scheduler AsyncResult=%s" % repr(framework['offer_event']))
             except Exception, ex:
-                self.logger.error("Exception in offer loop for framework id %s" % framework_id['value'])
+                self.logger.error("HTTP: Exception in offer loop for framework id %s" % framework_id['value'])
                 self.logger.exception(ex)
-        self.logger.info("Exiting offer loop for framework id %s" % framework_id['value'])
+        self.logger.info("HTTP: Exiting offer loop for framework id %s" % framework_id['value'])
 
 
     def authenticate(self, request):
@@ -2450,7 +2450,8 @@ class MesosHandler(MessageHandler):
                             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
                             offer_event.set()
                         else:
-                            self.logger.error("Handling status update: no offer_event, update=%s, framework=%s" % (update, framework))
+                            self.logger.error("Handling status update: no offer_event, update=%s" % update)
+                            self.logger.debug("Handling status update: no offer_event, framework=%s" % framework)
                     else:
                         # Delete slave if no more running tasks
                         executor_channel = slave['command_executors'][task_id['value']]['channel']
@@ -2904,8 +2905,8 @@ class MesosHandler(MessageHandler):
         scheduler_channel.write(message.to_json())
 
     def send_status_update(self, channel_name, framework, update):
-        self.logger.trace("send_status_update: channel_name=%s, framework=%s" % (channel_name, framework))
-        self.logger.debug("send_status_update: update=%s" % update)
+        self.logger.trace("send_status_update: framework=%s" % framework)
+        self.logger.debug("send_status_update: channel_name=%s, update=%s" % (channel_name, update))
         response = StatusUpdateMessage(self.channel.name, {"update" : update} )
 
         http = True if framework['channel_name'] == "http" else False

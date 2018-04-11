@@ -243,6 +243,7 @@ class URBService:
     def shutdown_callback(self, request=None):
         self.logger.info('Service shutting down')
         self.demoted_callback()
+        # wailt for all channel loops to exit
         gevent.sleep(Channel.MESSAGE_WAIT_PERIOD_IN_SECONDS)
         self.shutdown = True
         self.shutdown_event.set()
