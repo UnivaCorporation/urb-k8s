@@ -39,7 +39,7 @@ def test_ping():
     service_thread = create_service_thread(serve_time=3)
     print 'Starting service thread'
     service_thread.start()
-    gevent.sleep(1)
+    gevent.sleep(2)
     print 'Creating service and client channels'
     channel_factory = ChannelFactory.get_instance()
     service_channel = channel_factory.create_channel('urb.service.monitor')
