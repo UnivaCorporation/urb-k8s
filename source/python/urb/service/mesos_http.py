@@ -19,6 +19,7 @@ from flask import Flask, request, Response, stream_with_context
 from gevent.wsgi import WSGIServer
 import gevent
 import json
+import six
 from google.protobuf import json_format
 from google.protobuf import descriptor_pb2
 from google.protobuf import descriptor
@@ -279,6 +280,16 @@ def scheduler():
                 if content['accept'].get('operations') and len(content['accept']['operations']) > 0:
                     for operation in content['accept']['operations']:
                         if operation['type'] == 'LAUNCH':
+                            # convert ranges to integers if necessary
+                            for task in operation['launch'].get('task_infos', []):
+                                for resource in task.get('resources', []):
+                                    for port_range in resource.get('ranges', {}).get('range', []):
+                                        b = port_range['begin']
+                                        if isinstance(b, six.string_types):
+                                            port_range['begin'] = int(b)
+                                        e = port_range['end']
+                                        if isinstance(e, six.string_types):
+                                            port_range['end'] = int(e)
                             mesos_handler.http_accept_launch(framework_id, offer_ids, filters, operation['launch'])
                         else:
                             msg = "ACCEPT: operation type %s is not supported" % content['accept']['operations']['type']

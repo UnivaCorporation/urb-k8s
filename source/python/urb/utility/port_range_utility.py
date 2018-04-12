@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import six
 from choppyrange import ChoppyRange
 
 class PortRangeUtility:
@@ -28,9 +28,14 @@ class PortRangeUtility:
 #        resource_ports['type'] = "RANGES"
 #        resource_ports['role'] = "*"
 
+    # if range comes as a string convert it to integer
     @classmethod
     def to_choppy_range_tuple(cls, port_range_dict):
-        return (port_range_dict['begin'], port_range_dict['end'], 1)
+        b = port_range_dict['begin']
+        b_int = int(b) if isinstance(b, six.string_types) else b
+        e = port_range_dict['end']
+        e_int = int(b) if isinstance(e, six.string_types) else e
+        return (e_int, e_int, 1)
             
     @classmethod
     def to_port_range(cls, choppy_range_tuple):
