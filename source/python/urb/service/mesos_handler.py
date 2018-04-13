@@ -1175,7 +1175,7 @@ class MesosHandler(MessageHandler):
                 'framework_id' : framework_id,
                 'offer_ids' : offer_ids,
                 'filters' : filters,
-                'tasks' : launch['task_infos']
+                'tasks' : launch.get('task_infos', [])
              }
         }
         request = {
@@ -1370,8 +1370,6 @@ class MesosHandler(MessageHandler):
         self.adapter.launch_tasks(self, framework_id, tasks) # dummy method
         self.logger.trace("launch_tasks: end")
         return framework, None
-#        if http:
-#            self.__release_framework_lock(framework)
 
     def http_reconcile(self, framework_id, tasks):
         payload = {
@@ -2332,7 +2330,7 @@ class MesosHandler(MessageHandler):
 
         # Some frameworks (Marathon, Jenkins) do not set an appropriate slave id...
         if framework:
-            self.logger.debug("Current framework: %s" % framework)
+            self.logger.trace("Current framework: %s" % framework)
             if slave_id:
                 slave_id_value = slave_id['value']
                 if slave_id_value.startswith("place-holder"):
@@ -3455,7 +3453,7 @@ class MesosHandler(MessageHandler):
         if not framework:
             self.logger.error("No framework with id: %s" % framework_id_value)
             return {}, {}
-        self.logger.debug("Current framework: %s" % framework)
+        self.logger.trace("Current framework: %s" % framework)
         if unacknowledged_tasks:
             self.logger.warn("There are unacknowledged tasks: %s" % unacknowledged_tasks)
         if unacknowledged_updates:
@@ -3509,7 +3507,7 @@ class MesosHandler(MessageHandler):
         if not framework:
             self.logger.error("No framework with id: %s" % framework_id_value)
             return
-        self.logger.debug("Current framework: %s" % framework)
+        self.logger.trace("Current framework: %s" % framework)
         
         payload = {
              'mesos.internal.ExecutorToFrameworkMessage' : {

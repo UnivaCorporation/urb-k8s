@@ -267,8 +267,15 @@ class ExecutorHandler(MessageHandler):
             exec_env["URB_SLAVE_ID"] = self.executor_runner.slave_id['value']
             exec_env["URB_FRAMEWORK_ID"] = self.executor_runner.framework_id['value']
             exec_env["URB_EXECUTOR_ID"] = executor_id_value_unique
-            exec_env["MESOS_NATIVE_LIBRARY"] = self.urb_lib_path # will be deprecated in future mesos releases
-            exec_env["MESOS_NATIVE_JAVA_LIBRARY"] = self.urb_lib_path
+            # allow to override (for example with ~/.urb.executor_profile) to support executors linked with native libmesos
+            if "MESOS_NATIVE_LIBRARY" not in exec_env:
+                exec_env["MESOS_NATIVE_LIBRARY"] = self.urb_lib_path # will be deprecated in future mesos releases
+            else:
+                self.logger.warn("MESOS_NATIVE_LIBRARY is overridden from the environment: %s" % exec_env["MESOS_NATIVE_LIBRARY"])
+            if "MESOS_NATIVE_JAVA_LIBRARY" not in exec_env:
+                exec_env["MESOS_NATIVE_JAVA_LIBRARY"] = self.urb_lib_path
+            else:
+                self.logger.warn("MESOS_NATIVE_JAVA_LIBRARY is overridden from the environment: %s" % exec_env["MESOS_NATIVE_JAVA_LIBRARY"])
             exec_env["MESOS_DIRECTORY"] = self.executor_runner.mesos_work_dir
 
             # for http api
@@ -278,6 +285,7 @@ class ExecutorHandler(MessageHandler):
                 exec_env["MESOS_SLAVE_PID"] = "@" + exec_env["MESOS_AGENT_ENDPOINT"]
             if "MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD" not in exec_env:
                 exec_env["MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD"] = "60secs"
+            exec_env["MESOS_SLAVE_ID"] = exec_env["URB_SLAVE_ID"]
 
             if "LD_LIBRARY_PATH" in exec_env and exec_env["LD_LIBRARY_PATH"] != self.ld_library_path:
                 self.logger.debug("Custom LD_LIBRARY_PATH provided: %s, appending default one from the global executor config: %s" % \
