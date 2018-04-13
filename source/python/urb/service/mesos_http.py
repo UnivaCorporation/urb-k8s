@@ -389,7 +389,7 @@ class MesosHttp:
         self.name = self.__class__.__name__
         self.port = port
         self.logger = LogManager.get_instance().get_logger(self.name)
-        self.logger.info("__init__")
+        self.logger.debug("__init__ end")
 
     @classmethod
     def get_mesos_handler(cls):
