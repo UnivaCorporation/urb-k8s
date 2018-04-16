@@ -259,7 +259,7 @@ BASE_INCS=$(addprefix $(INC_DIR)/,$(subst $(SRC_DIR)/,,$(HEADERS)))
 
 ## Test Sources and programs
 # randomize test order
-TEST_SRCS=$(shell for f in `find $(TEST_DIR) -name '*.cpp' -print`; do echo "$$RANDOM $$f"; done | sort -n | cut -d' ' -f2)
+TEST_SRCS=$(shell for f in `find $(TEST_DIR) -mindepth 1 -maxdepth 1 -name '*.cpp' -print`; do echo "$$RANDOM $$f"; done | sort -n | cut -d' ' -f2)
 #TEST_SRCS=$(shell find $(TEST_DIR) -name '*.cpp')
 TESTS=$(subst $(TEST_DIR)/,,$(TEST_SRCS))
 TEST_PROGS=$(addprefix $(BUILD_DIR)/,$(subst .cpp,.test, $(TESTS)))
