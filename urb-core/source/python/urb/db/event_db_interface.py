@@ -40,9 +40,15 @@ class EventDBInterface(object):
 
         timestamp = time.time()
         event_info['timestamp'] = timestamp
-        self.db_client.update('events',
-            {'_id' : event_id},
-            {'$set' : event_info}, upsert=True)
-        # restore event id
-        event_info['id'] = event_id
+        try:
+            self.db_client.update('events',
+                {'_id' : event_id},
+                {'$set' : event_info}, upsert=True)
+            # restore event id
+            event_info['id'] = event_id
+        except Exception, ex:
+            self.logger.error('Cannot update event %s: %s', (event_info, ex))
+            self.db_client.set_active(False)
 
+    def is_active(self):
+        return self.db_client.is_active()

@@ -17,7 +17,7 @@ SETUP_ENV=PYCC_CC=gcc
 endif
 
 K8S_ADAPTER_INIT=k8s_adapter/__init__.py
-REDIS_BIN=../../urb-core/source/cpp/3rdparty/redis/build/redis-2.8.18/src
+REDIS_BIN=../../urb-core/source/cpp/3rdparty/redis/build/redis-4.0.2/src
 
 include ../../urb-core/util/include.mk
 
@@ -45,7 +45,7 @@ sdist: $(K8S_ADAPTER_INIT)
 
 test: $(K8S_ADAPTER_INIT)
 	sudo pip install kubernetes
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server --protected-mode no& fi
 	$(SETUP_ENV) URB_CONFIG_FILE=$$(pwd)/test/urb.conf $(PYTHON) setup.py nosetests
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" == "PONG" ]; then echo -e "flushdb\nshutdown\nquit\n" | $(REDIS_BIN)/redis-cli; fi
 

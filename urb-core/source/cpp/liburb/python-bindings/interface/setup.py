@@ -18,7 +18,7 @@ import os
 if os.environ.get('USER','') == 'vagrant':
     del os.link
 
-mesos_version= os.environ.get('EXT_MESOS_VERSION', '1.1.0')
+mesos_version= os.environ.get('EXT_MESOS_VERSION', '1.4.0')
 
 config = {
     'name': 'mesos.interface',
@@ -30,7 +30,7 @@ config = {
     'namespace_packages': [ 'mesos' ],
     'packages': [ 'mesos', 'mesos.interface' ],
     'package_dir': { '': 'src' },
-    'install_requires': [ 'google-common>=0.0.1', 'protobuf>=2.6.1,<3' ],
+    'install_requires': [ 'google-common>=0.0.1', 'protobuf>=3.3.0,<4' ],
     'license': 'Apache 2.0',
     'keywords': 'mesos',
     'classifiers': [ ]

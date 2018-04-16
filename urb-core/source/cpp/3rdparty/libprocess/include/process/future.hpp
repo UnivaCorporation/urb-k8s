@@ -44,6 +44,8 @@
 #include <stout/synchronized.hpp>
 #include <stout/try.hpp>
 
+#include <stout/os/strerror.hpp>
+
 namespace process {
 
 // Forward declarations (instead of include to break circular dependency).
@@ -76,6 +78,7 @@ class WeakFuture;
 
 // Forward declaration of Failure.
 struct Failure;
+struct ErrnoFailure;
 
 
 // Definition of a "shared" future. A future can hold any
@@ -96,6 +99,8 @@ public:
   /*implicit*/ Future(const U& u);
 
   /*implicit*/ Future(const Failure& failure);
+
+  /*implicit*/ Future(const ErrnoFailure& failure);
 
   /*implicit*/ Future(const Future<T>& that);
 
@@ -170,32 +175,34 @@ public:
   template <typename F>
   const Future<T>& onDiscard(_Deferred<F>&& deferred) const
   {
-    return onDiscard(deferred.operator std::function<void()>());
+    return onDiscard(std::move(deferred).operator std::function<void()>());
   }
 
   template <typename F>
   const Future<T>& onReady(_Deferred<F>&& deferred) const
   {
-    return onReady(deferred.operator std::function<void(const T&)>());
+    return onReady(
+        std::move(deferred).operator std::function<void(const T&)>());
   }
 
   template <typename F>
   const Future<T>& onFailed(_Deferred<F>&& deferred) const
   {
     return onFailed(
-        deferred.operator std::function<void(const std::string&)>());
+        std::move(deferred).operator std::function<void(const std::string&)>());
   }
 
   template <typename F>
   const Future<T>& onDiscarded(_Deferred<F>&& deferred) const
   {
-    return onDiscarded(deferred.operator std::function<void()>());
+    return onDiscarded(std::move(deferred).operator std::function<void()>());
   }
 
   template <typename F>
   const Future<T>& onAny(_Deferred<F>&& deferred) const
   {
-    return onAny(deferred.operator std::function<void(const Future<T>&)>());
+    return onAny(
+        std::move(deferred).operator std::function<void(const Future<T>&)>());
   }
 
 private:
@@ -219,7 +226,7 @@ private:
         }));
   }
 
-  // This is the less prefered `onReady`, we prefer the `onReady` method which
+  // This is the less preferred `onReady`, we prefer the `onReady` method which
   // has `f` taking a `const T&` parameter. Unfortunately, to complicate
   // matters, if `F` is the result of a `std::bind` expression we need to SFINAE
   // out this version of `onReady` and force the use of the preferred `onReady`
@@ -329,21 +336,22 @@ public:
   // and associates the result of the callback with the future that is
   // returned to the caller (which may be of a different type).
   template <typename X>
-  Future<X> then(const lambda::function<Future<X>(const T&)>& f) const;
+  Future<X> then(lambda::function<Future<X>(const T&)> f) const;
 
   template <typename X>
-  Future<X> then(const lambda::function<X(const T&)>& f) const;
+  Future<X> then(lambda::function<X(const T&)> f) const;
 
   template <typename X>
-  Future<X> then(const lambda::function<Future<X>()>& f) const
+  Future<X> then(lambda::function<Future<X>()> f) const
   {
-    return then(lambda::function<Future<X>(const T&)>(lambda::bind(f)));
+    return then(
+        lambda::function<Future<X>(const T&)>(lambda::bind(std::move(f))));
   }
 
   template <typename X>
-  Future<X> then(const lambda::function<X()>& f) const
+  Future<X> then(lambda::function<X()> f) const
   {
-    return then(lambda::function<X(const T&)>(lambda::bind(f)));
+    return then(lambda::function<X(const T&)>(lambda::bind(std::move(f))));
   }
 
 private:
@@ -355,7 +363,7 @@ private:
   {
     // note the then<X> is necessary to not have an infinite loop with
     // then(F&& f)
-    return then<X>(f.operator std::function<Future<X>(const T&)>());
+    return then<X>(std::move(f).operator std::function<Future<X>(const T&)>());
   }
 
   // Refer to the less preferred version of `onReady` for why these SFINAE
@@ -368,13 +376,13 @@ private:
               F>::type()>::type>::type>
   Future<X> then(_Deferred<F>&& f, LessPrefer) const
   {
-    return then<X>(f.operator std::function<Future<X>()>());
+    return then<X>(std::move(f).operator std::function<Future<X>()>());
   }
 
   template <typename F, typename X = typename internal::unwrap<typename result_of<F(const T&)>::type>::type> // NOLINT(whitespace/line_length)
   Future<X> then(F&& f, Prefer) const
   {
-    return then<X>(std::function<Future<X>(const T&)>(f));
+    return then<X>(std::function<Future<X>(const T&)>(std::forward<F>(f)));
   }
 
   // Refer to the less preferred version of `onReady` for why these SFINAE
@@ -387,13 +395,24 @@ private:
               F>::type()>::type>::type>
   Future<X> then(F&& f, LessPrefer) const
   {
-    return then<X>(std::function<Future<X>()>(f));
+    return then<X>(std::function<Future<X>()>(std::forward<F>(f)));
   }
 
 public:
+  // NOTE: There are two bugs we're dealing with here.
+  //   (1) GCC bug where the explicit use of `this->` is required in the
+  //       trailing return type: gcc.gnu.org/bugzilla/show_bug.cgi?id=57543
+  //   (2) VS 2017 RC bug where the explicit use of `this->` is disallowed.
+  //
+  // Since VS 2015 and 2017 RC both implement C++14's deduced return type for
+  // functions, we simply choose to use that on Windows.
+  //
+  // TODO(mpark): Remove the trailing return type once we get to C++14.
   template <typename F>
   auto then(F&& f) const
+#ifndef __WINDOWS__
     -> decltype(this->then(std::forward<F>(f), Prefer()))
+#endif // __WINDOWS__
   {
     return then(std::forward<F>(f), Prefer());
   }
@@ -533,6 +552,23 @@ struct Failure
   explicit Failure(const Error& error) : message(error.message) {}
 
   const std::string message;
+};
+
+
+struct ErrnoFailure : public Failure
+{
+  ErrnoFailure() : ErrnoFailure(errno) {}
+
+  explicit ErrnoFailure(int _code)
+    : Failure(os::strerror(_code)), code(_code) {}
+
+  explicit ErrnoFailure(const std::string& message)
+    : ErrnoFailure(errno, message) {}
+
+  ErrnoFailure(int _code, const std::string& message)
+    : Failure(message + ": " + os::strerror(_code)), code(_code) {}
+
+  const int code;
 };
 
 
@@ -928,6 +964,14 @@ Future<T>::Future(const Failure& failure)
 
 
 template <typename T>
+Future<T>::Future(const ErrnoFailure& failure)
+  : data(new Data())
+{
+  fail(failure.message);
+}
+
+
+template <typename T>
 Future<T>::Future(const Future<T>& that)
   : data(that.data) {}
 
@@ -1304,9 +1348,16 @@ void expired(
     const lambda::function<Future<T>(const Future<T>&)>& f,
     const std::shared_ptr<Latch>& latch,
     const std::shared_ptr<Promise<T>>& promise,
+    const std::shared_ptr<Option<Timer>>& timer,
     const Future<T>& future)
 {
   if (latch->trigger()) {
+    // If this callback executed first (i.e., we triggered the latch)
+    // then we want to clear out the timer so that we don't hold a
+    // circular reference to `future` in it's own `onAny`
+    // callbacks. See the comment in `Future::after`.
+    *timer = None();
+
     // Note that we don't bother checking if 'future' has been
     // discarded (i.e., 'future.isDiscarded()' returns true) since
     // there is a race between when we make that check and when we
@@ -1323,12 +1374,22 @@ template <typename T>
 void after(
     const std::shared_ptr<Latch>& latch,
     const std::shared_ptr<Promise<T>>& promise,
-    const Timer& timer,
+    const std::shared_ptr<Option<Timer>>& timer,
     const Future<T>& future)
 {
   CHECK(!future.isPending());
   if (latch->trigger()) {
-    Clock::cancel(timer);
+    // If this callback executes first (i.e., we triggered the latch)
+    // it must be the case that `timer` is still some and we can try
+    // and cancel the timer.
+    CHECK_SOME(*timer);
+    Clock::cancel(timer->get());
+
+    // We also force the timer to get deallocated so that there isn't
+    // a cicular reference of the timer with itself which keeps around
+    // a reference to the original future.
+    *timer = None();
+
     promise->associate(future);
   }
 }
@@ -1338,14 +1399,14 @@ void after(
 
 template <typename T>
 template <typename X>
-Future<X> Future<T>::then(const lambda::function<Future<X>(const T&)>& f) const
+Future<X> Future<T>::then(lambda::function<Future<X>(const T&)> f) const
 {
   std::shared_ptr<Promise<X>> promise(new Promise<X>());
 
   lambda::function<void(const Future<T>&)> thenf =
-    lambda::bind(&internal::thenf<T, X>, f, promise, lambda::_1);
+    lambda::bind(&internal::thenf<T, X>, std::move(f), promise, lambda::_1);
 
-  onAny(thenf);
+  onAny(std::move(thenf));
 
   // Propagate discarding up the chain. To avoid cyclic dependencies,
   // we keep a weak future in the callback.
@@ -1358,14 +1419,14 @@ Future<X> Future<T>::then(const lambda::function<Future<X>(const T&)>& f) const
 
 template <typename T>
 template <typename X>
-Future<X> Future<T>::then(const lambda::function<X(const T&)>& f) const
+Future<X> Future<T>::then(lambda::function<X(const T&)> f) const
 {
   std::shared_ptr<Promise<X>> promise(new Promise<X>());
 
   lambda::function<void(const Future<T>&)> then =
-    lambda::bind(&internal::then<T, X>, f, promise, lambda::_1);
+    lambda::bind(&internal::then<T, X>, std::move(f), promise, lambda::_1);
 
-  onAny(then);
+  onAny(std::move(then));
 
   // Propagate discarding up the chain. To avoid cyclic dependencies,
   // we keep a weak future in the callback.
@@ -1404,13 +1465,34 @@ Future<T> Future<T>::after(
   std::shared_ptr<Latch> latch(new Latch());
   std::shared_ptr<Promise<T>> promise(new Promise<T>());
 
+  // We need to control the lifetime of the timer we create below so
+  // that we can force the timer to get deallocated after it
+  // expires. The reason we want to force the timer to get deallocated
+  // after it expires is because the timer's lambda has a copy of
+  // `this` (i.e., a Future) and it's stored in the `onAny` callbacks
+  // of `this` thus creating a circular reference. By storing a
+  // `shared_ptr<Option<Timer>>` we're able to set the option to none
+  // after the timer expires which will deallocate our copy of the
+  // timer and leave the `Option<Timer>` stored in the lambda of the
+  // `onAny` callback as none. Note that this is safe because the
+  // `Latch` makes sure that only one of the callbacks will manipulate
+  // the `shared_ptr<Option<Timer>>` so there isn't any concurrency
+  // issues we have to worry about.
+  std::shared_ptr<Option<Timer>> timer(new Option<Timer>());
+
   // Set up a timer to invoke the callback if this future has not
   // completed. Note that we do not pass a weak reference for this
   // future as we don't want the future to get cleaned up and then
-  // have the timer expire.
-  Timer timer = Clock::timer(
+  // have the timer expire because then we wouldn't have a valid
+  // future that we could pass to `f`! The reference to `this` that is
+  // captured in the timer will get removed by setting the
+  // `Option<Timer>` to none (see comment above) either if the timer
+  // expires or if `this` completes and we cancel the timer (see
+  // `internal::expired` and `internal::after` callbacks for where we
+  // force the deallocation of our copy of the timer).
+  *timer = Clock::timer(
       duration,
-      lambda::bind(&internal::expired<T>, f, latch, promise, *this));
+      lambda::bind(&internal::expired<T>, f, latch, promise, timer, *this));
 
   onAny(lambda::bind(&internal::after<T>, latch, promise, timer, lambda::_1));
 
@@ -1540,6 +1622,97 @@ void discardPromises(std::set<Promise<T>*>* promises, const Future<T>& future)
       return;
     }
   }
+}
+
+
+// Returns a future that will not propagate a discard through to the
+// future passed in as an argument. This can be very valuable if you
+// want to block some future from getting discarded.
+//
+// Example:
+//
+//   Promise<int> promise;
+//   Future<int> future = undiscardable(promise.future());
+//   future.discard();
+//   assert(!promise.future().hasDiscard());
+//
+// Or another example, when chaining futures:
+//
+//   Future<int> future = undiscardable(
+//       foo()
+//         .then([]() { ...; })
+//         .then([]() { ...; }));
+//
+// This will guarantee that a discard _will not_ propagate to `foo()`
+// or any of the futures returned from the invocations of `.then()`.
+template <typename T>
+Future<T> undiscardable(const Future<T>& future)
+{
+  std::shared_ptr<Promise<T>> promise(new Promise<T>());
+  future.onAny([promise](const Future<T>& future) {
+    promise->associate(future);
+  });
+  return promise->future();
+}
+
+
+// Decorator that for some callable `f` invokes
+// `undiscardable(f(args))` for some `args`. This is used by the
+// overload of `undiscardable()` that takes callables instead of a
+// specialization of `Future`.
+//
+// TODO(benh): Factor out a generic decorator pattern to be used in
+// other circumstances, e.g., to replace `_Deferred`.
+template <typename F>
+struct UndiscardableDecorator
+{
+  template <
+    typename G,
+    typename std::enable_if<
+      std::is_constructible<F, G>::value, int>::type = 0>
+  UndiscardableDecorator(G&& g) : f(std::forward<G>(g)) {}
+
+  template <typename... Args>
+  auto operator()(Args&&... args)
+    -> decltype(std::declval<F&>()(std::forward<Args>(args)...))
+  {
+    using Result =
+      typename std::decay<decltype(f(std::forward<Args>(args)...))>::type;
+
+    static_assert(
+        is_specialization_of<Future, Result>::value,
+        "Expecting Future<T> to be returned from undiscarded(...)");
+
+    return undiscardable(f(std::forward<Args>(args)...));
+  }
+
+  F f;
+};
+
+
+// An overload of `undiscardable()` above that takes and returns a
+// callable. The returned callable has decorated the provided callable
+// `f` such that when the returned callable is invoked it will in turn
+// invoke `undiscardable(f(args))` for some `args`. See
+// `UndiscardableDecorator` above for more details.
+//
+// Example:
+//
+//   Future<int> future = foo()
+//     .then(undiscardable([]() { ...; }));
+//
+// This guarantees that even if `future` is discarded the discard will
+// not propagate into the lambda passed into `.then()`.
+template <
+  typename F,
+  typename std::enable_if<
+    !is_specialization_of<
+      Future,
+      typename std::decay<F>::type>::value, int>::type = 0>
+UndiscardableDecorator<typename std::decay<F>::type> undiscardable(F&& f)
+{
+  return UndiscardableDecorator<
+    typename std::decay<F>::type>(std::forward<F>(f));
 }
 
 }  // namespace process {

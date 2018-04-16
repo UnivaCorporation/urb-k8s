@@ -1,0 +1,105 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+import "mesos.proto";
+
+package mesos.resource_provider;
+
+option java_package = "org.apache.mesos.resource_provider";
+option java_outer_classname = "Protos";
+
+
+message Event {
+  enum Type {
+    // This must be the first enum value in this list, to
+    // ensure that if 'type' is not set, the default value
+    // is UNKNOWN. This enables enum values to be added
+    // in a backwards-compatible way. See: MESOS-4997.
+    UNKNOWN = 0;
+
+    SUBSCRIBED = 1;   // See 'Subscribed' below.
+    OPERATION = 2;    // See 'Operation' below.
+  }
+
+  // First event received by the resource provider when it subscribes
+  // to the master.
+  message Subscribed {
+    required ResourceProviderID provider_id = 1;
+  }
+
+  // Received when the master wants to send an operation to the
+  // resource provider.
+  message Operation {
+    optional Offer.Operation operation = 1;
+  }
+
+  optional Type type = 1;
+  optional Subscribed subscribed = 2;
+  optional Operation operation = 3;
+}
+
+
+message Call {
+  enum Type {
+    // This must be the first enum value in this list, to
+    // ensure that if 'type' is not set, the default value
+    // is UNKNOWN. This enables enum values to be added
+    // in a backwards-compatible way. See: MESOS-4997.
+    UNKNOWN = 0;
+
+    SUBSCRIBE = 1;    // See 'Subscribe' below.
+    UPDATE = 2;       // See 'Update' below.
+  }
+
+  // Request to subscribe with the master.
+  message Subscribe {
+    required ResourceProviderInfo resource_provider_info = 1;
+  }
+
+  // Notify the master about the status of an operation.
+  message Update {
+    enum State {
+      // This must be the first enum value in this list, to
+      // ensure that if 'state' is not set, the default value
+      // is UNKNOWN. This enables enum values to be added
+      // in a backwards-compatible way. See: MESOS-4997.
+      UNKNOWN = 0;
+
+      OK = 1;
+      FAILED = 2;
+    }
+
+    required State state = 1;
+    required Offer.Operation operation = 2;
+    repeated Resource converted_resources = 3;
+  }
+
+  // Identifies who generated this call.
+  // The 'ResourceProviderManager' assigns a resource provider ID when
+  // a new resource provider subscribes for the first time. Once
+  // assigned, the resource provider must set the 'resource_provider_id'
+  // here and within its 'ResourceProviderInfo' (in any further
+  // 'SUBSCRIBE' calls). This allows the 'ResourceProviderManager' to
+  // identify a resource provider correctly across disconnections,
+  // failovers, etc.
+  optional ResourceProviderID resource_provider_id = 1;
+
+  optional Type type = 2;
+  optional Subscribe subscribe = 3;
+  optional Update update = 4;
+}

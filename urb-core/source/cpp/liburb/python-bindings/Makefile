@@ -29,7 +29,7 @@ PYTHONEGG_SCHEDULER_SDIST=$(DIST_DIR)/mesos.scheduler-$(EXT_MESOS_VERSION).tar.g
 URB_PYTHON_INCLUDES=../$(BUILDDIR)/python_bindings.mk
 MESOS_PROTO_INC=../$(BUILDDIR)/include/mesos/mesos_pb2.py
 MESOS_PROTO_TARGET=interface/src/mesos/interface/mesos_pb2.py
-REDIS_BIN=../../3rdparty/redis/build/redis-2.8.18/src/
+REDIS_BIN=../../3rdparty/redis/build/redis-4.0.2/src/
 
 ifeq ($(STDCPP11),true)
   CFLAGS += -std=c++11 -std=c++1y
@@ -48,6 +48,10 @@ endif
 
 include ../../../../util/include.mk
 -include $(URB_PYTHON_INCLUDES)
+
+ifeq ($(EGG_PYV),2.6)
+  VENV_FLAGS = --system-site-packages --no-download
+endif
 
 #Include an built makefile that provides include and lib paths
 
@@ -89,7 +93,7 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(VIRTUALENV)/.built:
-	virtualenv $(VIRTUALENV)
+	virtualenv $(VENV_FLAGS) $(VIRTUALENV)
 	touch $@
 
 # There is a system limitation (BINPRM_BUF_SIZE = 128) for the lenth of the interpreter path in a
@@ -150,4 +154,5 @@ env:
 	@echo PYTHONEGG_SCHEDULER=$(PYTHONEGG_SCHEDULER)
 	@echo EXT_MESOS_VERSION=$(EXT_MESOS_VERSION)
 	@echo CFLAGS=$(CFLAGS)
-
+	@echo VENV_FLAGS=$(VENV_FLAGS)
+	@echo EGG_PYV=$(EGG_PYV)

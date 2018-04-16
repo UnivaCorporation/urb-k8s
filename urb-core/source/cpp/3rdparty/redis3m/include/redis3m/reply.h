@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -85,7 +86,8 @@ private:
 
     type_t _type;
     std::string _str;
-    long long _integer;
+//    long long _integer;
+    int64_t _integer;
     std::vector<reply> _elements;
 
     friend class connection;

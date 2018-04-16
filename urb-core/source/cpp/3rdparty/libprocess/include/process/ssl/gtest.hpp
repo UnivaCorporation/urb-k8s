@@ -176,12 +176,12 @@ protected:
       cleanup("Could not generate private key: " + private_key.error());
     }
 
-    // Figure out the hostname that 'INADDR_LOOPBACK' will bind to.
+    // Figure out the hostname that libprocess is advertising.
     // Set the hostname of the certificate to this hostname so that
     // hostname verification of the certificate will pass.
-    Try<std::string> hostname = net::getHostname(net::IP(INADDR_LOOPBACK));
+    Try<std::string> hostname = net::getHostname(process::address().ip);
     if (hostname.isError()) {
-      cleanup("Could not determine hostname of 'INADDR_LOOPBACK': " +
+      cleanup("Could not determine hostname of libprocess: " +
               hostname.error());
     }
 
@@ -193,7 +193,7 @@ protected:
         1,
         365,
         hostname.get(),
-        net::IP(INADDR_LOOPBACK));
+        net::IP(process::address().ip));
 
     if (certificate.isError()) {
       cleanup("Could not generate certificate: " + certificate.error());
@@ -287,24 +287,26 @@ protected:
    *
    * @return Socket if successful otherwise an Error.
    */
-  Try<process::network::Socket> setup_server(
+  Try<process::network::inet::Socket> setup_server(
       const std::map<std::string, std::string>& environment)
   {
     set_environment_variables(environment);
 
-    const Try<process::network::Socket> create =
-      process::network::Socket::create(process::network::Socket::SSL);
+    const Try<process::network::inet::Socket> create =
+      process::network::inet::Socket::create(
+          process::network::internal::SocketImpl::Kind::SSL);
 
     if (create.isError()) {
       return Error(create.error());
     }
 
-    process::network::Socket server = create.get();
+    process::network::inet::Socket server = create.get();
 
-    // We need to explicitly bind to INADDR_LOOPBACK so the
+    // We need to explicitly bind to the address advertised by libprocess so the
     // certificate we create in this test fixture can be verified.
-    Try<process::network::Address> bind =
-      server.bind(process::network::Address(net::IP(INADDR_LOOPBACK), 0));
+    Try<process::network::inet::Address> bind =
+      server.bind(
+          process::network::inet::Address(net::IP(process::address().ip), 0));
 
     if (bind.isError()) {
       return Error(bind.error());
@@ -334,10 +336,10 @@ protected:
    */
   Try<process::Subprocess> launch_client(
       const std::map<std::string, std::string>& environment,
-      const process::network::Socket& server,
+      const process::network::inet::Socket& server,
       bool use_ssl_socket)
   {
-    const Try<process::network::Address> address = server.address();
+    const Try<process::network::inet::Address> address = server.address();
     if (address.isError()) {
       return Error(address.error());
     }
@@ -346,14 +348,20 @@ protected:
     const std::vector<std::string> argv = {
       "ssl-client",
       "--use_ssl=" + stringify(use_ssl_socket),
-      "--server=127.0.0.1",
-      "--port=" + stringify(address.get().port),
+      "--server=" + stringify(address->ip),
+      "--port=" + stringify(address->port),
       "--data=" + data};
 
     Result<std::string> path = os::realpath(BUILD_DIR);
     if (!path.isSome()) {
       return Error("Could not establish build directory path");
     }
+
+    // Explicitly set `LIBPROCESS_IP` in the subprocess to the same IP that was
+    // used to generate the hostname for SSL certificates. This ensures that
+    // certificate verification can succeed.
+    std::map<std::string, std::string> full_environment(environment);
+    full_environment["LIBPROCESS_IP"] = stringify(process::address().ip);
 
     return process::subprocess(
         path::join(path.get(), "ssl-client"),
@@ -362,7 +370,7 @@ protected:
         process::Subprocess::PIPE(),
         process::Subprocess::FD(STDERR_FILENO),
         nullptr,
-        environment);
+        full_environment);
   }
 
   static constexpr size_t BACKLOG = 5;

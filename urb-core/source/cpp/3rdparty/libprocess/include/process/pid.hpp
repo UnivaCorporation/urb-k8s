@@ -40,26 +40,31 @@ struct UPID
 {
   UPID() = default;
 
-  UPID(const UPID& that)
-    : id(that.id), address(that.address) {}
+  UPID(const UPID& that) = default;
+
+  UPID(UPID&& that) = default;
 
   UPID(const char* id_, const net::IP& ip_, uint16_t port_)
-    : id(id_), address(ip_, port_) {}
+    : id(id_), address(ip_, port_) { resolve(); }
 
-  UPID(const char* id_, const network::Address& address_)
-    : id(id_), address(address_) {}
+  UPID(const char* id_, const network::inet::Address& address_)
+    : id(id_), address(address_) { resolve(); }
 
   UPID(const std::string& id_, const net::IP& ip_, uint16_t port_)
-    : id(id_), address(ip_, port_) {}
+    : id(id_), address(ip_, port_) { resolve(); }
 
-  UPID(const std::string& id_, const network::Address& address_)
-    : id(id_), address(address_) {}
+  UPID(const std::string& id_, const network::inet::Address& address_)
+    : id(id_), address(address_) { resolve(); }
 
   /*implicit*/ UPID(const char* s);
 
   /*implicit*/ UPID(const std::string& s);
 
   /*implicit*/ UPID(const ProcessBase& process);
+
+  UPID& operator=(const UPID& that) = default;
+
+  UPID& operator=(UPID&& that) = default;
 
   operator std::string() const;
 
@@ -91,9 +96,157 @@ struct UPID
   {
     return !(*this == that);
   }
-  std::string id;
-  network::Address address;
+
+  // Attempts to resolve and cache a weak pointer to the ProcessBase
+  // to which this UPID refers.
+  void resolve();
+
+  // TODO(benh): store all of the members of UPID behind a
+  // copy-on-write implementation because UPID is often copied but
+  // rarely written which means we could optimize performance by not
+  // making so many copies.
+
+  // A copy-on-write string for performance.
+  //
+  // TODO(benh): Factor this out into a generic copy-on-write string.
+  struct ID
+  {
+    static const std::string EMPTY;
+
+    ID() = default;
+
+    ID(const std::string& s)
+      : id(std::make_shared<std::string>(s)) {}
+
+    ID(std::string&& s)
+      : id(std::make_shared<std::string>(std::move(s))) {}
+
+    ID& operator=(std::string&& that)
+    {
+      id = std::make_shared<std::string>(std::move(that));
+      return *this;
+    }
+
+    bool operator==(const std::string& that) const
+    {
+      if (!id) {
+        return EMPTY == that;
+      }
+      return *id == that;
+    }
+
+    bool operator==(const char* that) const
+    {
+      if (!id) {
+        return EMPTY == that;
+      }
+      return *id == that;
+    }
+
+    bool operator!=(const std::string& that) const
+    {
+      return !(*this == that);
+    }
+
+    bool operator<(const std::string& that) const
+    {
+      if (!id) {
+        return EMPTY < that;
+      }
+      return *id < that;
+    }
+
+    operator const std::string&() const
+    {
+      if (!id) {
+        return EMPTY;
+      }
+      return *id;
+    }
+
+  private:
+    std::shared_ptr<std::string> id;
+  } id;
+
+  // TODO(asridharan): Ideally, the following `address` field should be of
+  // type `network::Address` so that the default address of the PID
+  // could be a unix domain socket or an IPv4/v6 address. This change
+  // however is disruptive at this point and should be done after we have
+  // introduced support for unix domain and IPv6 sockets into
+  // `libprocess`.
+  network::inet::Address address = network::inet4::Address::ANY_ANY();
+
+  // TODO(asridharan): Currently we are introducing only an `Optional`
+  // IPv6 address in the following `addresses` structure. This will
+  // help us initiate some basic IPv6 support for the
+  // `DockerContainerizer`.  However, going forward, once we start
+  // supporting unix domain sockets and IPv4/IPv6 socket in
+  // `libprocess` we will add the following fields to this structure.
+  //
+  // Option<network::unix::Address> unix;
+  // Option<network::inet4::Address> v4;
+  //
+  // With the introduction of the above fields `libprocess` PID will
+  // be able to support unix, IPv4 and IPv6 sockets simultaneously.
+  struct
+  {
+    Option<network::inet6::Address> v6;
+  } addresses = {None()};
+
+protected:
+  friend class ProcessBase;
+  friend class ProcessManager;
+
+  // A weak pointer to the actual process used to optimize enqueuing
+  // events without having to go through a shared lock in the
+  // `ProcessManager`. This is `None` if someone creates a UPID and
+  // doesn't call `resolve()` or if `resolve()` doesn't find a valid
+  // process (i.e., the process hasn't started or has terminated).
+  Option<std::weak_ptr<ProcessBase*>> reference = None();
 };
+
+
+inline std::ostream& operator<<(std::ostream& stream, const UPID::ID& id)
+{
+  const std::string& s = id;
+  return stream << s;
+}
+
+
+inline bool operator==(const std::string& s, const UPID::ID& id)
+{
+  return id == s;
+}
+
+
+inline bool operator!=(const std::string& s, const UPID::ID& id)
+{
+  return !(s == id);
+}
+
+
+inline std::string operator+(const UPID::ID& id, const std::string& s)
+{
+  return (const std::string&) id + s;
+}
+
+
+inline std::string operator+(const UPID::ID& id, std::string&& s)
+{
+  return (const std::string&) id + std::move(s);
+}
+
+
+inline std::string operator+(const std::string& s, const UPID::ID& id)
+{
+  return s + (const std::string&) id;
+}
+
+
+inline std::string operator+(std::string&& s, const UPID::ID& id)
+{
+  return std::move(s) + (const std::string&) id;
+}
 
 
 /**
@@ -125,6 +278,10 @@ struct UPID
 template <typename T = ProcessBase>
 struct PID : UPID
 {
+  // Need to declare PID<U> as a friend in order to write `reference`.
+  template <typename U>
+  friend struct PID;
+
   PID() : UPID() {}
 
   /*implicit*/ PID(const T* t) : UPID(static_cast<const ProcessBase&>(*t)) {}
@@ -140,6 +297,8 @@ struct PID : UPID
     PID<Base> pid;
     pid.id = id;
     pid.address = address;
+    pid.addresses = addresses;
+    pid.reference = reference;
     return pid;
   }
 };
@@ -163,7 +322,7 @@ struct hash<process::UPID>
   result_type operator()(const argument_type& upid) const
   {
     size_t seed = 0;
-    boost::hash_combine(seed, upid.id);
+    boost::hash_combine(seed, (const std::string&) upid.id);
     boost::hash_combine(seed, std::hash<net::IP>()(upid.address.ip));
     boost::hash_combine(seed, upid.address.port);
     return seed;

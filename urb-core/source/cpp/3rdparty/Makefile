@@ -13,8 +13,15 @@
 # limitations under the License.
 
 
-SUBMAKEFILES = makefile-boost.mk makefile-glog.mk makefile-protobuf.mk makefile-libb64.mk\
-   makefile-hiredis.mk makefile-jsoncpp.mk makefile-protobuf-to-jsoncpp.mk \
-   makefile-redis3m.mk makefile-redis.mk
+SUBMAKEFILES = makefile-boost.mk \
+               makefile-glog.mk \
+               makefile-protobuf.mk \
+               makefile-libb64.mk\
+               makefile-jsoncpp.mk \
+               makefile-protobuf-to-jsoncpp.mk \
+               makefile-redis.mk \
+               makefile-redis3m.mk \
+               makefile-picojson.mk \
+               makefile-googletest.mk
 
 include ../../../util/include.mk

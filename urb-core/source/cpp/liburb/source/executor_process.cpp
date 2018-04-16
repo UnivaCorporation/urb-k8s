@@ -384,6 +384,12 @@ void UrbExecutorProcess::runTask(const TaskInfo& task) {
       return;
     }
 
+    if (!connected_) {
+      VLOG(1) << "Ignoring run task message for task " << task.task_id().value()
+              << " because the driver is disconnected!";
+      return;
+    }
+
     CHECK(!tasks.contains(task.task_id().value()))
       << "Unexpected duplicate task " << task.task_id().value();
 
@@ -419,6 +425,13 @@ void UrbExecutorProcess::statusUpdateAcknowledgement(
       return;
     }
 
+    if (!connected_) {
+      VLOG(1) << "Ignoring status update acknowledgement for task " << taskId.value()
+              << " of framework " << frameworkId.value()
+              << " because the driver is disconnected!";
+      return;
+    }
+
     LOG(INFO) << "Executor received status update acknowledgement "
               << " for task " << taskId.value()
               << " of framework " << frameworkId.value();
@@ -439,6 +452,11 @@ void UrbExecutorProcess::frameworkMessage(const SlaveID& /*slaveId*/,
                       const string& data) {
     if (aborted_) {
       VLOG(1) << "Ignoring framework message because the driver is aborted!";
+      return;
+    }
+
+    if (!connected_) {
+      VLOG(1) << "Ignoring framework message because the driver is disconnected!";
       return;
     }
 

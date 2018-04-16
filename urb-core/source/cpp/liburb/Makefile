@@ -38,7 +38,8 @@ BINDINGS_INCLUDE_DIR=$(BUILD_DIR)/bindings_include
 DISABLED_WARNINGS=-Wno-unused-local-typedefs -Wno-unused-parameter
 ENABLED_WARNINGS=-Wredundant-decls -Wswitch-default # -Wshadow -Wundef -Wfloat-equal -Wconversion
 PICOJSON_FLAGS=-DPICOJSON_USE_INT64 -D__STDC_FORMAT_MACROS
-CFLAGS=-Wall -fPIC -Wextra $(DISABLED_WARNINGS) $(ENABLED_WARNINGS) $(PICOJSON_FLAGS)
+
+CFLAGS=-Wall -fPIC -Wextra $(DISABLED_WARNINGS) $(ENABLED_WARNINGS) $(PICOJSON_FLAGS) $(JSONCPP_FLAGS)
 LDFLAGS=-shared -Wl,-soname,$(LIB_SONAME)
 ifdef DEBUG_BUILD
   CFLAGS += -DDEBUG -O0 -g3
@@ -73,20 +74,20 @@ LIBEV_INC=-I/usr/include/libev
 
 ## Google Log (glog)
 GLOG_BASE=$(CPP_BASE)/3rdparty/glog-0.3.3
-GLOGINC=-I$(GLOG_BASE)/src -I$(GLOG_BASE)/$(BUILDDIR)/src
+GLOG_INC=-I$(GLOG_BASE)/src -I$(GLOG_BASE)/$(BUILDDIR)/src
 GLOG_LIB=-L$(GLOG_BASE)/$(BUILDDIR)/.libs -lglog
 
 ## Google Protobuf (protobuf)
-PROTO_NAME=protobuf-2.6.1
+PROTO_NAME=protobuf-3.3.0
 PROTO_BASE=$(CPP_BASE)/3rdparty/$(PROTO_NAME)/build/$(PROTO_NAME)
 PROTO_INC=-I$(PROTO_BASE)/src
 PROTO_LIB=-L$(PROTO_BASE)/src/.libs -lprotobuf
 PROTO_ARCHIVE=$(PROTO_BASE)/src/.libs/libprotobuf.a
 
 ## Google Test (gtest)
-GTEST_BASE=$(PROTO_BASE)
-GTEST_INC=-I$(GTEST_BASE)/gtest/include
-GTEST_LIB=-L$(GTEST_BASE)/gtest/lib/.libs -lgtest -lgtest_main
+GTEST_BASE=$(CPP_BASE)/3rdparty/googletest/googletest-release-1.8.0
+GTEST_INC=-I$(GTEST_BASE)/googletest/include
+GTEST_LIB=-L$(GTEST_BASE)/build/googletest -lgtest -lgtest_main
 
 ## redism3
 REDIS3M_BASE=$(CPP_BASE)/3rdparty/redis3m
@@ -94,9 +95,13 @@ REDIS3M_INC=-I$(REDIS3M_BASE)/include
 REDIS3M_LIB=-L$(REDIS3M_BASE)/build -lredis3m
 
 ## jsoncpp
-JCPP_BASE=$(CPP_BASE)/3rdparty/jsoncpp-20141023
-JCPP_INC=-I$(JCPP_BASE)/include
-JCPP_LIB=$(JCPP_BASE)/build/lib/libjsoncpp.a
+JSONCPP_BASE=$(CPP_BASE)/3rdparty/jsoncpp-1.8.3
+JSONCPP_INC=-I$(JSONCPP_BASE)/include
+JSONCPP_LIB=$(JSONCPP_BASE)/build/src/lib_json/libjsoncpp.a
+
+## picojson
+PICOJSON_BASE=$(CPP_BASE)/3rdparty/picojson
+PICOJSON_INC=-I$(PICOJSON_BASE)/picojson-1.3.0
 
 ## Base64 library
 B64_BASE=$(CPP_BASE)/3rdparty/libb64-1.2.1
@@ -108,27 +113,33 @@ PBTJ_BASE=$(CPP_BASE)/3rdparty/protobuf-to-jsoncpp-r11
 PBTJ_INC=-I$(PBTJ_BASE)
 PBTJ_LIB=$(PBTJ_BASE)/libjson_protobuf.a
 
-## hiredis
-HIREDIS_BASE=$(CPP_BASE)/3rdparty/hiredis-20141015
+## redis
+REDIS_VER=4.0.2
+REDIS_BASE=$(CPP_BASE)/3rdparty/redis
+REDIS_BIN=$(REDIS_BASE)/build/redis-$(REDIS_VER)/src
+
+## hiredis - use redis dependency
 #TODO: If we fix the callback we won't need this include
+HIREDIS_BASE=$(REDIS_BASE)/build/redis-$(REDIS_VER)/deps/hiredis
 HIREDIS_INC=-I$(HIREDIS_BASE)
 HIREDIS_LIB=$(HIREDIS_BASE)/libhiredis.a
 
-## redis
-REDIS_BASE=$(CPP_BASE)/3rdparty/redis
-REDIS_BIN=$(REDIS_BASE)/build/redis-2.8.18/src
+## stout
+STOUT_BASE=$(CPP_BASE)/3rdparty
+STOUT_INC=-I$(STOUT_BASE)
+
 
 ifdef BOOST_ROOT
 BOOST_INC=-I$(BOOST_ROOT)
 endif
 
-EXT_INC=$(GLOGINC) $(PROTO_INC) $(REDIS3M_INC) $(PBTJ_INC) $(JCPP_INC) $(HIREDIS_INC) $(LIBEV_INC)
+EXT_INC=$(GLOG_INC) $(PROTO_INC) $(REDIS3M_INC) $(PBTJ_INC) $(JSONCPP_INC) $(HIREDIS_INC) $(LIBEV_INC) $(PICOJSON_INC) $(STOUT_INC)
 INCS=$(LOCAL_INC) $(EXT_INC) $(BOOST_INC) $(JDK_INC)
 TEST_INCS=$(INCS) $(GTEST_INC) -I$(MESOS_DIR)
 
 ## Linker Options
 EXT_OBJ=
-EXT_LIB= $(GLOG_LIB) $(PROTO_LIB) $(REDIS3M_LIB) $(HIREDIS_LIB) $(PBTJ_LIB) $(JCPP_LIB) $(B64_LIB)
+EXT_LIB=$(JSONCPP_LIB) $(GLOG_LIB) $(PROTO_LIB) $(REDIS3M_LIB) $(HIREDIS_LIB) $(PBTJ_LIB) $(B64_LIB)
 
 EXT_MESOS_OBJ= \
 $(EXT_MESOS_SRC_DIR)/build/src/java/jni/.libs/libjava_la-org_apache_mesos_Log.o \
@@ -150,7 +161,7 @@ $(EXT_MESOS_SRC_DIR)/build/3rdparty/zookeeper-*/src/c/.libs/libzookeeper_mt.a  \
 $(EXT_MESOS_SRC_DIR)/build/3rdparty/libprocess/.libs/libprocess.a \
 $(EXT_MESOS_SRC_DIR)/build/src/.libs/liblog.a \
 -Wl,-no-whole-archive  \
-$(EXT_MESOS_SRC_DIR)/build/3rdparty/leveldb-1.4/libleveldb.a
+$(EXT_MESOS_SRC_DIR)/build/3rdparty/leveldb-*/out-static/libleveldb.a
 
 LIBS=$(EXT_LIB) -lev -lz -luuid
 ifeq ($(shell uname -s),SunOS)
@@ -172,6 +183,13 @@ MESOS_PROTO_BASE=mesos.pb
 MESOS_PBO=$(MESOS_PROTO_BASE).o
 MESOS_PBH=$(MESOS_PROTO_BASE).h
 MESOS_PBC=$(MESOS_PROTO_BASE).cc
+
+MESOS_RESOURCE_PROVIDER_DIR=$(MESOS_DIR)
+RESOURCE_PROVIDER_PROTO_FILE=$(MESOS_RESOURCE_PROVIDER_DIR)/resource_provider.proto
+MESOS_RESOURCE_PROVIDER_PROTO_BASE=resource_provider.pb
+MESOS_RESOURCE_PROVIDER_PBO=$(MESOS_RESOURCE_PROVIDER_PROTO_BASE).o
+MESOS_RESOURCE_PROVIDER_PBH=$(MESOS_RESOURCE_PROVIDER_PROTO_BASE).h
+MESOS_RESOURCE_PROVIDER_PBC=$(MESOS_RESOURCE_PROVIDER_PROTO_BASE).cc
 
 MESOS_MESSAGES_DIR=$(MESOS_DIR)
 MESSAGES_PROTO_FILE=$(MESOS_MESSAGES_DIR)/messages.proto
@@ -203,14 +221,12 @@ MESOS_FETCHER_PBH=$(MESOS_FETCHER_PROTO_BASE).h
 MESOS_FETCHER_PBC=$(MESOS_FETCHER_PROTO_BASE).cc
 
 MESOS_OBJS= \
-$(BUILDDIR)/$(MESOS_PBO) $(BUILDDIR)/$(MESOS_MESSAGES_PBO) $(BUILDDIR)/$(MESOS_SCHEDULER_PBO) \
+$(BUILDDIR)/$(MESOS_PBO) $(BUILDDIR)/$(MESOS_RESOURCE_PROVIDER_PBO) $(BUILDDIR)/$(MESOS_MESSAGES_PBO) $(BUILDDIR)/$(MESOS_SCHEDULER_PBO) \
 $(BUILDDIR)/$(MESOS_AUTHENTICATION_PBO) $(BUILDDIR)/$(MESOS_FETCHER_PBO)
 
-#$(INC_DIR)/hdfs/hdfs.cpp 
 FETCHER_EXTRA_CPP=$(INC_DIR)/logging/logging.cpp $(INC_DIR)/logging/flags.cpp $(INC_DIR)/slave/containerizer/fetcher.cpp
 FETCHER_EXTRA_INC=-I$(CPP_BASE)/3rdparty/libprocess/include -I$(INC_DIR)/slave/containerizer
 
-#FETCHER_CPP=$(MESOS_DIR)/fetcher.cpp
 FETCHER_CPP=$(DIR)/mesos/fetcher.cpp
 FETCHER=$(BUILD_DIR)/fetcher
 FETCHER_LIBS=$(LIB_NAME) -lpthread -lcurl
@@ -299,6 +315,9 @@ $(MESOS_AUTHENTICATION_DIR)/$(MESOS_AUTHENTICATION_PBH) $(MESOS_AUTHENTICATION_D
 $(MESOS_FETCHER_DIR)/$(MESOS_FETCHER_PBH) $(MESOS_FETCHER_DIR)/$(MESOS_FETCHER_PBC): $(FETCHER_PROTO_FILE)
 	cd $(MESOS_FETCHER_DIR) && $(PROTOC) --proto_path $(MESOS_FETCHER_DIR) --proto_path $(MESOS_FETCHER_DIR)/.. $< --cpp_out .
 
+$(MESOS_RESOURCE_PROVIDER_DIR)/$(MESOS_RESOURCE_PROVIDER_PBH) $(MESOS_RESOURCE_PROVIDER_DIR)/$(MESOS_RESOURCE_PROVIDER_PBC): $(RESOURCE_PROVIDER_PROTO_FILE)
+	cd $(MESOS_RESOURCE_PROVIDER_DIR) && $(PROTOC) --proto_path $(MESOS_RESOURCE_PROVIDER_DIR) $< --cpp_out .
+
 
 # Compile the stock mesos .proto file (separate from normal sources
 # since it is a generated cpp file).
@@ -316,8 +335,12 @@ $(BUILDDIR)/$(MESOS_SCHEDULER_PBO): $(MESOS_SCHEDULER_DIR)/scheduler.pb.cc
 $(BUILDDIR)/$(MESOS_AUTHENTICATION_PBO): $(MESOS_AUTHENTICATION_DIR)/authentication.pb.cc
 	g++ $(CFLAGS) -c $(INCS) -I$(MESOS_AUTHENTICATION_DIR) $< -o $@
 
+$(BUILDDIR)/$(MESOS_RESOURCE_PROVIDER_PBO): $(MESOS_RESOURCE_PROVIDER_DIR)/resource_provider.pb.cc
+	g++ $(CFLAGS) -c $(INCS) -I$(MESOS_RESOURCE_PROVIDER_DIR)/.. $< -o $@
+
 $(BUILDDIR)/$(MESOS_FETCHER_PBO): $(MESOS_FETCHER_DIR)/fetcher.pb.cc
 	g++ $(CFLAGS) -c $(INCS) -I$(MESOS_FETCHER_DIR)/.. $< -o $@
+
 
 
 $(FETCHER): $(FETCHER_CPP) $(LIB_TARGET)
@@ -362,6 +385,7 @@ $(BUILDDIR)/%.o: $(SRC_DIR)/%.cpp
 
 # Build our shared library library
 $(LIB_TARGET): $(OBJS)
+
 	g++ $(LDFLAGS) $^ $(EXT_OBJ) $(LIBS) -o $@
 	cd $(BUILDDIR) && ln -sf $(LIB_NAME) $(LIB_SONAME) && ln -sf $(LIB_NAME) $(LIB_NAME_SHORT)
 
@@ -398,17 +422,11 @@ $(BINDINGS_INCLUDE_DIR): $(MESOS_SCHEDULER_DIR)/$(MESOS_SCHEDULER_PBH) $(MESOS_P
 	cp -f mesos/include/mesos/scheduler/scheduler.hpp $@/mesos/scheduler
 	cp -f $(MESOS_PROTO_DIR)/$(MESOS_PBH) $@
 	cp -f $(PROTO_BASE)/src/google/protobuf/stubs/* $@/google/protobuf/stubs
-	cp -f $(PROTO_BASE)/src/google/protobuf/generated_message_util.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/message.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/message_lite.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/descriptor.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/repeated_field.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/extension_set.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/generated_enum_reflection.h $@/google/protobuf
-	cp -f $(PROTO_BASE)/src/google/protobuf/unknown_field_set.h $@/google/protobuf
+	cp -f $(PROTO_BASE)/src/google/protobuf/*.h $@/google/protobuf
 	cp -f $(PROTO_BASE)/src/google/protobuf/io/zero_copy_stream.h $@/google/protobuf/io
 	cp -f $(PROTO_BASE)/src/google/protobuf/io/zero_copy_stream_impl.h $@/google/protobuf/io
 	cp -f $(PROTO_BASE)/src/google/protobuf/io/zero_copy_stream_impl_lite.h $@/google/protobuf/io
+	cp -f $(PROTO_BASE)/src/google/protobuf/io/coded_stream.h $@/google/protobuf/io
 	cp -f $(MESOS_SCHEDULER_DIR)/$(MESOS_SCHEDULER_PBH) $@
 
 # Standard clean rules
@@ -420,7 +438,7 @@ distclean clean:
 #	if [ "$$(redis-cli ping)" != "PONG" ]; then if which systemctl >/dev/null 2>&1; then sudo systemctl redis_6379 start; else sudo service redis_6379 start; fi; fi
 
 start_redis:
-	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server& sleep 3; fi
+	if [ "$$($(REDIS_BIN)/redis-cli ping)" != "PONG" ]; then $(REDIS_BIN)/redis-server --protected-mode no & sleep 3; fi
 
 stop_redis:
 	if [ "$$($(REDIS_BIN)/redis-cli ping)" = "PONG" ]; then $(REDIS_BIN)/redis-cli shutdown fi

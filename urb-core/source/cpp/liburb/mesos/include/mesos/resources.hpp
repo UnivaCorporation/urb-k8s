@@ -53,13 +53,13 @@
 
 namespace mesos {
 
-// NOTE: Resource objects stored in the class are always valid and
-// kept combined if possible. It is the caller's responsibility to
-// validate any Resource object or repeated Resource protobufs before
-// constructing a Resources object. Otherwise, invalid Resource
-// objects will be silently stripped. Invalid Resource objects will
-// also be silently ignored when used in arithmetic operations (e.g.,
-// +=, -=, etc.).
+// NOTE: Resource objects stored in the class are always valid, are in
+// the "post-reservation-refinement" format, and kept combined if possible.
+// It is the caller's responsibility to validate any Resource object or
+// repeated Resource protobufs before constructing a Resources object.
+// Otherwise, invalid Resource objects will be silently stripped.
+// Invalid Resource objects will also be silently ignored when used in
+// arithmetic operations (e.g., +=, -=, etc.).
 class Resources
 {
 private:
@@ -214,6 +214,22 @@ public:
       const std::string& defaultRole = "*");
 
   /**
+   * Parse an input string into a vector of Resource objects.
+   *
+   * Parses into a vector of Resource objects from either JSON or plain
+   * text. If the string is well-formed JSON it is assumed to be JSON,
+   * otherwise plain text. Any resource that doesn't specify a role is
+   * assigned to the provided default role.
+   *
+   * NOTE: The `Resource` objects in the result vector may not be valid
+   * semantically (i.e., they may not pass `Resources::validate()`). This
+   * is to allow additional handling of the parsing results in some cases.
+   */
+  static Try<std::vector<Resource>> fromString(
+      const std::string& text,
+      const std::string& defaultRole = "*");
+
+  /**
    * Validates a Resource object.
    *
    * Validates the given Resource object. Returns Error if it is not valid. A
@@ -247,15 +263,12 @@ public:
   static Option<Error> validate(
       const google::protobuf::RepeatedPtrField<Resource>& resources);
 
-  // NOTE: The following predicate functions assume that the given
-  // resource is validated.
+  // NOTE: The following predicate functions assume that the given resource is
+  // validated, and is in the "post-reservation-refinement" format. That is,
+  // the reservation state is represented by `Resource.reservations` field,
+  // and `Resource.role` and `Resource.reservation` fields are not set.
   //
-  // Valid states of (role, reservation) pair in the Resource object.
-  //   Unreserved         : ("*", None)
-  //   Static reservation : (R, None)
-  //   Dynamic reservation: (R, { principal: <framework_principal> })
-  //
-  // NOTE: ("*", { principal: <framework_principal> }) is invalid.
+  // See 'Resource Format' section in `mesos.proto` for more details.
 
   // Tests if the given Resource object is empty.
   static bool isEmpty(const Resource& resource);
@@ -269,6 +282,15 @@ public:
       const Resource& resource,
       const Option<std::string>& role = None());
 
+  // Tests if the given Resource object is allocatable to the given role.
+  // A resource object is allocatable to 'role' if:
+  //   * it is reserved to an ancestor of that role in the hierarchy, OR
+  //   * it is reserved to 'role' itself, OR
+  //   * it is unreserved.
+  static bool isAllocatableTo(
+      const Resource& resource,
+      const std::string& role);
+
   // Tests if the given Resource object is unreserved.
   static bool isUnreserved(const Resource& resource);
 
@@ -280,6 +302,13 @@ public:
 
   // Tests if the given Resource object is shared.
   static bool isShared(const Resource& resource);
+
+  // Tests if the given Resource object has refined reservations.
+  static bool hasRefinedReservations(const Resource& resource);
+
+  // Returns the role to which the given Resource object is reserved for.
+  // This must be called only when the resource is reserved!
+  static const std::string& reservationRole(const Resource& resource);
 
   // Returns the summed up Resources given a hashmap<Key, Resources>.
   //
@@ -344,6 +373,14 @@ public:
   // - If the resource is not in the Resources object, the count is 0.
   size_t count(const Resource& that) const;
 
+  // Allocates the resources to the given role (by setting the
+  // `AllocationInfo.role`). Any existing allocation will be
+  // over-written.
+  void allocate(const std::string& role);
+
+  // Unallocates the resources.
+  void unallocate();
+
   // Filter resources based on the given predicate.
   Resources filter(
       const lambda::function<bool(const Resource&)>& predicate) const;
@@ -355,6 +392,10 @@ public:
   // Note that the "*" role represents unreserved resources,
   // and will be ignored.
   Resources reserved(const Option<std::string>& role = None()) const;
+
+  // Returns resources allocatable to role. See `isAllocatableTo` for the
+  // definition of 'allocatableTo'.
+  Resources allocatableTo(const std::string& role) const;
 
   // Returns the unreserved resources.
   Resources unreserved() const;
@@ -374,29 +415,27 @@ public:
   // Returns the non-shared resources.
   Resources nonShared() const;
 
-  // Returns a Resources object with the same amount of each resource
-  // type as these Resources, but with all Resource objects marked as
-  // the specified (role, reservation) pair. This is used to cross
-  // reservation boundaries without affecting the actual resources.
-  // If the optional ReservationInfo is given, the resource's
-  // 'reservation' field is set. Otherwise, the resource's
-  // 'reservation' field is cleared.
-  // Returns an Error when the role is invalid or the reservation
-  // is set when the role is '*'.
-  Try<Resources> flatten(
-      const std::string& role,
-      const Option<Resource::ReservationInfo>& reservation = None()) const;
+  // Returns the per-role allocations within these resource objects.
+  // This must be called only when the resources are allocated!
+  hashmap<std::string, Resources> allocations() const;
 
-  // Equivalent to `flatten("*")` except it returns a Resources directly
-  // because the result is always a valid in this case.
-  Resources flatten() const;
+  // Returns a `Resources` object with the new reservation added to the back.
+  // The new reservation must be a valid refinement of the current reservation.
+  Resources pushReservation(const Resource::ReservationInfo& reservation) const;
+
+  // Returns a `Resources` object with the last reservation removed.
+  // Every resource in `Resources` must have `resource.reservations_size() > 0`.
+  Resources popReservation() const;
+
+  // Returns a `Resources` object with all of the reservations removed.
+  Resources toUnreserved() const;
 
   // Returns a Resources object that contains all the scalar resources
-  // in this object, but with their ReservationInfo and DiskInfo
-  // omitted. Note that the `role` and RevocableInfo, if any, are
-  // preserved. Because we clear ReservationInfo but preserve `role`,
-  // this means that stripping a dynamically reserved resource makes
-  // it effectively statically reserved.
+  // in this object, but with their AllocationInfo, ReservationInfo,
+  // DiskInfo, and SharedInfo omitted. The `role` and RevocableInfo,
+  // if any, are preserved. Because we clear ReservationInfo but
+  // preserve `role`, this means that stripping a dynamically reserved
+  // resource makes it effectively statically reserved.
   //
   // This is intended for code that would like to aggregate together
   // Resource values without regard for metadata like whether the
@@ -497,7 +536,7 @@ public:
   // a protocol buffer field.
   // Note that the google::protobuf::RepeatedPtrField<Resource> is
   // generated at runtime.
-  operator const google::protobuf::RepeatedPtrField<Resource>() const;
+  operator google::protobuf::RepeatedPtrField<Resource>() const;
 
   bool operator==(const Resources& that) const;
   bool operator!=(const Resources& that) const;

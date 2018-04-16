@@ -1,4 +1,4 @@
-Univa Resource Broker
-=====================
+Universal Resource Broker Adapter for Kubernetes
+================================================
 
-This is initial readme file for the python URB service.
+This directory contains source code and tests for python adapter for Kubernetes.
