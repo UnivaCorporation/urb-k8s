@@ -108,16 +108,18 @@ There are two options to run Mesos framework schedulers:
 - As pods within a Kubernetes cluster
 - As processes outside of Kubernetes cluster
 
-In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables have to be specified in the run time environment of the framework. `LD_LIBRARY_PATH` has to contain a path to the URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing the Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379`.
+In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables have to be specified in the run time environment of the framework if it relies on _Mesos native binary API_. `LD_LIBRARY_PATH` has to contain a path to the URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing the Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379`.
+
+Frameowrks based on v1 Mesos HTTP API do not have any URB binary dependencies and can use `urb-master:5060` connection URI.
 
 ### Run Mesos Framework Inside a Kubernetes Cluster
 
 The framework has to be "dockerized" and associated with the corresponding Kubernetes object like pod, deployment, service, etc.
-The following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set,  and URB URI specified as `urb://urb-master:6379` (see for example [Marathon](test/marathon/marathon.yaml) service). There are two docker images which can be used as a base for creating custom framework images [urb-bin-base.dockerfile](urb-bin-base.dockerfile) with URB binary dependencies specified above and [urb-python-base.dockerfile](urb-python-base.dockerfile) with added Python dependencies. They are used in following examples: [C++ example framework](test/example-frameworks/cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile).
+For frameworks based on _Mesos native binary API_, following run time dependencies are required to be installed in the framework Docker container: `libev`, `libuuid`, `zlib` as well as `liburb.so` (found in `urb-core/dist/urb-*-linux-x86_64/lib/linux-x86_64`) and `LD_LIBRARY_PATH` and/or `MESOS_NATIVE_JAVA_LIBRARY` set,  and URB URI specified as `urb://urb-master:6379` (see for example [Marathon](test/marathon/marathon.yaml) service). There are two docker images which can be used as a base for creating custom framework images [urb-bin-base.dockerfile](urb-bin-base.dockerfile) with URB binary dependencies specified above and [urb-python-base.dockerfile](urb-python-base.dockerfile) with added Python dependencies. They are used in following examples: [C++ example framework](test/example-frameworks/cpp-framework.dockerfile), [Python example framework](python-framework.dockerfile).
 
 ### Run Mesos Framework From Outside of the Kubernetes Cluster
 
-The URB service can be accessible from outside of the cluster at port `30379`. In the minikube based development environment the URB URI can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have the framework runtime installed on the same paths inside and outside of the Kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set.
+The URB service can be accessible from outside of the cluster at port `30379` by via _Native API_ or `35060` via _HTTP API_. In the minikube based development environment the URB URI can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have the framework runtime installed on the same paths inside and outside of the Kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set.
 
 ### Using Persistent Volumes or Self Contained Docker Images
 
