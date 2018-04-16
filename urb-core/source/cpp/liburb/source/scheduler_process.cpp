@@ -1021,7 +1021,7 @@ void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
         const std::string& target, const Json::Value& extData)
 {
     VLOG(2) << "UrbSchedulerProcess::sendMesosMessage() with ext data: this="
-            << this << ", target=, with extData" << target
+            << this << ", target=" << target
             << ", connected=" << connected_ << ", aborted=" << aborted_;
     liburb::message_broker::Message m;
     m.setTarget(target);
@@ -1034,7 +1034,8 @@ void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
 void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
         const std::string& target)
 {
-    VLOG(2) << "UrbSchedulerProcess::sendMesosMessage(): this=" << this << ", target=" << target
+    VLOG(2) << "UrbSchedulerProcess::sendMesosMessage(): this="
+            << this << ", target=" << target
             << ", connected=" << connected_ << ", aborted=" << aborted_;
     liburb::message_broker::Message m;
     m.setTarget(target);
@@ -1044,13 +1045,16 @@ void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
 }
 
 void UrbSchedulerProcess::sendMessage(mesos::internal::RegisterFrameworkMessage& m) {
-    Json::Value extData;
     const Option<std::string> ex(os::getenv("URB_job_submit_options"));
     if (ex.isSome()) {
+        Json::Value extData;
         extData["job_submit_options"] = ex.get();
+        VLOG(1) << "UrbSchedulerProcess::sendMessage(): RegisterFrameworkMessage: extData=" << ex.get();
+        sendMesosMessage(m, REGISTER_FRAMEWORK_TARGET, extData);
+    } else {
+        VLOG(1) << "UrbSchedulerProcess::sendMessage(): RegisterFrameworkMessage";
+        sendMesosMessage(m, REGISTER_FRAMEWORK_TARGET);
     }
-    VLOG(1) << "UrbSchedulerProcess::sendMessage(): RegisterFrameworkMessage";
-    sendMesosMessage(m, REGISTER_FRAMEWORK_TARGET, extData);
 }
 
 void UrbSchedulerProcess::sendMessage(mesos::internal::ReregisterFrameworkMessage& m) {

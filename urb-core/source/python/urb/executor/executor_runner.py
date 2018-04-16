@@ -43,13 +43,9 @@ class ExecutorRunner:
     HEARTBEAT_PERIOD_IN_SECONDS = 60
 
     def __init__(self, defaults={}):
-        self.server = None
-
         self.done = False
-
         # Config manager
         ConfigManager.get_instance().set_config_defaults(defaults)
-
         self.configure()
 
     def configure(self):
@@ -185,11 +181,14 @@ class ExecutorRunner:
 
     def run_forever(self):
         self.run()
+        self.logger.debug('run_forever done')
 
 # Run server.
 def run():
+#    from gevent import monkey; monkey.patch_all()
     from gevent import monkey; monkey.patch_socket()
     logger = LogManager.get_instance().get_logger(__name__)
+    logger.debug("run begins")
     try:
         executor = ExecutorRunner()
         executor.run()
@@ -200,6 +199,7 @@ def run():
             
 # Testing
 if __name__ == '__main__':
+#    from gevent import monkey; monkey.patch_all()
     from gevent import monkey; monkey.patch_socket()
     run()
  

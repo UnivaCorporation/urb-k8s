@@ -137,11 +137,11 @@ class Channel(object):
             except Exception, ex:
                 # Couldn't find a master... lets sleep our normal wait period so we don't
                 # thrash
-                self.logger.error("Unable to read message: %s" % ex )
+                self.logger.error("Unable to read message on %s: %s" % (self.name, ex))
                 t2 = time.time()
                 gevent.sleep(Channel.MESSAGE_WAIT_PERIOD_IN_SECONDS - (t2-t1))
             if msg is not None:
-                self.logger.trace('Got message: (%s,%s)' % msg)
+                self.logger.trace('Got message on %s: %s' % msg) # msg is tuple (name, msg) or None
             else:
                 self.logger.trace('No messages received on %s' % self.name)
             # Must allow other greenlets to run.

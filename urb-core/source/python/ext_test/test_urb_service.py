@@ -38,11 +38,13 @@ def test_constructor():
 def test_serve():
     urb_service = URBService(skip_cmd_line_config=True)
     urb_service.serve(3)
-    #urb_service.shutdown_callback()
+#    urb_service.shutdown_callback()
 
 def test_cleanup():
     remove_test_log_file()
 
 # Testing
 if __name__ == '__main__':
-    pass
+    test_constructor()
+    test_serve()
+#    pass

@@ -177,7 +177,6 @@ def test_unregister_framework():
           }
     SERVICE_CHANNEL.write(json.dumps(msg))
 
-
 def test_unregister_slave():
     msg = {'target' : 'UnregisterSlaveMessage', 
            'source_id' : 'urb.endpoint.1',
@@ -189,7 +188,8 @@ def test_cleanup():
     # Try and signal a shutdown but just wait for the timeout if it fails
     try:
         from urb.service.urb_service_controller import URBServiceController
-        from gevent import monkey; monkey.patch_socket()
+#        from gevent import monkey; monkey.patch_socket()
+        from gevent import monkey; monkey.patch_all()
         controller = URBServiceController('urb.service.monitor')
         controller.send_shutdown_message()
     except:

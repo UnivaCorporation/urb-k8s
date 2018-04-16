@@ -140,6 +140,15 @@ def needs_redis(func):
         raise SkipTest("Redis is not available.")
     return make_decorator(func)(inner)
 
+def need_python_27(func):
+    def inner(*args,**kwargs):
+        from sys import version_info as v
+        if v[0] <= 2 and v[1] < 7:
+            raise SkipTest("At least Python 2.7 required")
+        return func(*args,**kwargs)
+    return make_decorator(func)(inner)
+
+
 # Testing
 if __name__ == '__main__':
     print 'Last line: ', read_last_line('/tmp/urb.log')

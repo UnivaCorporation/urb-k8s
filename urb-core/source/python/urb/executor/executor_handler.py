@@ -35,6 +35,8 @@ from urb.messaging.service_disconnected_message import ServiceDisconnectedMessag
 from urb.messaging.slave_shutdown_message import SlaveShutdownMessage
 
 class ExecutorHandler(MessageHandler):
+    # Actual Mesos version has to be set by the build procedure
+    MESOS_VERSION = "1.4.0"
 
     def __init__(self, channelName,executor_runner):
         MessageHandler.__init__(self, channelName)
@@ -114,8 +116,10 @@ class ExecutorHandler(MessageHandler):
         self.logger.debug("Calling fetcher:  %s" % cmd)
         os.system(cmd)
 
-    def __sig_child_handler(self,signum,frame):
+    def __sig_child_handler(self, signum, frame):
         # Our child exits with sig 9 when all is good... so map that to 0
+        ret = 0
+        pid = None
         try:
             status = None
             sig = None
@@ -123,6 +127,7 @@ class ExecutorHandler(MessageHandler):
             self.logger.debug("Running children: %s" % self.executor_pids)
             self.logger.debug("Got signal %s" % signum)
             pid, ret = os.wait()
+            self.logger.debug("After wait")
             msg = "Child %s: wait returned code %s which means:" % (pid, ret)
             if os.WIFSIGNALED(ret):
                 sig = os.WTERMSIG(ret)
@@ -146,6 +151,14 @@ class ExecutorHandler(MessageHandler):
             else:
                 self.logger.error("Pid %s is not a child" % pid)
 
+            # sometimes signal handler is not called, clean here zombies
+            for pid in self.executor_pids:
+                p, r = os.waitpid(pid, os.WNOHANG)
+                if p != 0:
+                    self.logger.debug("Zombie with pid %d found, exit code=%d" % (p, r))
+                    self.executor_pids.remove(pid)
+                    #self.executor_rets.append((status, sig, core))
+
             ret = 0
             if len(self.executor_pids) == 0:
                 self.logger.trace("Statuses of all executors: %s" % self.executor_rets)
@@ -154,10 +167,16 @@ class ExecutorHandler(MessageHandler):
                         ret = st
                     if co:
                         ret = 1
-                self.logger.debug("Exit with code %s" % ret)
+                self.logger.info("Exit with code %s" % ret)
                 sys.exit(ret)
+
         except Exception, ex:
             self.logger.error("Error waiting for child process: %s" % ex)
+            if len(self.executor_pids) <= 1:
+                self.logger.warn("No more child processes, exit with success: pids=%s, last pid=%s, ret=%s" % (self.executor_pids, pid, ret))
+                sys.exit(0)
+            else:
+                self.logger.info("Children left: %s" % self.executor_pids)
 
     def service_disconnected(self, request):
         tasks = [ v for k,v in TaskTracker.get_instance() ]
@@ -166,6 +185,7 @@ class ExecutorHandler(MessageHandler):
             self.executor_runner.register_executor_runner(tasks)
         else:
             self.executor_runner.register_executor_runner()
+        return None, None
 
     def slave_shutdown(self, request):
         self.logger.debug('Slave shutdown received, exiting')
@@ -199,19 +219,20 @@ class ExecutorHandler(MessageHandler):
                 # We can use the one that was passed
                 e =  t['executor']
             executor_id = e['executor_id']
-            executor_key = executor_id['value']
+            executor_id_value = executor_id['value']
+            # make unique executor id (so in case of executor http api on subscribe we can find corresponding slave)
+#            executor_id_value_unique = executor_id_value + "_%s" % t['task_id']['value']
+            executor_id_value_unique = executor_id_value
             executor_tracker = ExecutorTracker.get_instance()
-            executor = executor_tracker.get(executor_key)
+            executor = executor_tracker.get(executor_id_value)
             if executor is not None:
-                self.logger.warn('Executor %s is already running' 
-                    % executor_key)
-                return
+                self.logger.debug('Executor %s is already running'  % executor_id_value)
+                return None, None
 
             executor_command = e.get('command')
             if executor_command is None:
-                self.logger.warn('No command provided for executor %s' 
-                    % executor_key)
-                return
+                self.logger.warn('No command provided for executor %s' % executor_id_value)
+                return None, None
 
             # First allocate the executor
             executor = {
@@ -221,7 +242,7 @@ class ExecutorHandler(MessageHandler):
             }
             if e.has_key('data'):
                 executor['data'] = e['data']
-            executor_tracker.add(executor_key, executor)
+            executor_tracker.add(executor_id_value, executor)
 
             # Fetch URIs if necessary
             user = pwd.getpwuid(os.getuid())[0]
@@ -245,10 +266,26 @@ class ExecutorHandler(MessageHandler):
 
             exec_env["URB_SLAVE_ID"] = self.executor_runner.slave_id['value']
             exec_env["URB_FRAMEWORK_ID"] = self.executor_runner.framework_id['value']
-            exec_env["URB_EXECUTOR_ID"] = executor_id['value']
-            exec_env["MESOS_NATIVE_LIBRARY"] = self.urb_lib_path # will be deprecated in future mesos releases
-            exec_env["MESOS_NATIVE_JAVA_LIBRARY"] = self.urb_lib_path
+            exec_env["URB_EXECUTOR_ID"] = executor_id_value_unique
+            # allow to override (for example with ~/.urb.executor_profile) to support executors linked with native libmesos
+            if "MESOS_NATIVE_LIBRARY" not in exec_env:
+                exec_env["MESOS_NATIVE_LIBRARY"] = self.urb_lib_path # will be deprecated in future mesos releases
+            else:
+                self.logger.warn("MESOS_NATIVE_LIBRARY is overridden from the environment: %s" % exec_env["MESOS_NATIVE_LIBRARY"])
+            if "MESOS_NATIVE_JAVA_LIBRARY" not in exec_env:
+                exec_env["MESOS_NATIVE_JAVA_LIBRARY"] = self.urb_lib_path
+            else:
+                self.logger.warn("MESOS_NATIVE_JAVA_LIBRARY is overridden from the environment: %s" % exec_env["MESOS_NATIVE_JAVA_LIBRARY"])
             exec_env["MESOS_DIRECTORY"] = self.executor_runner.mesos_work_dir
+
+            # for http api
+            exec_env["MESOS_FRAMEWORK_ID"] = exec_env["URB_FRAMEWORK_ID"]
+            exec_env["MESOS_EXECUTOR_ID"] = exec_env["URB_EXECUTOR_ID"]
+            if "MESOS_AGENT_ENDPOINT" in exec_env:
+                exec_env["MESOS_SLAVE_PID"] = "@" + exec_env["MESOS_AGENT_ENDPOINT"]
+            if "MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD" not in exec_env:
+                exec_env["MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD"] = "60secs"
+            exec_env["MESOS_SLAVE_ID"] = exec_env["URB_SLAVE_ID"]
 
             if "LD_LIBRARY_PATH" in exec_env and exec_env["LD_LIBRARY_PATH"] != self.ld_library_path:
                 self.logger.debug("Custom LD_LIBRARY_PATH provided: %s, appending default one from the global executor config: %s" % \
@@ -308,7 +345,7 @@ class ExecutorHandler(MessageHandler):
             signal.signal(signal.SIGCHLD, self.__sig_child_handler)
             newpid = os.fork()
             if newpid == 0:
-                signal.signal(signal.SIGCHLD,  signal.SIG_DFL)
+                signal.signal(signal.SIGCHLD, signal.SIG_DFL)
                 os.chdir(self.executor_runner.mesos_work_dir)
                 # Have to run these commands through bash
                 os.execve("/bin/bash",["executor","-c",executor_command['value']],exec_env)
@@ -316,6 +353,7 @@ class ExecutorHandler(MessageHandler):
                 self.logger.debug('Launched task %s with pid: %s' % (task_id['value'], newpid))
                 self.executor_pids.append(newpid)
                 self.logger.debug('All child processes: %s' % self.executor_pids)
+        return None, None
 
     def __get_user_env(self, user_env_file, env_var_name, env_var_value):
         ignore = ['_', 'SHLVL', 'PWD']

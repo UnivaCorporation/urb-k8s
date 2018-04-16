@@ -73,12 +73,12 @@ class MessageHandler:
             cf = ChannelFactory.get_instance()
             channel = cf.create_channel(channel_name)
             channel.write(response.to_json())
-            self.logger.trace('Wrote response to %s: %s' % (channel_name, 
+            self.logger.debug('Wrote response to %s: %s' % (channel_name, 
                 response.to_json()))
         except Exception, ex:
             self.logger.error(
-                'Could not send response to channel %s (error: %s)' % \
-                (channel_name, ex))
+                'Could not send response %s to channel %s (error: %s)' % \
+                (response, channel_name, ex))
     
     def handle(self, message):
         try:
@@ -90,7 +90,7 @@ class MessageHandler:
             self.logger.trace('Got request: %s' % request)
             target = request.get('target')
             if target is None:
-                self.logger.error('Wrong target: %s' % target)
+                self.logger.error('Wrong target: %s in request: %s' % (target, request))
 
             # Assign message id.
             request['message_id'] = str(uuid.uuid1())
@@ -117,7 +117,8 @@ class MessageHandler:
             else:
                 try:
                     self.logger.debug('Processing request with: %s' % target_executor) 
-                    response = target_executor(request)
+                    _, response = target_executor(request)
+#                    target_executor(request)
                     self.logger.trace('Response message: %s' % response) 
                 except URBException, ex:
                     response = Message(payload=ex.to_dict())
@@ -144,6 +145,7 @@ class MessageHandler:
             
         except Exception, ex:
             self.logger.error('Wrong json format for message: %s' % message[1])
+            self.logger.error("Whole wrong message: %s" % message)
             self.logger.exception(ex)
 
     def elected_master_callback(self):
