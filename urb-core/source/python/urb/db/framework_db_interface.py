@@ -150,7 +150,7 @@ class FrameworkDBInterface(object):
             task_summary['stopped'] = task.get('end_time', '')
 
             task_state = task.get('state', '')
-            if framework_finished:
+            if framework_finished and task_state == "":
                 task_summary['state'] = 'TASK_FINISHED'
             else:
                 task_summary['state'] = task_state
@@ -158,7 +158,7 @@ class FrameworkDBInterface(object):
             self.logger.trace("Task summary: %s" % task_summary)
 
             slaves = db_framework.get('slaves', {})
-            slave_id = task_info['slave_id']['value']
+            slave_id = task_info['slave_id']['value'] if 'slave_id' in task_info else task_info['agent_id']['value'] if 'agent_id' in task_info else "unknown"
             # slave id in dictionary has '.' replaced by '_'
             slave_id = slave_id.replace('.', '_')  
             slave = slaves.get(slave_id, {})

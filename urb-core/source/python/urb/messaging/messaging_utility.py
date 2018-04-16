@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
 
 class MessagingUtility:
   
@@ -31,9 +32,13 @@ class MessagingUtility:
             Return endpoint id from channel name: 
                 urb.endpoint.<endpoint_id>....
         """
-        if channel_name.startswith('urb.endpoint.'):
-            return channel_name.split('.')[2]
-        return None
+        if channel_name:
+            if channel_name.startswith('urb.endpoint.'):
+                return channel_name.split('.')[2]
+            else:
+                return None
+        else:
+            return uuid.uuid1().hex
 
 # Testing
 if __name__ == '__main__':

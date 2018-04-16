@@ -23,6 +23,7 @@ import sys
 import signal
 import time
 import gevent
+#import gc
 from gevent import event
 from exceptions import KeyboardInterrupt
 
@@ -33,6 +34,7 @@ from urb.config.config_manager import ConfigManager
 from urb.log.log_manager import LogManager
 from urb.service.master_elector import MasterElector
 from urb.messaging.channel_factory import ChannelFactory
+from urb.messaging.channel import Channel
 
 class URBService:
     """ URB service class. """
@@ -68,7 +70,7 @@ class URBService:
 
         # Logger
         self.logger = LogManager.get_instance().get_logger('URBService')
-
+        self.logger.info("Starting URB service")
         # Configuration
         self.configure()
 
@@ -147,6 +149,7 @@ class URBService:
             print >>sys.stderr, 'Service exiting after unexpected error: %s ' \
                 % (ex) 
             self.remove_pid_file(pid_file_name)
+        self.logger.info("URB service exited\n\n\n")
 
 
     def start_daemon_process(self, pid_file_name):
@@ -208,15 +211,19 @@ class URBService:
         self.logger.info('Serving requests')
         while True:
             if self.shutdown:
+                self.logger.debug("Shutdown flag was set")
                 break
             if end_time is not None:
                 now = time.time()
                 if now > end_time:
                     self.logger.info('Done serving requests')
                     break
+            self.logger.debug("serve: waiting for shutdown event for %d sec" % wait_time)
             self.shutdown_event.wait(wait_time)
             #gevent.sleep(URBService.GREENLET_SLEEP_PERIOD_IN_SECONDS)
-        self.logger.info('Service exiting\n\n')
+        master_elector.stop()
+#        gevent.killall([obj for obj in gc.get_objects() if isinstance(obj, gevent.Greenlet)])
+        self.logger.info('Serving done')
 
     def serve_forever(self):
         self.serve()
@@ -234,10 +241,13 @@ class URBService:
             handler.demoted_callback()
 
     def shutdown_callback(self, request=None):
-        self.logger.info('Shutting down')
+        self.logger.info('Service shutting down')
+        self.demoted_callback()
+        # wailt for all channel loops to exit
+        gevent.sleep(Channel.MESSAGE_WAIT_PERIOD_IN_SECONDS)
         self.shutdown = True
         self.shutdown_event.set()
-        #self.demoted_callback()
+#        self.demoted_callback()
         ChannelFactory.get_instance().refresh_master_message_broker(ttl=0)
 
     def signal_handler(self, signal, frame):

@@ -43,7 +43,11 @@ XMLTODICT_EGG=$(XMLTODICT_NAME)-py$(EGG_PYV).egg
 PYMONGO_ARCHIVE=$(shell ls pymongo-*.tar.gz)
 PYMONGO_NAME=$(subst .tar.gz,,$(PYMONGO_ARCHIVE))
 PYMONGO_EGG=$(PYMONGO_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
-PROTOBUF_ARCHIVE=$(shell ls protobuf-*.tar.gz)
+ifeq ($(shell $(PYTHON) -c "import sys; print sys.version_info[0],sys.version_info[1]"),2 6)
+  PROTOBUF_ARCHIVE=protobuf-3.0.0.tar.gz
+else
+  PROTOBUF_ARCHIVE=protobuf-3.5.0.tar.gz
+endif
 PROTOBUF_NAME=$(subst .tar.gz,,$(PROTOBUF_ARCHIVE))
 PROTOBUF_EGG=$(PROTOBUF_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
 ARGPARSE_ARCHIVE=$(shell ls argparse-*.tar.gz)
@@ -58,6 +62,15 @@ INOTIFYX_EGG=$(INOTIFYX_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
 GEVENTINOTIFYX_ARCHIVE=$(shell ls gevent_inotifyx-*.tar.gz)
 GEVENTINOTIFYX_NAME=$(subst .tar.gz,,$(GEVENTINOTIFYX_ARCHIVE))
 GEVENTINOTIFYX_EGG=$(GEVENTINOTIFYX_NAME)-py$(EGG_PYV).egg
+FLASK_ARCHIVE=$(shell ls Flask-*.tar.gz)
+FLASK_NAME=$(subst .tar.gz,,$(FLASK_ARCHIVE))
+FLASK_EGG=$(FLASK_NAME)-py$(EGG_PYV).egg
+MARKUPSAFE_ARCHIVE=$(shell ls MarkupSafe-*.tar.gz)
+MARKUPSAFE_NAME=$(subst .tar.gz,,$(MARKUPSAFE_ARCHIVE))
+MARKUPSAFE_EGG=$(MARKUPSAFE_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
+ITSDANGEROUS_ARCHIVE=$(shell ls itsdangerous-*.tar.gz)
+ITSDANGEROUS_NAME=$(subst .tar.gz,,$(ITSDANGEROUS_ARCHIVE))
+ITSDANGEROUS_EGG=$(ITSDANGEROUS_NAME)-py$(EGG_PYV).egg
 
 DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(GREENLET_EGG) \
@@ -68,12 +81,21 @@ DIST_EGGS=$(DIST_DIR)/$(GEVENT_EGG) \
           $(DIST_DIR)/$(PROTOBUF_EGG) \
           $(DIST_DIR)/$(ARGPARSE_EGG) \
           $(DIST_DIR)/$(REDIS_EGG) \
-          $(DIST_DIR)/$(GOOGLECOMMON_EGG)
+          $(DIST_DIR)/$(GOOGLECOMMON_EGG) \
+          $(DIST_DIR)/$(FLASK_EGG) \
+          $(DIST_DIR)/$(MARKUPSAFE_EGG) \
+          $(DIST_DIR)/$(ITSDANGEROUS_EGG)
 
 # some packages can be used directly as prebuild eggs or wheels
 SIX_ARCHIVE=$(shell ls six-*.whl)
+WERKZEUG_ARCHIVE=$(shell ls Werkzeug-*.whl)
+JINJA2_ARCHIVE=$(shell ls Jinja2-*.whl)
+CLICK_ARCHIVE=$(shell ls click-*.whl)
 
-DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE)
+DIST_PREBUILT=$(DIST_DIR)/$(SIX_ARCHIVE) \
+              $(DIST_DIR)/$(WERKZEUG_ARCHIVE) \
+              $(DIST_DIR)/$(JINJA2_ARCHIVE) \
+              $(DIST_DIR)/$(CLICK_ARCHIVE)
 
 ifeq ($(shell uname -s),SunOS)
   SETUP_ENV=PYCC_CC=gcc
@@ -147,10 +169,29 @@ $(DIST_DIR)/$(GEVENTINOTIFYX_EGG): $(GEVENTINOTIFYX_ARCHIVE)
 	cd $(BUILDDIR); $(PATCH) -p1 < ../$(GEVENTINOTIFYX_NAME).patch
 	cd $(BUILDDIR)/$(GEVENTINOTIFYX_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
 
+$(DIST_DIR)/$(FLASK_EGG): $(FLASK_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(FLASK_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
+$(DIST_DIR)/$(MARKUPSAFE_EGG): $(MARKUPSAFE_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(MARKUPSAFE_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
+$(DIST_DIR)/$(ITSDANGEROUS_EGG): $(ITSDANGEROUS_ARCHIVE)
+	$(TAR) xzvf $< -C $(BUILDDIR)
+	cd $(BUILDDIR)/$(ITSDANGEROUS_NAME) && $(SETUP_ENV) $(PYTHON) setup.py bdist_egg --dist-dir=../../$(DIST_DIR)
+
 $(DIST_DIR)/$(SIX_ARCHIVE): $(SIX_ARCHIVE)
 	cp $< $(DIST_DIR)
 
-$(DIST_PREBUILT): $(DIST_DIR)/$(SIX_ARCHIVE)
+$(DIST_DIR)/$(WERKZEUG_ARCHIVE): $(WERKZEUG_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_DIR)/$(JINJA2_ARCHIVE): $(JINJA2_ARCHIVE)
+	cp $< $(DIST_DIR)
+
+$(DIST_DIR)/$(CLICK_ARCHIVE): $(CLICK_ARCHIVE)
+	cp $< $(DIST_DIR)
 
 dist: $(BUILDDIR)/.dummy $(DIST_DIR)/.dummy $(DIST_EGGS) $(DIST_PREBUILT)
 

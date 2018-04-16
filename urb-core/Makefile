@@ -82,7 +82,9 @@ EXAMPLE_FRAMEWORK=$(LIBURB_DIR)/$(BUILDDIR)/example_framework.test \
                   $(LIBURB_DIR)/$(BUILDDIR)/docker_no_executor_framework.test
 EXAMPLE_FRAMEWORK_TARGET=$(BASE_DIR)/$(DEP_ARCH_BIN)/share/examples/frameworks/$(PYPLATFORM)
 EXAMPLE_PYTHON_FRAMEWORK=$(LIBURB_PYTHON_BINDINGS_DIR)/test/test_framework.py \
-                         $(LIBURB_PYTHON_BINDINGS_DIR)/test/test_executor.py
+                         $(LIBURB_PYTHON_BINDINGS_DIR)/test/test_executor.py \
+                         $(LIBURB_DIR)/test/http_framework.py
+
 EXAMPLE_PYTHON_FRAMEWORK_TARGET=$(DIST_DIR)/share/examples/frameworks/python
 
 # Dev stuff

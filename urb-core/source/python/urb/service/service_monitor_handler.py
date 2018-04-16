@@ -40,9 +40,10 @@ class ServiceMonitorHandler(MessageHandler):
         return supported_target_executor.get(target)
 
     def ping(self, request=None):
+        self.logger.debug("ping: request=%s" % request)
         timestamp = time.strftime('%Y/%m/%d %H:%M:%S')
         payload = { 'ack' : 'URB Service is alive @ %s' % timestamp }
-        return Message(payload=payload)
+        return None, Message(payload=payload)
 
     def heartbeat(self, request):
         """ Heartbeat message should have the following format:
@@ -77,6 +78,8 @@ class ServiceMonitorHandler(MessageHandler):
         self.logger.debug('Updating channel info for %s, ttl=%s' % (channel_id, time_to_live))
         ChannelTracker.get_instance().add(channel_id, channel_info)
 
+        return None, None
+
     def register_shutdown_callback(self, shutdown_callback):
         self.shutdown_callback = shutdown_callback
         
@@ -87,13 +90,12 @@ class ServiceMonitorHandler(MessageHandler):
         now = time.time()
         if timestamp is None:
             self.logger.debug('Ignoring shutdown message, no timestamp')
-            return
         elif now > timestamp + ServiceMonitorHandler.SHUTDOWN_MESSAGE_EXPIRATION_PERIOD_IN_SECONDS:
             self.logger.debug('Ignoring expired shutdown message (timestamp: %s, now: %s)' % (timestamp, now))
-            return
         else: 
             self.logger.debug('Shutdown message is valid')
             self.shutdown_callback(request)
+        return None, None
 
 # Testing
 if __name__ == '__main__':
