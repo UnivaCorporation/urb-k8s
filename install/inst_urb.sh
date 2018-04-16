@@ -27,6 +27,7 @@ else
 fi
 REPO=$DOCKERHUB_USER
 KUBECTL=kubectl
+KUBECTL_CONFIG=kubectl
 URB_CONF=urb.conf
 
 Usage() {
@@ -57,6 +58,7 @@ Options:
    --remove        : Remove components specified with --components option
    --namespace     : Kubernetes namespace (will be created if doesn't exist)
                      "default" is used by default
+   --navops        : Install in Navops (see navops.io) environment
    --HA            : Install in highly available mode (not implemented)
    --dot-progress  : display dots instead of spinning progress
    --verbose       : Turn on verbose output
@@ -168,6 +170,44 @@ add_config() {
   fi
 }
 
+add_to_yaml() {
+  local key=$1
+  local val=$2
+  local doc_num=$3
+  cat | python /tmp/inst_urb_del.py "$key" "$val" $doc_num
+}
+
+navops() {
+  local doc_num=${1:-0}
+  local scheduler_key="spec:template:metadata:annotations:scheduler.alpha.kubernetes.io/name"
+  local scheduler_val="navops-command"
+  if [ -z "$NAVOPS" ]; then
+    cat
+  else
+    if [ ! -z "$NAMESPACE" ]; then
+      cat | add_to_yaml "metadata:namespace" "$NAMESPACE" $doc_num | add_to_yaml $scheduler_key $scheduler_val $doc_num
+    else
+      cat | add_to_yaml $scheduler_key $scheduler_val $doc_num
+    fi
+  fi
+}
+
+create_tmp_script() {
+  cat > /tmp/inst_urb_del.py <<EOF
+import sys
+import yaml
+docs = list(yaml.load_all(sys.stdin.read()))
+d = docs[int(sys.argv[3]) if len(sys.argv) == 4 else 0]
+l = sys.argv[1].split(":")
+for key in l[:-1]:
+    if not d.get(key):
+        d[key] = {}
+    d = d[key]
+d[l[-1]] = sys.argv[2]
+print yaml.dump_all(docs, explicit_start=True)
+EOF
+}
+
 urb() {
   if [ -z "$REMOVE" ]; then
     if [ -f $URB_CONF ]; then
@@ -176,7 +216,7 @@ urb() {
       $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > $URB_CONF
       urb_configmap
     fi
-    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/" | navops 1 | $KUBECTL create -f -
   else
     $KUBECTL delete service urb-master
     $KUBECTL delete deployment urb-master
@@ -191,7 +231,7 @@ zookeeper() {
   if [ -z "$REMOVE" ]; then
     if [ -z "$ZOO_INSTALLED" ]; then
       if [ -z "$HA" ]; then
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | $KUBECTL create -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | navops | $KUBECTL create -f -
         $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | $KUBECTL create -f -
       else
         echo "Zookeper HA not implemented"
@@ -203,7 +243,7 @@ zookeeper() {
     if [ -z "$ZOO_DELETED" ]; then
       if [ -z "$HA" ]; then
         $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-service.yaml | $KUBECTL delete -f -
-        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | $KUBECTL delete -f -
+        $CURL $URB_K8S_GITHUB/test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml | navops | $KUBECTL delete -f -
       else
         echo "Zookeper HA not implemented"
         exit 1
@@ -225,7 +265,7 @@ chronos() {
       $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.conf | add_config
 #      add_config $URB_K8S_GITHUB/install/chronos/urb-chronos.conf
     fi
-    $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/install/chronos/urb-chronos.yaml | sed "s/image: local/image: $REPO/;s/NodePort/LoadBalancer/" | navops 1 | $KUBECTL create -f -
   else
     $KUBECTL delete service urb-chronos
     $KUBECTL delete deployment urb-chronos
@@ -245,7 +285,7 @@ marathon() {
       $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.conf | add_config
 #      add_config $URB_K8S_GITHUB/install/marathon/urb-marathon.conf
     fi
-    $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/install/marathon/urb-marathon.yaml | sed "s/image: local/image: $REPO/" | navops 1 | $KUBECTL create -f -
   else
     $KUBECTL delete service marathonsvc
     $KUBECTL delete deployment marathonsvc
@@ -274,7 +314,7 @@ spark() {
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" | add_config
 #      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
-    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | navops | $KUBECTL create -f -
   else
     $KUBECTL delete job spark-driver
     #$CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL delete -f -
@@ -293,7 +333,7 @@ zeppelin() {
       $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" | add_config
 #      $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
-    $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-rc.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/install/zeppelin/zeppelin-rc.yaml | sed "s/image: local/image: $REPO/" | navops | $KUBECTL create -f -
     # service fails to start if we dont wait here
     echo "Waiting for Zeppelin to start"
     pod_wait zeppelin-rc 360 "Zeppelin is huge, it may take a long time to pull an image for the first time..."
@@ -359,8 +399,13 @@ while [ $# -gt 0 ]; do
     shift
     NAMESPACE=$1
     shift
-    KUBECTL+=" --namespace=$NAMESPACE"
+#    KUBECTL+=" --namespace=$NAMESPACE"
     URB_CONF+=".$NAMESPACE"
+    ;;
+  "--navops")
+    shift
+    KUBECTL_CONFIG=navopsctl
+    NAVOPS=1
     ;;
   "--remove")
     shift
@@ -387,10 +432,30 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ -z "$REMOVE" ] && [ ! -z "$NAMESPACE" ] && ! kubectl get namespaces | grep "^urb[ \t]" > /dev/null 2>&1 ; then
-  kubectl create namespace $NAMESPACE
-  kubectl label namespace $NAMESPACE name=urb
+
+NAVOPS_NS_YAML="metadata: { apiVersion: v1, type: Namespace, uid: $NAMESPACE }"
+
+# regular k8s environment
+if [ -z "$NAVOPS" ]; then
+  if [ ! -z "$NAMESPACE" ]; then
+    KUBECTL+=" --namespace=$NAMESPACE"
+    KUBECTL_CONFIG+=" --namespace=$NAMESPACE"
+  fi
+  if [ -z "$REMOVE" ] && [ ! -z "$NAMESPACE" ] && ! kubectl get namespaces | grep "^urb[ \t]" > /dev/null 2>&1 ; then
+    kubectl create namespace $NAMESPACE
+    kubectl label namespace $NAMESPACE name=urb
+  fi
+else # Navops environment
+  if [ ! -z "$NAMESPACE" ]; then
+    KUBECTL_CONFIG+=" --namespace=$NAMESPACE"
+    if ! echo $NAVOPS_NS_YAML | navopsctl update -f - > /dev/null 2>&1 ; then
+      echo $NAVOPS_NS_YAML | navopsctl create -f -
+    fi
+  fi
 fi
+
+create_tmp_script
+
 
 if [ ${#COMPONENTS[@]} -eq 0 ]; then
   COMPONENTS=("urb")
