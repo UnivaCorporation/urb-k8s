@@ -2147,12 +2147,15 @@ class MesosHandler(MessageHandler):
             host = cf.get_message_broker_connection_host()
 
         ip_addr = socket.gethostbyname(host)
-        int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
-#        int_addr = struct.unpack('I', socket.inet_aton(ip_addr))[0]
+        # use native byte order insetad of network byte order for now
+        # to accomodate current frameworks which continue using incorreclty
+        # this deprecated field
+#        int_addr = struct.unpack('!I', socket.inet_aton(ip_addr))[0]
+        int_addr = struct.unpack('I', socket.inet_aton(ip_addr))[0]
 
         master_info = {}
         master_info['id'] = 'master-' + host
-        master_info['ip'] = int_addr
+        master_info['ip'] = int_addr # will be deprecated
         master_info['port'] = int(port)
         master_info['hostname'] = host
         master_info['version'] = MesosHandler.MESOS_VERSION
