@@ -52,6 +52,7 @@ Options:
                        urb-chronos
                        urb-marathon
                        urb-spark
+                       urb-singularity
                        urb-zeppelin
                        urb-zoo (optional: installed automatically as
                          dependency if required)
@@ -293,6 +294,24 @@ marathon() {
   fi
 }
 
+singularity() {
+  if [ -z "$REMOVE" ]; then
+    if grep -i 'Singularity.*FrameworkConfig]' $URB_CONF ; then
+      echo "WARNING: Some Singularity related framework configuration section[s] outlined above already present in $URB_CONF"
+      echo "The default one below will not be added:"
+      $CURL $URB_K8S_GITHUB/install/singularity/urb-singularity.conf
+      echo
+      urb_configmap
+    else
+      $CURL $URB_K8S_GITHUB/install/singularity/urb-singularity.conf | add_config
+    fi
+    $CURL $URB_K8S_GITHUB/install/singularity/urb-singularity.yaml | sed "s/image: local/image: $REPO/" | navops 1 | $KUBECTL create -f -
+  else
+    $KUBECTL delete service urb-singularity
+    $KUBECTL delete deployment urb-singularity
+  fi
+}
+
 spark() {
   if [ -z "$REMOVE" ]; then
 #    SPARK_PVC=$($CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | awk -F":" "/claimName/ { print $2}")
@@ -389,7 +408,7 @@ while [ $# -gt 0 ]; do
       fi
 #      echo ${COMPONENTS[@]}
     done
-    if [[ "$co" == *"marathon"* ]] || [[ "$co" == *"chronos"* ]]; then
+    if [[ "$co" == *"marathon"* ]] || [[ "$co" == *"chronos"* ]] || [[ "$co" == *"singularity"* ]]; then
       ZOO=1
     fi
     IFS=$oIFS
@@ -496,6 +515,9 @@ for comp in ${COMPONENTS[@]}; do
   "urb-marathon")
     marathon
     ;;
+  "urb-singularity")
+    singularity
+    ;;
   "urb-spark")
     spark
     ;;
@@ -519,7 +541,7 @@ if [ -z "$REMOVE" ]; then
     echo "Spark driver pod $spark_driver can be used to run Spark command line tools, for example:"
     echo "kubectl exec $spark_driver -it -- /opt/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --name SparkPi --master mesos://urb://urb-master:6379 /opt/spark-2.1.0-bin-hadoop2.7/examples/src/main/python/pi.py"
   fi
-  for comp in urb-chronos urb-marathon urb-zeppelin; do
+  for comp in urb-chronos urb-marathon urb-singularity urb-zeppelin; do
     if [[ "${COMPONENTS[@]}" == *"$comp"* ]]; then
       if [ "$comp" == "urb-marathon" ]; then
         get_uri marathonsvc
@@ -527,7 +549,11 @@ if [ -z "$REMOVE" ]; then
         get_uri $comp
       fi
       if [ ! -z "$EXTERNAL_URI" ]; then
-        echo "$comp is available at: $EXTERNAL_URI"
+        if [ "$comp" == "urb-singularity" ]; then
+          echo "$comp is available at: $EXTERNAL_URI/singularity"
+        else
+          echo "$comp is available at: $EXTERNAL_URI"
+        fi
       fi
     fi
   done
