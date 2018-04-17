@@ -14,10 +14,6 @@
 
 FROM local/urb-python-base
 
-# install binary dependencies
-RUN yum update -y; yum install -y python-pip; yum clean all
-
-#RUN easy_install kubernetes
 RUN pip install kubernetes
 
 # copy k8s adapter Python egg
@@ -31,6 +27,6 @@ RUN easy_install /tmp/k8s_adapter-*-py2.7.egg
 #ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
 #RUN mkdir -p $URB_ROOT/etc
 #COPY etc/urb.conf etc/urb.executor_runner.conf $URB_ROOT/etc/
-EXPOSE 6379
+EXPOSE 6379 5060 5061
 
 ENTRYPOINT ["/usr/bin/urb-service"]

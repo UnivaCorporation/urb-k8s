@@ -18,7 +18,7 @@ FROM centos:7
 RUN yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(awk '/^%rhel/ { print $2 }' /etc/rpm/macros.dist).noarch.rpm
 
 # install binary dependencies
-RUN yum update -y; yum install -y libev libuuid zlib python-setuptools; yum clean all
+RUN yum update -y; yum install -y libev libuuid zlib; yum clean all
 
 # set environment variables, copy binaries
 ENV URB_ROOT=/urb

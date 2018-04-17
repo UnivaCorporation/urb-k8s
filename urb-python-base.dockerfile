@@ -14,13 +14,20 @@
 
 FROM local/urb-bin-base
 
-# copy Python eggs
-COPY urb-core/dist/urb-*-py2.7/*.egg /tmp/
-COPY urb-core/dist/urb-*-py2.7-redhat_7-linux-x86_64/*.egg /tmp/
-COPY urb-core/dist/urb-*/pkg/urb-*-py2.7.egg /tmp/
+# install easy_install and pip
+RUN yum update -y; yum install -y python-setuptools python-pip; yum clean all
+
+# copy Python packages
+COPY urb-core/dist/urb-*-py2.7/*.[we][gh][gl] /tmp/
+COPY urb-core/dist/urb-*-py2.7-redhat_7-linux-x86_64/*.[we][gh][gl] /tmp/
+COPY urb-core/dist/urb-*/pkg/urb-*-py2.7.[we][gh][gl] /tmp/
 
 # install all required Python dependencies, Mesos eggs
-RUN easy_install /tmp/google_common-*-py2.7.egg \
+RUN pip install  /tmp/six-*.whl /tmp/click-*.whl && \
+    easy_install /tmp/itsdangerous-*.egg /tmp/MarkupSafe-*.egg && \
+    pip install  /tmp/Jinja2-*.whl /tmp/Werkzeug-*.whl && \
+    easy_install /tmp/google_common-*-py2.7.egg \
+                 /tmp/protobuf-*.egg \
                  /tmp/xmltodict-*-py2.7.egg \
                  /tmp/sortedcontainers-*-py2.7.egg \
                  /tmp/redis-*-py2.7.egg \
@@ -29,10 +36,11 @@ RUN easy_install /tmp/google_common-*-py2.7.egg \
                  /tmp/inotifyx-*-py2.7-linux-x86_64.egg \
                  /tmp/gevent-*-py2.7-linux-x86_64.egg \
                  /tmp/gevent_inotifyx-*-py2.7.egg \
+                 /tmp/Flask-*.egg \
+                 /tmp/mesos.interface-*-py2.7.egg \
                  /tmp/mesos.scheduler-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.executor-*-py2.7-linux-x86_64.egg \
                  /tmp/mesos.native-*-py2.7.egg \
-                 /tmp/mesos.interface-*-py2.7.egg \
                  /tmp/mesos-*-py2.7.egg \
                  /tmp/urb-*-py2.7.egg
  
