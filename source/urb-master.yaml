@@ -6,6 +6,9 @@ spec:
   type: NodePort
   ports:
     - port: 6379
+      name: native-api
+    - port: 5060
+      name: http-api
   selector:
     app: urb-master
 ---
@@ -34,6 +37,10 @@ spec:
         ports:
         - containerPort: 6379
           name: urb-service
+        - containerPort: 5060
+          name: urb-http-sch
+        - containerPort: 5061
+          name: urb-http-exe
         env:
         - name: URB_ROOT
           value: /urb
