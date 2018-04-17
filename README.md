@@ -110,7 +110,7 @@ There are two options to run Mesos framework schedulers:
 
 In both cases the `LD_LIBRARY_PATH` and `MESOS_NATIVE_JAVA_LIBRARY` (for Java or Scala based frameworks) environment variables have to be specified in the run time environment of the framework if it relies on _Mesos native binary API_. `LD_LIBRARY_PATH` has to contain a path to the URB `liburb.so` shared library. `MESOS_NATIVE_JAVA_LIBRARY` should point to the same library file. Different frameworks may have different ways of specifing the Mesos master URI. In general, standard Mesos URI has to be changed to the URB one: `urb://urb-master:6379`.
 
-Frameowrks based on v1 Mesos HTTP API do not have any URB binary dependencies and can use `urb-master:5060` connection URI.
+Frameworks based on v1 Mesos HTTP API do not have any URB binary dependencies and can use `urb-master:5060` connection URI.
 
 ### Run Mesos Framework Inside a Kubernetes Cluster
 
@@ -119,7 +119,7 @@ For frameworks based on _Mesos native binary API_, following run time dependenci
 
 ### Run Mesos Framework From Outside of the Kubernetes Cluster
 
-The URB service can be accessible from outside of the cluster at port `30379` by via _Native API_ or `35060` via _HTTP API_. In the minikube based development environment the URB URI can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have the framework runtime installed on the same paths inside and outside of the Kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set.
+The URB service exposes two ports for _Native_ and _HTTP APIs_. In the minikube based development environment the URB URIs can be retrieved with: `minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"`. It is crucial to have the framework runtime installed on the same paths inside and outside of the Kubernetes cluster as well as to have URB related paths (`LD_LIBRARY_PATH`, `MESOS_NATIVE_JAVA_LIBRARY`) properly set.
 
 ### Using Persistent Volumes or Self Contained Docker Images
 
