@@ -160,13 +160,22 @@ kubectl logs cpp-framework-ck8zz
 ```
 
 
-This is an example of how to run the C++ example framework from outside of the Kubernetes cluster (build machine).
+This is an example of how to run the C++ example framework from outside of the Kubernetes cluster (build machine). Since this example framework uses _Native API_ we need to determine URB connection string.
 
-- Get the URB service URI:
+- List the URB service URLs:
 
 ```
-minikube service urb-master --format "urb://{{.IP}}:{{.Port}}"
+minikube service urb-master --url"
 ```
+
+Take an ip address and a port of the one of two URLs printed for which following command fails (use actual ip address and port from previuos command):
+
+```
+curl -i --header "Content-Type: application/json" --header "Accept: application/json" -X GET http://192.168.99.100:31607/master/state
+```
+
+and form URB connection string similar to `urb://192.168.99.100:31607`. (The URL for which above command succeedeed corresponds to _Mesos v1 HTTP API endpoint_.)
+
 - Login to build machine:
 
 ```
@@ -182,7 +191,7 @@ sudo mkdir -p /opt/example/bin
 ```
 sudo cp /scratch/urb/urb-core/dist/urb-*-linux-x86_64/share/examples/frameworks/linux-x86_64/example_framework.test /opt/example/bin
 ```
-- Run the C++ framework (substitute `<URB_URI>` with an actual URI determined in the first step from the host machine)
+- Run the C++ framework (substitute `<URB_URI>` with an actual URI determined earlier)
 
 ```
 cd /scratch/urb
@@ -210,7 +219,7 @@ kubectl logs python-framework-ck8zz
 
 ## Run some actual Mesos frameworks
 
-Some Mesos framework schedulers, such as Marathon or Chronos, have a dependency on [Zookeeper](https://zookeeper.apache.org). Like the C++ and Python example frameworks they can run inside or outside of a Kubernetes cluster submitting their tasks to the Kubernetes cluster.
+Some Mesos framework schedulers, such as Marathon, Chronos or Singularity have a dependency on [Zookeeper](https://zookeeper.apache.org). Like the C++ and Python example frameworks they can run inside or outside of a Kubernetes cluster submitting their tasks to the Kubernetes cluster.
 
 ### Marathon
 
@@ -318,6 +327,19 @@ Python Spark Shell uses `PySparkShell` framework name to register, thus taking c
 >>> rdd.collect()
 ```
 
+### Singularity
+
+[Singularity](http://getsingularity.com) framework takes advantage of _Mesos v1 HTTP API_ so it doesn't have any URB binary dependencies and can be started using following service and deployment based on stock Singularity docker image:
+
+```
+kubectl create -f test/singularity/urb-singularity.yaml
+```
+
+Access Singularity Web interface at:
+
+```
+minikube service urb-singularity --format "http://{{.IP}}:{{.Port}}/singularity"
+```
 
 ## Updating URB configuration
 
