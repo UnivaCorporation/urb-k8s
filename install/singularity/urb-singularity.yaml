@@ -3,10 +3,10 @@ kind: Service
 metadata:
   name: urb-singularity
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
     - port: 7099
-      nodePort: 32099
+#      nodePort: 32099
   selector:
     app: urb-singularity
 #  clusterIP: None

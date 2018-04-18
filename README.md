@@ -165,7 +165,7 @@ This is an example of how to run the C++ example framework from outside of the K
 - List the URB service URLs:
 
 ```
-minikube service urb-master --url"
+minikube service urb-master --url
 ```
 
 Take an ip address and a port of the one of two URLs printed for which following command fails (use actual ip address and port from previuos command):
