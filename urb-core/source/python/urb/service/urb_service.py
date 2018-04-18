@@ -35,6 +35,10 @@ from urb.log.log_manager import LogManager
 from urb.service.master_elector import MasterElector
 from urb.messaging.channel_factory import ChannelFactory
 from urb.messaging.channel import Channel
+try:
+    from urb import __version__
+except:
+    __version__ = "development"
 
 class URBService:
     """ URB service class. """
@@ -70,7 +74,7 @@ class URBService:
 
         # Logger
         self.logger = LogManager.get_instance().get_logger('URBService')
-        self.logger.info("Starting URB service")
+        self.logger.info("Starting URB service version: %s" % __version__)
         # Configuration
         self.configure()
 
