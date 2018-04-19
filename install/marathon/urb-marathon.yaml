@@ -27,7 +27,7 @@ spec:
         - image: local/urb-marathon
           name: marathonsvc
           imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-c", "/usr/bin/marathon --master urb://urb-master:6379 --zk zk://zoo-svc:2181/marathon"]
+          command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master:6379 --zk zk://zoo-svc:2181/marathon"]
           env:
             - name: MESOS_NATIVE_JAVA_LIBRARY
               value: /urb/lib/liburb.so
