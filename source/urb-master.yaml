@@ -11,6 +11,30 @@ spec:
       name: http-api
   selector:
     app: urb-master
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: urb-master
+
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: urb-master
+subjects:
+  - kind: ServiceAccount
+    # Reference to upper's `metadata.name`
+    name: urb-master
+    # Reference to upper's `metadata.namespace`
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -24,6 +48,7 @@ spec:
       labels:
         app: urb-master
     spec:
+      serviceAccountName: urb-master
       containers:
       - image: local/urb-redis
         name: urb-redis
