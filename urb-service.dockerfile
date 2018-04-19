@@ -22,11 +22,7 @@ COPY source/python/dist/k8s_adapter-*-py2.7.egg /tmp/
 # install URB and k8s adapter
 RUN easy_install /tmp/k8s_adapter-*-py2.7.egg
 
-# set environment variables required by URB service and copy configuration files
-#ENV URB_ROOT=/urb
-#ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.conf
-#RUN mkdir -p $URB_ROOT/etc
-#COPY etc/urb.conf etc/urb.executor_runner.conf $URB_ROOT/etc/
+# expose Native API, HTTP scheduler and executor ports
 EXPOSE 6379 5060 5061
 
 ENTRYPOINT ["/usr/bin/urb-service"]
