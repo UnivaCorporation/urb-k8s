@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM local/urb-bin-base
-RUN rpm -Uvh http://repos.mesosphere.io/el/7/noarch/RPMS/mesosphere-el-repo-7-1.noarch.rpm
-RUN yum update -y; yum install -y marathon; yum clean all
+FROM mesosphere/marathon
+
+RUN apt-get update && apt-get install -y libev4 libuuid1 zlib1g && apt-get clean
+
 EXPOSE 8080
-
-
