@@ -13,15 +13,15 @@ There is an installation script which can be downloaded with:
 
 `curl -O https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master/install/inst_urb.sh && chmod a+x inst_urb.sh`
 
-and used to install URB on existing Kubernetes cluster from pre-built docker images hosted on [DockerHub](https://hub.docker.com/u/univa) and Kubernetes yaml files from this repository. In addtinion to URB service, several ready to use Mesos frameworks (run `./inst_urb.sh --help` for more information) can be installed as well. For example following command will install URB master service, Marathon and Chronos frameworks as well as Spark:
+and used to install URB on existing Kubernetes cluster from pre-built docker images hosted on [DockerHub](https://hub.docker.com/u/univa) and Kubernetes yaml files from this repository. In addtinion to URB service, several ready to use Mesos frameworks (run `./inst_urb.sh --help` for more information) can be installed as well. For example following command will install URB master service, Marathon, Chronos and Singularity frameworks as well as Spark:
 
-`./inst_urb.sh -c urb,urb-marathon,urb-chronos,urb-spark`
+`./inst_urb.sh -c urb,urb-marathon,urb-chronos,urb-singularity,urb-spark`
 
 Upon execution of the above command, Marathon and Chronos URLs will be displayed as well as Spark driver pod will become available (see more detailes on running Spark examples below). Local URB configuration file `urb.conf` with custom framework configuration sections for the installed Mesos frameworks can be modified and reloaded as described in _Updating URB configuration_ section.
 
 Above installation can be deleted with following command:
 
-`./inst_urb.sh --remove -c urb,urb-marathon,urb-chronos,urb-spark,urb-zoo`
+`./inst_urb.sh --remove -c urb,urb-marathon,urb-chronos,urb-singularity,urb-spark,urb-zoo`
 
 
 ## Build URB
@@ -230,7 +230,7 @@ kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-rc.yaml
 kubectl create -f test/marathon/kubernetes-zookeeper-master/zoo-service.yaml
 ```
 
-Create Marathon Docker image. This image is based on mesosphere/marathon image thus URB binary dependencies has to be installed directly with package manager in [test/marathon/marathon.dockerfile](test/marathon/marathon.dockerfile). 
+Create Marathon Docker image. This image is based on mesosphere/marathon image thus URB binary dependencies has to be installed directly with package manager in [test/marathon/marathon.dockerfile](test/marathon/marathon.dockerfile).
 
 ```
 cd test/marathon

@@ -126,8 +126,9 @@ if [ $# -eq 0 ]; then
 else
   while [ $# -gt 0 ]; do
     case "$1" in
-    "rebuild-bin")
-      REBUILD_BIN=1
+    # full source code rebuild (with make clean; make) otherwise only python part gets rebuilt
+    "liburb")
+      URB_LIBURB=1
       shift
       ;;
     "urb-service")
@@ -204,10 +205,10 @@ rmi_none
 clear_minikube_env
 pushd urb-core/vagrant
 set -e
-if [ -z "$REBUILD_BIN" ];then
-  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+if [ ! -z "$URB_LIBURB" ]; then
+  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; make clean && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
 else
-  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make clean && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
+  SYNCED_FOLDER=../.. vagrant ssh -- "cd /scratch/urb; rm -rf source/python/build source/python/dist urb-core/dist urb-core/source/python/dist urb-core/source/python/build && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make && $STOCK_MESOS_DIR_PARAM $FULL_MESOS_LIB_PARAM $VERSION_PARAM make dist"
 fi
 set +e
 popd

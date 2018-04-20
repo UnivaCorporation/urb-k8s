@@ -28,13 +28,6 @@ spec:
           name: marathonsvc
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "./bin/start --master urb://urb-master:6379 --zk zk://zoo-svc:2181/marathon"]
-          env:
-            - name: MESOS_NATIVE_JAVA_LIBRARY
-              value: /urb/lib/liburb.so
-#            - name: URB_LOGLEVEL
-#              value: 0
-#            - name: GLOG_v
-#              value: 2
           ports:
             - containerPort: 8080
               name: marathonsvc

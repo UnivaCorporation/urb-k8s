@@ -15,13 +15,9 @@
 FROM local/urb-python-base
 
 # install java
-RUN yum update -y; yum install -y java-1.8.0-openjdk-headless python-pip; yum clean all
-
-# install Python kubernetes client
-RUN pip install kubernetes
+RUN yum update -y; yum install -y java-1.8.0-openjdk-headless; yum clean all
 
 # set environment variables required by URB executor runner and copy configuration file
-#ENV URB_ROOT=/urb
 RUN mkdir -p $URB_ROOT/etc
 ENV URB_CONFIG_FILE=$URB_ROOT/etc/urb.executor_runner.conf
 COPY etc/urb.executor_runner.conf $URB_ROOT/etc

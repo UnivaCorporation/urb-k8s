@@ -56,7 +56,7 @@ urb_wait() {
   fi
   cnt=0
   local pod=$(kubectl get pods | awk "/urb-master.*Running/ {print \$1}")
-  while ! kubectl logs $pod urb-service | grep 'Instantiating handler: MesosHandler'; do
+  while ! kubectl logs $pod urb-service | grep 'Serving requests'; do
     let cnt=cnt+1
     sleep 3
   done

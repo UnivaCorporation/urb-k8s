@@ -24,7 +24,7 @@ spec:
         app: urb-singularity
     spec:
       containers:
-      - image: hubspot/singularityservice
+      - image: hubspot/singularityservice:0.19.2
         name: urb-singularity
         imagePullPolicy: IfNotPresent
         env:
