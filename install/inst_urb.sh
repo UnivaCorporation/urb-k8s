@@ -333,7 +333,7 @@ spark() {
       $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" | add_config
 #      $CURL $URB_K8S_GITHUB/install/spark/spark.conf | sed "s|local/urb-spark-exec|$REPO/urb-spark-exec|" >> $URB_CONF
     fi
-    $CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | navops | $KUBECTL create -f -
+    $CURL $URB_K8S_GITHUB/install/spark/urb-spark-driver.yaml | sed "s/image: local/image: $REPO/" | navops | $KUBECTL create -f -
   else
     $KUBECTL delete job spark-driver
     #$CURL $URB_K8S_GITHUB/install/spark/spark-driver.yaml | sed "s/image: local/image: $REPO/" | $KUBECTL delete -f -
