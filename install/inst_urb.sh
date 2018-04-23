@@ -101,7 +101,7 @@ get_service_uri() {
       return
     fi
     let cnt=cnt+1
-    if [ $cnt -eq 6 ]; then
+    if [ $cnt -eq 11 ]; then
       echo "It may take a couple of minutes... You can ^C and use command \"$KUBECTL get service ${fr}\" later"
     fi
     sleep 1
@@ -217,11 +217,16 @@ urb() {
       $CURL $URB_K8S_GITHUB/etc/urb.conf.template | sed "s/K8SAdapter()/K8SAdapter('$REPO')/" > $URB_CONF
       urb_configmap
     fi
-    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/" | navops 1 | $KUBECTL create -f -
+    # ClusterRoleBinding requires direct namespace substitution (no way to reference it from metadata for now)
+    local ns=${NAMESPACE:-default}
+    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/;s/namespace: default/namespace: $ns/" | navops 1 | $KUBECTL create -f -
+#    $CURL $URB_K8S_GITHUB/source/urb-master.yaml | sed "s/image: local/image: $REPO/;s/- key: urb.conf/- key: $URB_CONF/;s/type: NodePort/type: LoadBalancer/" | navops 1 | $KUBECTL create -f -
   else
     $KUBECTL delete service urb-master
     $KUBECTL delete deployment urb-master
     $KUBECTL delete configmap urb-config
+    $KUBECTL delete clusterrolebinding urb-master
+    $KUBECTL delete serviceaccount urb-master
     if [ -f $URB_CONF ]; then
       mv $URB_CONF ${URB_CONF}.removed
     fi

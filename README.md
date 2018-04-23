@@ -9,7 +9,13 @@ Please see the [Universal Resource Broker core](https://github.com/UnivaCorporat
 ## Doing a Quick Trial
 
 In order to do a quick trial there is no need to clone and build a whole project.
-There is an installation script which can be downloaded with:
+
+If [RBAC](https://kubernetes.io/docs/admin/authorization/rbac) is enabled in your Kubernetes cluster, your current user has to be granted a `cluster-admin` role.
+For example in GKE it can be done with following command:
+
+`kubectl create clusterrolebinding your-user-cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)`
+
+There is an URB installation script which can be downloaded with:
 
 `curl -O https://raw.githubusercontent.com/UnivaCorporation/urb-k8s/master/install/inst_urb.sh && chmod a+x inst_urb.sh`
 

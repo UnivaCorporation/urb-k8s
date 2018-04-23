@@ -26,9 +26,7 @@ metadata:
   name: urb-master
 subjects:
   - kind: ServiceAccount
-    # Reference to upper's `metadata.name`
     name: urb-master
-    # Reference to upper's `metadata.namespace`
     namespace: default
 roleRef:
   kind: ClusterRole
