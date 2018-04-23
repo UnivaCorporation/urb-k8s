@@ -135,7 +135,11 @@ get_uri() {
   local timeout=${2:-180}
   context_name=$($KUBECTL config get-contexts | awk "/^\*/ {print \$2}")
   if [ "$context_name" == "minikube" ]; then
-    EXTERNAL_URI=$(minikube service $fr --url)
+    if [ -z "$NAMESPACE" ]; then
+      EXTERNAL_URI=$(minikube service $fr --url)
+    else
+      EXTERNAL_URI=$(minikube service --namespace=$NAMESPACE $fr --url)
+    fi
   elif [ "$context_name" == "gke"* ]; then
     get_service_uri $fr $timeout
   else
