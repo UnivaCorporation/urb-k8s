@@ -23,7 +23,7 @@ and used to install URB on existing Kubernetes cluster from pre-built docker ima
 
 `./inst_urb.sh -c urb,urb-marathon,urb-chronos,urb-singularity,urb-spark`
 
-Upon execution of the above command, Marathon and Chronos URLs will be displayed as well as Spark driver pod will become available (see more detailes on running Spark examples below). Local URB configuration file `urb.conf` with custom framework configuration sections for the installed Mesos frameworks can be modified and reloaded as described in _Updating URB configuration_ section.
+Upon execution of the above command, Marathon, Chronos and Singularity URLs will be displayed as well as Spark driver pod will become available (see more detailes on running Spark examples below). Local URB configuration file `urb.conf` with custom framework configuration sections for the installed Mesos frameworks can be modified and reloaded as described in _Updating URB configuration_ section.
 
 Above installation can be deleted with following command:
 
