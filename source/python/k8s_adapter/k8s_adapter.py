@@ -23,6 +23,7 @@ from urb.log.log_manager import LogManager
 from urb.config.config_manager import ConfigManager
 from urb.exceptions.unknown_job import UnknownJob
 from urb.exceptions.completed_job import CompletedJob
+from urb.exceptions.pending_job import PendingJob
 from urb.utility.value_utility import ValueUtility
 from urb.utility.utils import isfloat
 
@@ -400,6 +401,7 @@ class K8SAdapter(object):
                         self.logger.debug("Pod %s has last condition: status=%s, type=%s, reason=%s, message=%s" %
                                           (job_id, last_condition.status, last_condition.type,
                                            last_condition.reason, last_condition.message))
+                raise PendingJob("Pod %s in Pending phase" % job_id)
             elif phase == "Running":
                 #status.reason
                 if hasattr(status, 'container_statuses'):
