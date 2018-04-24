@@ -356,7 +356,7 @@ class K8SAdapter(object):
     def delete_job(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
         self.logger.debug("Deleting job: %s (%s k8s job)" % (job_id, k8s_job_id))
-        body = client.V1DeleteOptions()
+        body = client.V1DeleteOptions(propagation_policy = "Background")
         resp = self.batch_v1.delete_namespaced_job(name = k8s_job_id,
                                                   namespace = self.namespace,
                                                   body = body,
