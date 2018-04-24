@@ -85,7 +85,7 @@ else:
 from urb.exceptions.registration_error import RegistrationError
 from urb.exceptions.unknown_job import UnknownJob
 from urb.exceptions.completed_job import CompletedJob
-
+from urb.exceptions.pending_job import PendingJob
 
 class MesosHandler(MessageHandler):
 
@@ -984,9 +984,19 @@ class MesosHandler(MessageHandler):
                 else:
                     self.logger.warn("Cannot send kill task on task [%s] without a slave [%s] in slave dict or placehoder dict" %
                                      (task_name, slave_id['value']))
+                    job_id = task.get('job_id')
+                    if job_id:
+                        # possibly in pending state, kill via adapter
+                        self.logger.info("Deleting job via adapter: %s" % job_id)
+                        self.adapter.delete_job(job_id)
             else:
                 self.logger.warn("Cannot send kill task on task [%s] without a slave in task dict: task_info=%s" %
                                  (task_name, task['task_info']))
+                job_id = task.get('job_id')
+                if job_id:
+                    # possibly in pending state, kill via adapter
+                    self.logger.info("Deleting job via adapter: %s" % job_id)
+                    self.adapter.delete_job(job_id)
             #slave['offerable'] = True
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
@@ -1474,6 +1484,8 @@ class MesosHandler(MessageHandler):
                         # We do not know about the tasks yet
                         # Lets try and query back end scheduler
                         job_id = NamingUtility.get_job_id_from_slave_id(slave_id['value'])
+                        if job_id is None:
+                            job_id = t.get('job_id')
                         if job_id is not None:
                             try:
                                 self.adapter.get_job_status(job_id)
@@ -1487,6 +1499,11 @@ class MesosHandler(MessageHandler):
                             except CompletedJob, ex:
                                 job_status = "TASK_FINISHED"
                                 self.logger.debug("Reconcile: task status is TASK_FINISHED for job id '%s' \
+                                                  (slave id: %s), (ex: %s)" % \
+                                                  (job_id, slave_id['value'], ex))
+                            except PendingJob, ex:
+                                job_status = "TASK_STAGING"
+                                self.logger.debug("Reconcile: task status is TASK_STAGING for job id '%s' \
                                                   (slave id: %s), (ex: %s)" % \
                                                   (job_id, slave_id['value'], ex))
                             except Exception, ex:
