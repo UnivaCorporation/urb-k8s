@@ -20,6 +20,7 @@ from gevent import event
 from urb.utility.job_tracker import JobTracker
 from urb.log.log_manager import LogManager
 from urb.config.config_manager import ConfigManager
+from urb.exceptions.pending_job import PendingJob
 
 class JobMonitor(object):
     """ Job monitor class. """
@@ -133,9 +134,11 @@ class JobMonitor(object):
                         # We are no longer monitoring this job.
                         #self.__remove_job_from_tracker(job_id, framework_id)
                         self.__retrieve_job_accounting_and_remove_job_from_tracker(job_id, job_info)
+                except PendingJob, ex:
+                    self.logger.debug('Job monitor: job %s is pending: %s' % (job_id, ex))
                 # handles jobs completion (UnknownJob for UGE and CompletedJob for k8s)
                 except Exception, ex:
-                    self.logger.debug('Job %s likely completed: %s' % (job_id, ex))
+                    self.logger.debug('Jon monitor: job %s likely completed: %s' % (job_id, ex))
                     if job_info is not None:
                         self.__handle_job_status_retrieval_error(job_id, 
                             job_info)
