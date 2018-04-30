@@ -823,6 +823,12 @@ void UrbSchedulerProcess::launchTasks(const vector<OfferID>& offerIds,
             framework_.id());
       }
 
+      // some frameworks may supply empty collection
+      // remove empty collection as it is converted to incorrect json (with null value)
+      if (copy.has_labels() && copy.labels().labels_size() == 0) {
+        copy.clear_labels();
+      }
+
       //Save this taskID for auto reconcile
       activeTasks_[task.task_id().value()] = TASK_STAGING;
       result.push_back(copy);
