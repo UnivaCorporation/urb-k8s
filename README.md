@@ -159,7 +159,7 @@ Please read [vagrant/README.md](vagrant/README.md) file for build instructions.
 
 The build process produces a distribution archive which includes following components:
 
-- an archive with binary components: liburb.so, redis, fetcher, command executor, example frameworks
+- an archive with binary components: liburb.so, redis, fetcher, command executor, several C++ example frameworks
 - an architecture specific and architecture independent archives with Python eggs for Mesos and all required dependencies
 - Universal Resource Broker Service Python egg
 - Python example framework
