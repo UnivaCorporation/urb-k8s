@@ -62,6 +62,7 @@ private:
   static bool s_enabled_;
   ev_async async_w_;
   std::thread eventLoopThread_;
+  std::thread::id mainThreadId_;
   bool loopExited_;
 };
 

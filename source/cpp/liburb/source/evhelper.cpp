@@ -69,7 +69,7 @@ void EvHelper::timeout_cb(EV_P_ ev_timer *w, int /*revents*/) {
     ev_timer_again(loop, w);
 }
 
-EvHelper::EvHelper() : loopExited_(false) {
+EvHelper::EvHelper() : mainThreadId_(std::this_thread::get_id()), loopExited_(false) {
     VLOG(1) << "EvHelper::EvHelper()";
     s_loop_ = ev_loop_new(0);
     ev_async_init(&async_w_, EvHelper::async_cb);
@@ -192,7 +192,8 @@ void EvHelper::shutdown() {
     // The refresh call will trigger a break if we are not being called from inside
     // the event thread. If we are in the event thread the loop will exit at the completion
     // of this event.
-    if (eventLoopThread_.get_id() == std::this_thread::get_id()) {
+    auto id = std::this_thread::get_id();
+    if ((eventLoopThread_.get_id() == id) || (mainThreadId_ == id)) {
       refresh();
     } else {
       VLOG(1) << "EvHelper::shutdown() called not from main thread";
