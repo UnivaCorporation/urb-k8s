@@ -21,11 +21,11 @@
 
 namespace liburb {
 
-ev_timer EvHelper::timeout_watcher;
-bool EvHelper::enabled = true;
-std::mutex EvHelper::loop_mutex;
-struct ev_loop* EvHelper::loop;
-std::map<timer_time_point, std::list<std::shared_ptr<TimerBase>>> EvHelper::timers;
+ev_timer EvHelper::s_timeoutWatcher_;
+bool EvHelper::s_enabled_ = true;
+std::mutex EvHelper::s_loopMutex_;
+struct ev_loop* EvHelper::s_loop_;
+std::map<timer_time_point, std::list<std::shared_ptr<TimerBase>>> EvHelper::s_timers_;
 
 class BaseTimer;
 
@@ -34,23 +34,23 @@ void EvHelper::timeout_cb(EV_P_ ev_timer *w, int /*revents*/) {
     std::list<std::list<std::shared_ptr<TimerBase>>> callbacks;
     {
         VLOG(3) << "EvHelper::timeout_cb(): lock_guard in";
-        std::lock_guard<std::mutex> lock(loop_mutex);
-        if (!enabled) {
+        std::lock_guard<std::mutex> lock(s_loopMutex_);
+        if (!s_enabled_) {
             LOG(INFO) << "EvHelper::timeout_cb(): Ignoring timer callback since we are disabled";
             return;
         }
         timer_time_point now = std::chrono::time_point_cast<timer_time_point::duration>(std::chrono::system_clock::now());
-        VLOG(3) << "EvHelper::timeout_cb(): list count: " << timers.size() << ", time to first elem " << (timers.begin()->first - now).count();
-        if (!timers.empty() && now >= timers.begin()->first) {
-            auto upper = timers.upper_bound(now);
-            for (auto iterator = timers.begin(); iterator != upper; ++iterator) {
+        VLOG(3) << "EvHelper::timeout_cb(): list count: " << s_timers_.size() << ", time to first elem " << (s_timers_.begin()->first - now).count();
+        if (!s_timers_.empty() && now >= s_timers_.begin()->first) {
+            auto upper = s_timers_.upper_bound(now);
+            for (auto iterator = s_timers_.begin(); iterator != upper; ++iterator) {
                 callbacks.push_back(iterator->second);
             }
-            timers.erase(timers.begin(), upper);
+            s_timers_.erase(s_timers_.begin(), upper);
         }
-        if (!timers.empty()) {
+        if (!s_timers_.empty()) {
             // Get the next fire time
-            duration = timers.begin()->first - now;
+            duration = s_timers_.begin()->first - now;
         }
         VLOG(3) << "EvHelper::timeout_cb(): next fire time in: " << duration.count() << ", lock_guard out";
     }
@@ -69,26 +69,26 @@ void EvHelper::timeout_cb(EV_P_ ev_timer *w, int /*revents*/) {
     ev_timer_again(loop, w);
 }
 
-EvHelper::EvHelper() : loopExited(false) {
+EvHelper::EvHelper() : mainThreadId_(std::this_thread::get_id()), loopExited_(false) {
     VLOG(1) << "EvHelper::EvHelper()";
-    loop = ev_loop_new(0);
-    ev_async_init(&async_w, EvHelper::async_cb);
-    ev_async_start(loop, &async_w);
+    s_loop_ = ev_loop_new(0);
+    ev_async_init(&async_w_, EvHelper::async_cb);
+    ev_async_start(s_loop_, &async_w_);
 
     // Fire up the timer handler
-    ev_timer_init(&timeout_watcher, &timeout_cb, 0., 60.);
-    ev_timer_start(loop, &timeout_watcher);
+    ev_timer_init(&s_timeoutWatcher_, &timeout_cb, 0., 60.);
+    ev_timer_start(s_loop_, &s_timeoutWatcher_);
 
     //Start the event thread
-    eventLoopThread = std::thread(&EvHelper::eventLoop, this);
+    eventLoopThread_ = std::thread(&EvHelper::eventLoop, this);
 }
 
 EvHelper::~EvHelper() {
     // The join is done here because this should never happen inside the event loop
     // thread.
     VLOG(1) << "EvHelper::~EvHelper()";
-    ev_async_stop(loop, &async_w);
-    ev_timer_stop(loop, &timeout_watcher);
+    ev_async_stop(s_loop_, &async_w_);
+    ev_timer_stop(s_loop_, &s_timeoutWatcher_);
     shutdown();
     //CHECK(eventLoopThread.timed_join(std::posix_time::seconds(1)));
     //ev_loop_verify(loop);
@@ -99,11 +99,11 @@ EvHelper::~EvHelper() {
     // jvm->AttachCurrentThread() to nonexisting JVM which in turn makes ~EvHelper() hang on
     // eventLoopThread.join() on framework exit.
     for (int i = 0; i < 3; i++) {
-        if (loopExited) {
+        if (loopExited_) {
             VLOG(1) << "EvHelper::~EvHelper(): before join";
-            eventLoopThread.join();
+            eventLoopThread_.join();
             LOG(INFO) << "EvHelper::~EvHelper(): Event thread joined";
-            ev_loop_destroy(loop);
+            ev_loop_destroy(s_loop_);
             VLOG(1) << "EvHelper::~EvHelper() end";
             return;
         }
@@ -115,10 +115,10 @@ EvHelper::~EvHelper() {
 }
 
 void EvHelper::eventLoop() {
-    while (enabled) {
+    while (s_enabled_) {
         try {
             VLOG(4) << "EvHelper::eventLoop(): before ev_run";
-            ev_run(loop, EVRUN_ONCE);
+            ev_run(s_loop_, EVRUN_ONCE);
             VLOG(4) << "EvHelper::eventLoop(): after ev_run";
         } catch (std::exception& e) {
             std::cout << "EvHelper::eventLoop: std::exception " << e.what() << "\n";
@@ -127,36 +127,36 @@ void EvHelper::eventLoop() {
         }
         usleep(10);
     }
-    loopExited = true;
+    loopExited_ = true;
     LOG(INFO) << "EvHelper::eventLoop: exiting event loop";
 }
 
 bool EvHelper::isLoopExited() {
-    return loopExited;
+    return loopExited_;
 }
 
 void EvHelper::refresh() {
     VLOG(3) << "EvHelper::refresh()";
-    ev_async_send(loop, &async_w);
+    ev_async_send(s_loop_, &async_w_);
 }
 
 struct ev_loop* EvHelper::getLoop() {
-    return loop;
+    return s_loop_;
 }
 
 void EvHelper::async_cb(EV_P_ ev_async */*w*/, int /*revents*/) {
     VLOG(4) << "EvHelper::async_cb(): lock_guard in";
-    std::lock_guard<std::mutex> lock(loop_mutex);
-    if (!enabled) {
+    std::lock_guard<std::mutex> lock(s_loopMutex_);
+    if (!s_enabled_) {
         VLOG(1) << "EvHelper::async_cb: calling ev_break";
         // Unloop and shutdown
         //ev_unloop(ev.getLoop(),EVUNLOOP_ALL);
-        ev_break(loop, EVBREAK_ALL);
+        ev_break(s_loop_, EVBREAK_ALL);
         return;
     }
-    timeout_watcher.repeat = 0;
-    ev_timer_again(loop, &timeout_watcher);
-    ev_feed_event(loop, &timeout_watcher, EV_TIMEOUT);
+    s_timeoutWatcher_.repeat = 0;
+    ev_timer_again(s_loop_, &s_timeoutWatcher_);
+    ev_feed_event(s_loop_, &s_timeoutWatcher_, EV_TIMEOUT);
     VLOG(4) << "EvHelper::async_cb() done: lock_guard out";
 }
 
@@ -169,30 +169,35 @@ EvHelper& EvHelper::getInstance() {
 
 void EvHelper::scheduleTimer(std::shared_ptr<TimerBase> t) {
     VLOG(4) << "EvHelper::scheduleTimer(): lock_guard in";
-    std::lock_guard<std::mutex> lock(loop_mutex);
+    std::lock_guard<std::mutex> lock(s_loopMutex_);
     auto key = t->getFireTime();
-    if (!timers.count(key)) {
+    if (!s_timers_.count(key)) {
         VLOG(4) << "new TimerBase for key " << t->getFireTime().time_since_epoch().count() << std::endl;
         std::list<std::shared_ptr<TimerBase> > l;
-        timers[key] = l;
+        s_timers_[key] = l;
     }
     VLOG(4) << "push_back for key " << t->getFireTime().time_since_epoch().count() << std::endl;
-    timers[key].push_back(t);
+    s_timers_[key].push_back(t);
     refresh();
     VLOG(4) << "EvHelper::scheduleTimer(): lock_guard out";
 }
 
 std::mutex& EvHelper::getMutex() {
-      return loop_mutex;
+      return s_loopMutex_;
 }
 
 void EvHelper::shutdown() {
     VLOG(1) << "EvHelper::shutdown()";
-    enabled = false;
+    s_enabled_ = false;
     // The refresh call will trigger a break if we are not being called from inside
-    //  the event thread.  If we are in the event thread the loop will exit at the completion
-    //  of this event.
-    refresh();
+    // the event thread. If we are in the event thread the loop will exit at the completion
+    // of this event.
+    auto id = std::this_thread::get_id();
+    if ((eventLoopThread_.get_id() == id) || (mainThreadId_ == id)) {
+      refresh();
+    } else {
+      VLOG(1) << "EvHelper::shutdown() called not from main thread";
+    }
     VLOG(1) << "EvHelper::shutdown() end";
 }
 

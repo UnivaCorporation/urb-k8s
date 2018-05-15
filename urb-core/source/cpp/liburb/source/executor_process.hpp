@@ -163,9 +163,9 @@ private:
     SlaveID slaveId_;
     std::shared_ptr<ExecutorNotifyCallback> notifyCallback_;
     std::shared_ptr<liburb::message_broker::MessageBroker> pBroker_;
-    liburb::message_broker::Channel *notifyChannel;
+    liburb::message_broker::Channel *pNotifyChannel_;
     LinkedHashMap<std::string, mesos::internal::StatusUpdate> updates; // Unacknowledged tasks.
-    LinkedHashMap<std::string, TaskInfo> tasks; // Unacknowledged tasks.
+    LinkedHashMap<std::string, TaskInfo> tasks_; // Unacknowledged tasks.
     liburb::Timer<UrbExecutorProcess> registrationTimer_;
     bool channelsCreated_;
     bool aborted_;

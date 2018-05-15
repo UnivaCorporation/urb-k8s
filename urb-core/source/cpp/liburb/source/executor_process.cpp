@@ -190,10 +190,10 @@ UrbExecutorProcess::UrbExecutorProcess(MesosExecutorDriver *pDriver,
 
 void UrbExecutorProcess::createChannels(SlaveID slaveId) {
     if (!channelsCreated_) {
-        notifyChannel = getBroker()->createChannel("notify");
+        pNotifyChannel_ = getBroker()->createChannel("notify");
         channelsCreated_ = true;
     }
-    notifyChannel->registerInputCallback(notifyCallback_);
+    pNotifyChannel_->registerInputCallback(notifyCallback_);
     slaveId_ = slaveId;
 }
 
@@ -226,7 +226,7 @@ void UrbExecutorProcess::sendMesosMessage(google::protobuf::Message& message,
     liburb::message_broker::Message m;
     m.setTarget(target);
     setPayload(message,m);
-    notifyChannel->write(m);
+    pNotifyChannel_->write(m);
 }
 
 
@@ -247,7 +247,7 @@ void UrbExecutorProcess::sendMessage(
         std::string executorRunnerChannel = slaveId_.value().substr(pos+1);
         m.setReplyTo(executorRunnerChannel);
     }
-    notifyChannel->write(m);
+    pNotifyChannel_->write(m);
 }
 void UrbExecutorProcess::sendMessage(
     mesos::internal::ReregisterExecutorMessage& rem) {
@@ -261,7 +261,7 @@ void UrbExecutorProcess::sendMessage(
         std::string executorRunnerChannel = slaveId_.value().substr(pos+1);
         m.setReplyTo(executorRunnerChannel);
     }
-    notifyChannel->write(m);
+    pNotifyChannel_->write(m);
 }
 void UrbExecutorProcess::sendMessage(
     mesos::internal::ExecutorToFrameworkMessage& m) {
@@ -323,12 +323,12 @@ void UrbExecutorProcess::registered(const ExecutorInfo& executorInfo,
 void UrbExecutorProcess::startHeartbeat() {
     Json::Value heartbeatMessage;
     heartbeatMessage["channel_info"] = Json::Value();
-    heartbeatMessage["channel_info"]["channel_id"] = notifyChannel->getName();
+    heartbeatMessage["channel_info"]["channel_id"] = pNotifyChannel_->getName();
     heartbeatMessage["channel_info"]["framework_id"] = frameworkId_.value();
     heartbeatMessage["channel_info"]["slave_id"] = slaveId_.value();
     heartbeatMessage["channel_info"]["endpoint_type"] = "executor";
     heartbeatMessage["channel_info"]["executor_id"] = executorId_.value();
-    notifyChannel->setHeartbeatPayload(heartbeatMessage);
+    pNotifyChannel_->setHeartbeatPayload(heartbeatMessage);
 }
 
 void UrbExecutorProcess::reregistered(const SlaveID& slaveId, const SlaveInfo& slaveInfo){
@@ -370,7 +370,7 @@ void UrbExecutorProcess::reconnect(const UPID& /*from*/, const SlaveID& slaveId)
     }
 
     // Send all unacknowledged tasks.
-    for (const TaskInfo& task: tasks.values()) {
+    for (const TaskInfo& task: tasks_.values()) {
       message.add_tasks()->MergeFrom(task);
     }
 
@@ -390,10 +390,10 @@ void UrbExecutorProcess::runTask(const TaskInfo& task) {
       return;
     }
 
-    CHECK(!tasks.contains(task.task_id().value()))
+    CHECK(!tasks_.contains(task.task_id().value()))
       << "Unexpected duplicate task " << task.task_id().value();
 
-    tasks[task.task_id().value()] = task;
+    tasks_[task.task_id().value()] = task;
 
     VLOG(1) << "Executor asked to run task '" << task.task_id().value() << "'";
 
@@ -443,7 +443,7 @@ void UrbExecutorProcess::statusUpdateAcknowledgement(
     // Remove the corresponding task.
     // URB Deviation... we only erase tasks when the complete
     if (eraseTasks) {
-        tasks.erase(taskId.value());
+        tasks_.erase(taskId.value());
     }
 }
 void UrbExecutorProcess::frameworkMessage(const SlaveID& /*slaveId*/,
@@ -474,24 +474,30 @@ void UrbExecutorProcess::shutdown() {
     LOG(INFO) << "Executor asked to shutdown";
 
     /* URB Necessary logic */
-    // Maybe a thread here?
-    int pid = fork();
     int masterPid = getpid();
+    int pid = fork();
     if (pid != 0) {
+        VLOG(1) << "UrbExecutorProcess::shutdown: parent: pid=" << pid << ", masterPid=" << masterPid;
+        VLOG(1) << "UrbExecutorProcess::shutdown: parent: call executor shutdown";
+        pExecutor_->shutdown(pDriver_);
+        //Shutdown the message bus as well
+        VLOG(1) << "UrbExecutorProcess::shutdown: parent: call broker shutdown";
+        pBroker_->shutdown();
+    } else {
+        VLOG(1) << "UrbExecutorProcess::shutdown: child: pid=" << pid << ", masterPid=" << masterPid;
         sleep(1);
+        VLOG(1) << "UrbExecutorProcess::shutdown: child: slept a sec, send kill signal to master with pid=" << masterPid;
         kill(masterPid, SIGKILL);
         // The signal might not get delivered immediately, so sleep for a
         // few seconds. Worst case scenario, exit abnormally.
+        VLOG(1) << "UrbExecutorProcess::shutdown: child: sleep for 5 sec";
         sleep(5);
+        VLOG(1) << "UrbExecutorProcess::shutdown: child: slept, exit -1";
         exit(-1);
     }
+
     /* End URB Logic */
-
-    pExecutor_->shutdown(pDriver_);
-
-    //Shutdown the message bus as well
-    pBroker_->shutdown();
-
+    LOG(INFO) << "UrbExecutorProcess::shutdown: end";
     aborted_ = true; // To make sure not to accept any new messages.
 }
 

@@ -246,7 +246,7 @@ private:
     std::shared_ptr<liburb::message_broker::MessageBroker> pBroker_;
     bool channelsCreated_;
     std::shared_ptr<SchedulerNotifyCallback> notifyCallback_;
-    liburb::message_broker::Channel *notifyChannel_;
+    liburb::message_broker::Channel *pNotifyChannel_;
 
     MesosSchedulerDriver *pDriver_;
     Scheduler *pScheduler_;
