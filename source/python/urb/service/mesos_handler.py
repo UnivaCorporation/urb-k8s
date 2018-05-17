@@ -2708,7 +2708,7 @@ class MesosHandler(MessageHandler):
                 slave_port_range_list = PortRangeUtility.tuple_to_port_range_list(slave['ports'])
                 slave_port_range_list = PortRangeUtility.subtract(slave_port_range_list,task_port_range_list)
                 slave['ports'] = PortRangeUtility.port_range_to_tuple_list(slave_port_range_list)
-            elif r['name'] == 'cpus' or r['name'] == 'mem' or r['name'] == 'disk':
+            elif r['name'] == 'cpus' or r['name'] == 'gpus' or r['name'] == 'mem' or r['name'] == 'disk':
                 slave[r['name']] -= r['scalar']['value']
                 self.logger.debug('Debiting [%s] of [%s] from slave %s (%s remaining)' % \
                     (r['scalar']['value'], r['name'], slave['id']['value'], slave[r['name']]))
@@ -2734,7 +2734,7 @@ class MesosHandler(MessageHandler):
                 slave_port_range_list = PortRangeUtility.tuple_to_port_range_list(slave['ports'])
                 slave_port_range_list = PortRangeUtility.add(slave_port_range_list,task_port_range_list)
                 slave['ports'] = PortRangeUtility.port_range_to_tuple_list(slave_port_range_list)
-            elif r['name'] == 'cpus' or r['name'] == 'mem' or r['name'] == 'disk':
+            elif r['name'] == 'cpus' or r['name'] == 'gpus' or r['name'] == 'mem' or r['name'] == 'disk':
                 self.logger.debug('Crediting [%s] of [%s] to slave %s' % \
                     (r['scalar']['value'], r['name'], slave['id']['value']))
                 slave[r['name']] += r['scalar']['value']
@@ -2792,12 +2792,14 @@ class MesosHandler(MessageHandler):
         slave['mem'] = int(framework_config['mem'])
         slave['disk'] = int(framework_config['disk'])
         slave['ports'] = eval(framework_config['ports'])
+        if 'gpus' in framework_config:
+            slave['gpus'] = int(framework_config['gpus'])
 
         if 'custom_resources' in framework_config:
             slave['custom_resources'] = copy.deepcopy(framework_config['custom_resources'])
 
     # role excluded with Mesos 1.4.0
-    def __build_resources(self, cpus=1, mem=4096, disk=10000, ports=[(31000,32000)], custom_resources=None):
+    def __build_resources(self, cpus=1, mem=4096, disk=10000, ports=[(31000,32000)], gpus=None, custom_resources=None):
         resource_cpu = {}
         resource_cpu['name'] = "cpus"
         resource_cpu['scalar'] = { 'value': cpus }
@@ -2826,6 +2828,15 @@ class MesosHandler(MessageHandler):
         #resource_ports['role'] = "*"
 
         resources = [resource_cpu, resource_mem, resource_disk, resource_ports]
+
+        if gpus:
+            resource_gpu = {}
+            resource_gpu['name'] = "gpus"
+            resource_gpu['scalar'] = { 'value': gpus }
+            resource_gpu['type'] = "SCALAR"
+            #resource_gpu['role'] = "*"
+            resources.append(resource_gpu)
+
 
         if custom_resources is not None:
             for key, val in custom_resources.iteritems():
@@ -2867,7 +2878,7 @@ class MesosHandler(MessageHandler):
     def __build_offer(self, framework, slave, force=False, http=False):
         # If we don't have enough resources to offer than don't
         if not force and (slave['cpus'] == 0 or slave['mem'] == 0 or slave['disk'] == 0):
-            self.logger.debug("Build offer: not enough resources to build offer")
+            self.logger.info("Build offer: not enough resources to build offer")
             return None
         rt = ResourceTracker.get_instance()
         offer_id = rt.get_unique_offer_id()
@@ -2883,6 +2894,7 @@ class MesosHandler(MessageHandler):
         mem = int(slave['mem'])
         disk = int(slave['disk'])
         ports = slave['ports']
+        gpus = int(slave['gpus']) if 'gpus' in slave else None
 
         offer = {}
         offer['id'] = { 'value': 'offer-%s-%s' % (framework_id['value'], offer_id)}
@@ -2890,8 +2902,12 @@ class MesosHandler(MessageHandler):
         offer['agent_id' if http else 'slave_id'] = slave_id
         offer['hostname'] = slave['hostname']
 
-        offer['resources'] = self.__build_resources(cpus=cpus,mem=mem,
-               disk=disk, ports=ports, custom_resources=slave['custom_resources'] if 'custom_resources' in slave else None)
+        offer['resources'] = self.__build_resources(cpus=cpus,
+                                                    mem=mem,
+                                                    disk=disk,
+                                                    ports=ports,
+                                                    gpus=gpus,
+                                                    custom_resources=slave['custom_resources'] if 'custom_resources' in slave else None)
 
         attributes = self.__build_attributes(framework['attributes'], slave['hostname'])
         if attributes:
@@ -3108,7 +3124,11 @@ class MesosHandler(MessageHandler):
         framework_config = framework['config']
         if not scale_count:
             scale_count = int(framework_config.get('scale_count', 1))
-        self.logger.debug('Scaling up for framework %s by: %d' % (framework['name'], scale_count))
+        if scale_count == 0:
+            self.logger.debug('Not scaling up for framework %s, since scale_count is zero' % framework['name'])
+            return []
+        else:
+            self.logger.debug('Scaling up for framework %s by: %d' % (framework['name'], scale_count))
         # Need to submit another runner
         max_tasks = int(framework_config.get('max_tasks'))
         # Check how much headroom we have
@@ -3165,12 +3185,14 @@ class MesosHandler(MessageHandler):
         job_submit_options = framework_config.get('job_submit_options', '')
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
+        custom_resources = framework_config.get('custom_resources', {})
         executor_runner = framework_config.get('executor_runner', '')
         persistent_volume_claims = framework_config.get('persistent_volume_claims', '')
         try:
             kwargs = {'job_class': job_class,
                       'job_submit_options': job_submit_options,
                       'resource_mapping': resource_mapping,
+                      'custom_resources': custom_resources,
                       'executor_runner': executor_runner,
                       'persistent_volume_claims': persistent_volume_claims,
                       'tasks': tasks}
@@ -3310,6 +3332,7 @@ class MesosHandler(MessageHandler):
         for key, t in {
                     'mem' : 'num',
                     'cpus' : 'num,float',
+                    'gpus' : 'num',
                     'disk' : 'num',
                     'ports' : 'list_tuple_num',
                     'max_rejected_offers' : 'num',
@@ -3388,6 +3411,12 @@ class MesosHandler(MessageHandler):
             max_tasks = MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS
         framework_config['max_tasks'] = int(max_tasks)
         self.logger.debug('Framework max tasks: %s' % max_tasks)
+
+        # if resource mapping specified set scale_count to zero
+        resource_mapping = framework_config.get('resource_mapping')
+        if resource_mapping != "none":
+            self.logger.info("resource_mapping specified, setting scale_count to zero")
+            framework_config['scale_count'] = "0"
 
         # config is done
         framework['config'] = framework_config
