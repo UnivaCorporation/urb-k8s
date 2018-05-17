@@ -3414,7 +3414,7 @@ class MesosHandler(MessageHandler):
 
         # if resource mapping specified set scale_count to zero
         resource_mapping = framework_config.get('resource_mapping')
-        if resource_mapping != "none":
+        if resource_mapping:
             self.logger.info("resource_mapping specified, setting scale_count to zero")
             framework_config['scale_count'] = "0"
 
