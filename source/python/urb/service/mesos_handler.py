@@ -1712,7 +1712,7 @@ class MesosHandler(MessageHandler):
                 slave['executor'] = tasks[0].get('executor')
                 self.logger.debug("Register executor runner: set custom slave executor to: %s" % slave['executor'])
 #            return
-            for t in payload.get('tasks',[]):
+            for t in tasks:
                 # lets try and rebuild the state...
 #                slave['executor'] = t.get('executor')
                 task_dict = framework.get('task_dict', {})
@@ -3478,7 +3478,14 @@ class MesosHandler(MessageHandler):
         framework_id = FrameworkTracker.get_instance().retrieve_and_forget_request_framework_id(request)
         if self.framework_db_interface is not None and self.framework_db_interface.is_active():
             self.logger.debug('Updating framework db for message id %s' % request.get('message_id'))
-            self.framework_db_interface.update_framework(framework_id)
+            # update summary database only once in a while since job status in obtained by job monitor with period of
+            framework = FrameworkTracker.get_instance().get(framework_id)
+            if framework:
+                last_time = framework.get('last_summary_time', 0)
+                t = time.time()
+                framework['last_summary_time'] = t
+                update_summary = True if t - last_time > self.job_monitor.monitor_poll_period_in_seconds else False
+                self.framework_db_interface.update_framework(framework_id, update_summary)
         return framework_id
 
     def update_completed_executor_summary_db(self, slave):
