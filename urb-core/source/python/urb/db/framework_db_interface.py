@@ -292,7 +292,7 @@ class FrameworkDBInterface(object):
             self.logger.debug('Troubled framework: %s', framework)
             self.db_client.set_active(False)
 
-    def update_framework(self, framework_id):
+    def update_framework(self, framework_id, update_summary = True):
         self.logger.debug('Updating framework id %s:' % framework_id)
         framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
         if framework is None:
@@ -387,7 +387,10 @@ class FrameworkDBInterface(object):
             self.db_client.set_active(False)
 
         # Update summary
-        self.update_framework_summary(framework_id, db_framework)
+        if update_summary:
+            self.update_framework_summary(framework_id, db_framework)
+        else:
+            self.logger.debug("Skip updating framework summary")
 
     def update_executor_summary(self, executor_summary):
         try:
@@ -437,7 +440,7 @@ class FrameworkDBInterface(object):
             return {}
         job_status = job_info.get('job_status')
         if job_status is None:
-            self.logger.debug("no job status")
+            self.logger.debug("no job status in job_info=%s" % job_info)
             return {}
 
         try:
