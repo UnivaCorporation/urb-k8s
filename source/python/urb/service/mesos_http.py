@@ -47,6 +47,23 @@ def request_debug(msg, r):
     logger.debug("request.data=%s" % r.data)
 
 
+@app.route('/version', methods=['GET'])
+def version():
+    request_debug("/version", request)
+    mesos_handler = MesosHttp.get_mesos_handler()
+    version_json = json.dumps({
+        'version' : mesos_handler.MESOS_VERSION,
+        'build_user' : 'build_user',
+        'build_time' : 0,
+        'build_date' : ""
+    })
+    if True:
+#        if request.is_json:
+        resp = Response(version_json, status=200, mimetype="application/json")
+    else:
+        resp = Response(status=404)
+    return resp
+
 @app.route('/redirect', methods=['GET', 'POST'])
 def redirect():
     request_debug("/redirect", request)
