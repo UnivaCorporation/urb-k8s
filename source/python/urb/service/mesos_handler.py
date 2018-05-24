@@ -3484,7 +3484,7 @@ class MesosHandler(MessageHandler):
                 target = request.get('target')
                 if target == "UnregisterFrameworkMessage":
                     update_summary = True
-                else
+                else:
                     last_time = framework.get('last_summary_time', 0)
                     t = time.time()
                     framework['last_summary_time'] = t
