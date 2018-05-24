@@ -139,7 +139,7 @@ class ExecutorRunner:
         if tasks is not None:
             payload['tasks'] = tasks
         message = RegisterExecutorRunnerMessage(self.channel_name, payload)
-        self.logger.debug('Sending RegisterExecutorRunnerMessage via channel %s: %s' 
+        self.logger.info('Sending RegisterExecutorRunnerMessage via channel %s: %s'
                         % (self.channel_name, message))
         self.mesos_channel.write(message.to_json())
 
