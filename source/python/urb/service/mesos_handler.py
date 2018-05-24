@@ -3481,10 +3481,14 @@ class MesosHandler(MessageHandler):
             # update summary database only once in a while since job status in obtained by job monitor with period of
             framework = FrameworkTracker.get_instance().get(framework_id)
             if framework:
-                last_time = framework.get('last_summary_time', 0)
-                t = time.time()
-                framework['last_summary_time'] = t
-                update_summary = True if t - last_time > self.job_monitor.monitor_poll_period_in_seconds else False
+                target = request.get('target')
+                if target == "UnregisterFrameworkMessage":
+                    update_summary = True
+                else
+                    last_time = framework.get('last_summary_time', 0)
+                    t = time.time()
+                    framework['last_summary_time'] = t
+                    update_summary = True if t - last_time > self.job_monitor.monitor_poll_period_in_seconds else False
                 self.framework_db_interface.update_framework(framework_id, update_summary)
         return framework_id
 
