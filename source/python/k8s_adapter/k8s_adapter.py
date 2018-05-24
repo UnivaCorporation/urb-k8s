@@ -343,17 +343,24 @@ class K8SAdapter(object):
         job_ids = framework.get('job_ids')
         if job_ids is not None:
             # Spawn job to make sure the actual executors exit...
-            gevent.spawn(self.delete_jobs, job_ids, framework['id']['value'])
+            gevent.spawn(self.delete_jobs_tuple, job_ids, framework['id']['value'])
 
-    def delete_jobs(self, job_ids, framework_id):
+    def delete_jobs_tuple(self, job_ids, framework_id):
         self.logger.trace("Delete jobs: %s, framework_id=%s" % (job_ids, framework_id))
         for j in job_ids:
             try:
-                self.delete_job(j[0])
+                self.delete_one_job(j[0])
             except Exception, ex:
                 self.logger.warn("Error deleteing job: %s" % ex)
 
-    def delete_job(self, job_id):
+    def delete_jobs(self, job_ids):
+        for j in job_ids:
+            try:
+                self.delete_one_job(j)
+            except Exception, ex:
+                self.logger.warn("Error deleteing job: %s" % ex)
+
+    def delete_one_job(self, job_id):
         k8s_job_id = self.__job_id_2_k8s_job_id(job_id)
         self.logger.debug("Deleting job: %s (%s k8s job)" % (job_id, k8s_job_id))
         body = client.V1DeleteOptions(propagation_policy = "Background")
