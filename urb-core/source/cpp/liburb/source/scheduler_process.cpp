@@ -246,10 +246,10 @@ void UrbSchedulerProcess::checkReconcile() {
 
 void UrbSchedulerProcess::createChannels() {
     if(!channelsCreated_) {
-        notifyChannel_ = getBroker()->createChannel("notify");
+        pNotifyChannel_ = getBroker()->createChannel("notify");
         channelsCreated_ = true;
     }
-    notifyChannel_->registerInputCallback(notifyCallback_);
+    pNotifyChannel_->registerInputCallback(notifyCallback_);
 }
 
 UrbSchedulerProcess::~UrbSchedulerProcess() {
@@ -333,10 +333,10 @@ void UrbSchedulerProcess::startHeartbeat(const FrameworkID& frameworkId) {
     // Start our heartbeat
     Json::Value heartbeatMessage;
     heartbeatMessage["channel_info"] = Json::Value();
-    heartbeatMessage["channel_info"]["channel_id"] = notifyChannel_->getName();
+    heartbeatMessage["channel_info"]["channel_id"] = pNotifyChannel_->getName();
     heartbeatMessage["channel_info"]["endpoint_type"] = "framework";
     heartbeatMessage["channel_info"]["framework_id"] = frameworkId.value();
-    notifyChannel_->setHeartbeatPayload(heartbeatMessage);
+    pNotifyChannel_->setHeartbeatPayload(heartbeatMessage);
 }
 
 void UrbSchedulerProcess::reregistered(
@@ -823,6 +823,12 @@ void UrbSchedulerProcess::launchTasks(const vector<OfferID>& offerIds,
             framework_.id());
       }
 
+      // some frameworks may supply empty collection
+      // remove empty collection as it is converted to incorrect json (with null value)
+      if (copy.has_labels() && copy.labels().labels_size() == 0) {
+        copy.clear_labels();
+      }
+
       //Save this taskID for auto reconcile
       activeTasks_[task.task_id().value()] = TASK_STAGING;
       result.push_back(copy);
@@ -1027,7 +1033,7 @@ void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
     m.setTarget(target);
     setPayload(message,m);
     m.setExtPayload(extData);
-    notifyChannel_->write(m);
+    pNotifyChannel_->write(m);
     VLOG(3) << "UrbSchedulerProcess::sendMesosMessage() with ext data: end";
 }
 
@@ -1040,7 +1046,7 @@ void UrbSchedulerProcess::sendMesosMessage(google::protobuf::Message& message,
     liburb::message_broker::Message m;
     m.setTarget(target);
     setPayload(message,m);
-    notifyChannel_->write(m);
+    pNotifyChannel_->write(m);
     VLOG(3) << "UrbSchedulerProcess::sendMesosMessage(): end";
 }
 

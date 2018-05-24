@@ -188,7 +188,7 @@ class ExecutorHandler(MessageHandler):
         return None, None
 
     def slave_shutdown(self, request):
-        self.logger.debug('Slave shutdown received, exiting')
+        self.logger.info('Slave shutdown received, exiting')
         self.shutdown = True
         #time.sleep(2)
         sys.exit(0)
@@ -199,7 +199,7 @@ class ExecutorHandler(MessageHandler):
         payload = request.get('payload')
         message = payload['mesos.internal.LaunchTasksMessage']
         if not message.has_key('tasks'):
-            self.logger.debug("No tasks to launch. Shutting down.")
+            self.logger.info("No tasks to launch. Shutting down.")
             # Shutdown... no work...
             self.shutdown = True
             #time.sleep(2)

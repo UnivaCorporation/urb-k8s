@@ -57,10 +57,10 @@ endif
 
 # Build everthing
 all: $(BUILDDIR) $(PYTHONEGG) $(PYTHONEGG_SDIST) \
-    $(PYTHONEGG_INTERFACE) $(PYTHONEGG_INTERFACE_SDIST)\
-    $(PYTHONEGG_NATIVE) $(PYTHONEGG_NATIVE_SDIST) \
-    $(PYTHONEGG_EXECUTOR) $(PYTHONEGG_EXECUTOR_SDIST) \
-    $(PYTHONEGG_SCHEDULER) $(PYTHONEGG_SCHEDULER_SDIST)
+     $(PYTHONEGG_INTERFACE) $(PYTHONEGG_INTERFACE_SDIST)\
+     $(PYTHONEGG_NATIVE) $(PYTHONEGG_NATIVE_SDIST) \
+     $(PYTHONEGG_EXECUTOR) $(PYTHONEGG_EXECUTOR_SDIST) \
+     $(PYTHONEGG_SCHEDULER) $(PYTHONEGG_SCHEDULER_SDIST)
 
 # Nothing to do
 install:
@@ -75,8 +75,8 @@ clean:
 	rm -rf interface/build
 	rm -rf native/build
 	rm -rf native_common/build
-	rm -rf native/executor
-	rm -rf native/scheduler
+	rm -rf executor/build
+	rm -rf scheduler/build
 	rm -rf interface/src/mesos.interface.egg-info
 	rm -rf native/src/mesos.native.egg-info
 	rm -rf native_common/src/mesos.native.egg-info

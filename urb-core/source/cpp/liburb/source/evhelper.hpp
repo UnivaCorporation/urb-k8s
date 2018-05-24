@@ -55,28 +55,29 @@ private:
   static void async_cb(EV_P_ ev_async *w, int revents);
   void eventLoop();
 
-  static std::mutex loop_mutex;
-  static struct ev_loop* loop;
-  ev_async async_w;
-  static ev_timer timeout_watcher;
-  std::thread eventLoopThread;
-  static std::map<timer_time_point, std::list<std::shared_ptr<TimerBase>>> timers;
-  static bool enabled;
-  bool loopExited;
+  static std::mutex s_loopMutex_;
+  static struct ev_loop* s_loop_;
+  static ev_timer s_timeoutWatcher_;
+  static std::map<timer_time_point, std::list<std::shared_ptr<TimerBase>>> s_timers_;
+  static bool s_enabled_;
+  ev_async async_w_;
+  std::thread eventLoopThread_;
+  std::thread::id mainThreadId_;
+  bool loopExited_;
 };
 
 class TimerBase {
 public:
-    TimerBase() : evHelper(EvHelper::getInstance()), active(false) {}
+    TimerBase() : evHelper_(EvHelper::getInstance()), active_(false) {}
     virtual ~TimerBase() {}
     virtual void executeMethod() = 0;
-    EvHelper& getEvHelper() { return evHelper; }
-    bool getActive() { return active; }
-    timer_time_point getFireTime() { return fireTime; }
+    EvHelper& getEvHelper() { return evHelper_; }
+    bool getActive() { return active_; }
+    timer_time_point getFireTime() { return fireTime_; }
 protected:
-    timer_time_point fireTime;
-    EvHelper& evHelper;
-    bool active;
+    timer_time_point fireTime_;
+    EvHelper& evHelper_;
+    bool active_;
 };
 
 } // namespace liburb {
