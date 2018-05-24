@@ -988,7 +988,7 @@ class MesosHandler(MessageHandler):
                     if job_id:
                         # possibly in pending state, kill via adapter
                         self.logger.info("Deleting job via adapter: %s" % job_id)
-                        self.adapter.delete_job(job_id)
+                        self.adapter.delete_jobs([job_id])
             else:
                 self.logger.warn("Cannot send kill task on task [%s] without a slave in task dict: task_info=%s" %
                                  (task_name, task['task_info']))
@@ -996,7 +996,7 @@ class MesosHandler(MessageHandler):
                 if job_id:
                     # possibly in pending state, kill via adapter
                     self.logger.info("Deleting job via adapter: %s" % job_id)
-                    self.adapter.delete_job(job_id)
+                    self.adapter.delete_jobs([job_id])
             #slave['offerable'] = True
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
@@ -2593,7 +2593,7 @@ class MesosHandler(MessageHandler):
                     self.logger.error("Cannot delete job: incorrect job id: %s" % slave_id_value)
                 else:
                     self.logger.debug("About to delete job %s from slave %s " % (job_id, slave_id_value))
-                    self.adapter.delete_job(job_id)
+                    self.adapter.delete_jobs([job_id])
                 del self.__scheduled_shutdowns[slave_id_value]
             else:
                 self.logger.debug("Not deleting slave. Slave has already been deleted.")
