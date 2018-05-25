@@ -108,7 +108,7 @@ class JobMonitor(object):
 
     def monitor(self):
         """ Monitoring thread. """
-        self.logger.debug('Entering monitoring loop')
+        self.logger.debug('Entering job monitoring loop')
         while True:
             if not self.__monitor:
                 break
@@ -147,13 +147,15 @@ class JobMonitor(object):
             # Monitoring thread sleep
             self.__thread_event.wait(self.monitor_poll_period_in_seconds) 
 
-        self.logger.debug('Exiting monitor loop')
+        self.logger.debug('Exiting job monitor loop')
 
     def stop(self):
         """ Stop monitor. """
+        self.logger.info("Job monitor: stopping")
         self.__monitor = False
         self.__thread_event.set()
         self.__monitor_thread.join()
+        self.logger.debug("Job monitor: after join")
         
     def start(self):
         """ Start monitor. """

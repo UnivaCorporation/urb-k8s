@@ -124,8 +124,10 @@ class ChannelMonitor(object):
     def stop(self):
         """ Stop monitor. """
         self.__monitor = False
+        self.logger.info("Channel monitor: stopping")
         self.__thread_event.set()
         self.__monitor_thread.join()
+        self.logger.debug("Channel monitor: after join")
         
     def start(self):
         """ Start monitor. """

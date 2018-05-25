@@ -101,9 +101,11 @@ class RetryManager(object):
 
     def stop(self):
         """ Stop manager. """
+        self.logger.info("Retry manager: stopping")
         self.__manage = False
         self.__thread_event.set()
         self.__manager_thread.join()
+        self.logger.debug("Retry manager: after join")
         
     def start(self):
         """ Start manager. """
