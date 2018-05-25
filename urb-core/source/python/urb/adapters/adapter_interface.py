@@ -111,6 +111,11 @@ class Adapter(object):
         self.logger.debug('get_job_id_tuple job: %s', job_id)
 
     @abc.abstractmethod
+    def delete_jobs(self, job_ids):
+        # list of job ids
+        self.logger.debug('delete_jobs: %s', job_ids)
+
+    @abc.abstractmethod
     def get_job_accounting(self, job_id):
         self.logger.debug('Getting accounting for job: %s', job_id)
 

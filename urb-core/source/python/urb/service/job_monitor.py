@@ -58,8 +58,7 @@ class JobMonitor(object):
         JobTracker.get_instance().add(job_id, job_info)
 
     def stop_job_monitoring(self, job_id):
-        self.logger.debug('Stop monitoring job id %s' % (
-            job_id))
+        self.logger.debug('Stop monitoring job id %s' % (job_id))
         job_info = JobTracker.get_instance().get(job_id)
         if job_info is not None:
             job_info['monitor_job'] = False

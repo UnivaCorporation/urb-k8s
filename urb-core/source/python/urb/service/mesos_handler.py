@@ -311,7 +311,7 @@ class MesosHandler(MessageHandler):
 
     def __release_framework_lock(self, framework):
         if framework is None:
-            self.logger.warn('Framework is None, cannot release lock')
+            self.logger.info('Releasing lock: framework is None')
             return
 
         framework_lock = framework.get('lock')
@@ -988,7 +988,7 @@ class MesosHandler(MessageHandler):
                     if job_id:
                         # possibly in pending state, kill via adapter
                         self.logger.info("Deleting job via adapter: %s" % job_id)
-                        self.adapter.delete_job(job_id)
+                        self.adapter.delete_jobs([job_id])
             else:
                 self.logger.warn("Cannot send kill task on task [%s] without a slave in task dict: task_info=%s" %
                                  (task_name, task['task_info']))
@@ -996,7 +996,7 @@ class MesosHandler(MessageHandler):
                 if job_id:
                     # possibly in pending state, kill via adapter
                     self.logger.info("Deleting job via adapter: %s" % job_id)
-                    self.adapter.delete_job(job_id)
+                    self.adapter.delete_jobs([job_id])
             #slave['offerable'] = True
             offer_event = framework.get('offer_event')
             self.logger.debug("Setting empty AsyncResult/Event: %s" % repr(offer_event))
@@ -2593,7 +2593,7 @@ class MesosHandler(MessageHandler):
                     self.logger.error("Cannot delete job: incorrect job id: %s" % slave_id_value)
                 else:
                     self.logger.debug("About to delete job %s from slave %s " % (job_id, slave_id_value))
-                    self.adapter.delete_job(job_id)
+                    self.adapter.delete_jobs([job_id])
                 del self.__scheduled_shutdowns[slave_id_value]
             else:
                 self.logger.debug("Not deleting slave. Slave has already been deleted.")
@@ -3477,15 +3477,21 @@ class MesosHandler(MessageHandler):
     def update_framework_db(self, request):
         framework_id = FrameworkTracker.get_instance().retrieve_and_forget_request_framework_id(request)
         if self.framework_db_interface is not None and self.framework_db_interface.is_active():
-            self.logger.debug('Updating framework db for message id %s' % request.get('message_id'))
-            # update summary database only once in a while since job status in obtained by job monitor with period of
-            framework = FrameworkTracker.get_instance().get(framework_id)
+            target = request.get('target')
+            self.logger.debug('Updating framework db for target=%s, message=%s' % (target, request.get('message_id')))
+            # update summary database only once in a while since job status in obtained by job monitor only periodically
+            framework = FrameworkTracker.get_instance().get_active_or_finished_framework(framework_id)
             if framework:
-                last_time = framework.get('last_summary_time', 0)
-                t = time.time()
-                framework['last_summary_time'] = t
-                update_summary = True if t - last_time > self.job_monitor.monitor_poll_period_in_seconds else False
+                if target == "UnregisterFrameworkMessage":
+                    update_summary = True
+                else:
+                    last_time = framework.get('last_summary_time', 0)
+                    t = time.time()
+                    framework['last_summary_time'] = t
+                    update_summary = True if t - last_time > self.job_monitor.monitor_poll_period_in_seconds else False
                 self.framework_db_interface.update_framework(framework_id, update_summary)
+            else:
+                self.logger.warn("Cannot update framework db")
         return framework_id
 
     def update_completed_executor_summary_db(self, slave):
