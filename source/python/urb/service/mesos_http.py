@@ -44,7 +44,7 @@ def request_debug(msg, r):
     logger.debug("is_json: %s" % r.is_json)
     logger.debug("request.headers=%s" % r.headers)
     logger.debug("request.environ=%s" % r.environ)
-    logger.debug("request.data=%s" % r.data)
+    logger.trace("request.data=%s" % r.data)
 
 
 @app.route('/version', methods=['GET'])
@@ -250,7 +250,7 @@ def scheduler():
 
                         length = len(subscribed)
                         buf = str(length) + "\n" + subscribed
-                        logger.debug("subscribed=%s, yield it as recordio" % subscribed)
+                        logger.trace("subscribed=%s, yield it as recordio" % subscribed)
                         yield buf
 
                         logger.debug("subscribed before generate offer loop")
@@ -265,7 +265,7 @@ def scheduler():
                                     logger.debug("protobuf offer response")
                                 length = len(resp_event)
                                 buf = str(length) + "\n" + resp_event
-                                logger.debug("offer: %s, yield it as recordio" % resp_event)
+                                logger.trace("offer: %s, yield it as recordio" % resp_event)
                                 yield buf
                             else:
                                 logger.debug("in offer loop: skip empty offers")
