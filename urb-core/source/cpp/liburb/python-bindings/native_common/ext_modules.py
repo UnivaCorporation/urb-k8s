@@ -23,34 +23,34 @@ import sys
 from setuptools import Extension
 
 def _create_module(module_name):
-  print "Create module %s" % module_name
+  print("Create module %s" % module_name)
   abs_top_srcdir = os.getcwd()
-  print 'abs_top_srcdir: %s' % abs_top_srcdir
+  print('abs_top_srcdir: %s' % abs_top_srcdir)
   #abs_top_builddir = os.getcwd()
   abs_top_builddir = os.path.join(os.getcwd(), '../', 'build')
-  print 'abs_top_builddir: %s' % abs_top_builddir
+  print('abs_top_builddir: %s' % abs_top_builddir)
 
   common_dir = os.path.join(abs_top_srcdir, '..', 'native_common')
 
   #src_python_native = os.path.join(
   #    'src', 'python', 'native', 'src', 'mesos', 'native')
   src_python = os.path.join('src', 'mesos', module_name)
-  print 'src_python: %s' % src_python
+  print('src_python: %s' % src_python)
 
   for file in os.listdir(os.path.join(abs_top_srcdir, src_python)):
-      print "%s" % file
+      print("%s" % file)
  
   SOURCES = [
       os.path.join(abs_top_srcdir, 'src', 'mesos', module_name, file)
           for file in os.listdir(os.path.join(abs_top_srcdir, src_python))
               if file.endswith('.cpp')
   ]
-  print "SOURCES: %s" % SOURCES
+  print("SOURCES: %s" % SOURCES)
 
-  print "URB_PYTHON_INCLUDE: %s: " % os.environ.get("URB_PYTHON_INCLUDE","-Idummy")
+  print("URB_PYTHON_INCLUDE: %s: " % os.environ.get("URB_PYTHON_INCLUDE","-Idummy"))
   INCLUDE_DIRS = [ i[2:] for i in os.environ.get("URB_PYTHON_INCLUDE","-Idummy").split(" ") ]
   INCLUDE_DIRS.append(common_dir)
-  print "INCLUDE_DIRS: %s" % INCLUDE_DIRS
+  print("INCLUDE_DIRS: %s" % INCLUDE_DIRS)
   LIBRARY_DIRS = []
 
   EXTRA_OBJECTS = [
