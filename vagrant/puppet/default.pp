@@ -88,6 +88,8 @@ package { "libasan":
   ensure => "installed"
 }
 
+# use the same python package versions as the build process relies on
+
 exec { "install_six":
    unless => "/usr/bin/env python -c 'import six'",
    command => "/usr/bin/easy_install six",
@@ -96,37 +98,37 @@ exec { "install_six":
 
 exec { "install_Jinja2":
    unless => "/usr/bin/env python -c 'import jinja2'",
-   command => "/usr/bin/easy_install Jinja2",
+   command => "/usr/bin/easy_install Jinja2==2.10",
    require => Package['python-setuptools']
 }
 
 exec { "install_Werkzeug":
    unless => "/usr/bin/env python -c 'import werkzeug'",
-   command => "/usr/bin/easy_install Werkzeug",
+   command => "/usr/bin/easy_install Werkzeug==0.14.1",
    require => Package['python-setuptools']
 }
 
 exec { "install_itsdangerous":
    unless => "/usr/bin/env python -c 'import itsdangerous'",
-   command => "/usr/bin/easy_install itsdangerous",
+   command => "/usr/bin/easy_install itsdangerous==0.24",
    require => Package['python-setuptools']
 }
 
 exec { "install_click":
    unless => "/usr/bin/env python -c 'import click'",
-   command => "/usr/bin/easy_install click",
+   command => "/usr/bin/easy_install click==6.7",
    require => Package['python-setuptools']
 }
 
 exec { "install_Flask":
    unless => "/usr/bin/env python -c 'import flask'",
-   command => "/usr/bin/easy_install Flask",
+   command => "/usr/bin/easy_install Flask==0.12.2",
    require => Package['python-setuptools']
 }
 
 exec { "install_protobuf":
    unless => "/usr/bin/env python -c 'import google.protobuf'",
-   command => "/usr/bin/easy_install protobuf",
+   command => "/usr/bin/easy_install protobuf==3.5.0",
    require => Package['python-setuptools']
 }
 
@@ -152,42 +154,42 @@ exec { "install_mock":
 # set stable version for now (to avoid latest 1.3a1)
 exec { "install_gevent":
    unless => "/usr/bin/env python -c 'import gevent'",
-   command => "/usr/bin/easy_install gevent==1.2.2",
+   command => "/usr/bin/easy_install gevent==1.1.2",
    timeout => 600,
    require => Package['python-setuptools']
 }
 
 exec { "install_pymongo":
    unless => "/usr/bin/env python -c 'import pymongo'",
-   command => "/usr/bin/easy_install pymongo",
+   command => "/usr/bin/easy_install pymongo==3.5.1",
    timeout => 600,
    require => Package['python-setuptools']
 }
 
 exec { "install_sortedcontainers":
    unless => "/usr/bin/env python -c 'import sortedcontainers'",
-   command => "/usr/bin/easy_install sortedcontainers",
+   command => "/usr/bin/easy_install sortedcontainers==1.5.7",
    timeout => 600,
    require => Package['python-setuptools']
 }
 
 exec { "install_xmltodict":
    unless => "/usr/bin/env python -c 'import xmltodict'",
-   command => "/usr/bin/easy_install xmltodict",
+   command => "/usr/bin/easy_install xmltodict==0.11.0",
    timeout => 600,
    require => Package['python-setuptools']
 }
 
 exec { "install_gevent_inotifyx":
    unless => "/usr/bin/env python -c 'import gevent_inotifyx'",
-   command => "/usr/bin/easy_install gevent_inotifyx",
+   command => "/usr/bin/easy_install gevent_inotifyx=0.1.1",
    timeout => 600,
    require => Package['python-setuptools']
 }
 
 exec { "install_redis":
    unless => "/usr/bin/env python -c 'import redis'",
-   command => "/usr/bin/easy_install redis",
+   command => "/usr/bin/easy_install redis==2.10.6",
    timeout => 600,
    require => Package['python-setuptools']
 }

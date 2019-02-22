@@ -21,14 +21,14 @@ include util/include.mk
 
 # Python environment stuff
 PY?=python
-PYVERS=$(shell PATH=$(PYENV_HOME)/bin:$(PATH) $(PY) -c "from sys import version_info as v; print 'py'+str(v[0])+'.'+str(v[1])")
-PYPLATFORM=$(shell PATH=$(PYENV_HOME)/bin:$(PATH) $(PY) -c "from distutils.util import get_platform; print get_platform()")
+PYVERS=$(shell PATH=$(PYENV_HOME)/bin:$(PATH) $(PY) -c "from sys import version_info as v; print('py'+str(v[0])+'.'+str(v[1]))")
+PYPLATFORM=$(shell PATH=$(PYENV_HOME)/bin:$(PATH) $(PY) -c "from distutils.util import get_platform; print(get_platform())")
 PYOS?=$(shell PATH=$(PYENV_HOME)/bin:$(PATH) $(PY) $(WHATOS_SRC)/$(WHATOS))
 PLATFORMSTR=$(PYVERS)-$(PYOS)-$(PYPLATFORM)
 DIST_DIR_NAME=$(SHORT_NAME)-$(VERSION)
 DIST_URB_CORE_NAME=$(SHORT_NAME)-core-$(VERSION)
 DEP_ARCH=$(DIST_DIR_NAME)-$(PLATFORMSTR)
-GENERIC_SUFFIX:=$(shell $(PY) -c "import sys; l='l64' if 'lib64/python' in ' '.join(sys.path) else 'l32'; print l")
+GENERIC_SUFFIX:=$(shell $(PY) -c "import sys; l='l64' if 'lib64/python' in ' '.join(sys.path) else 'l32'; print(l)")
 DEP_ARCH_GENERIC=$(DIST_DIR_NAME)-$(PYVERS)-generic-$(GENERIC_SUFFIX)-$(PYPLATFORM)
 DEP_NOARCH=$(DIST_DIR_NAME)-$(PYVERS)
 DEP_ARCH_BIN=$(DIST_DIR_NAME)-$(PYPLATFORM)

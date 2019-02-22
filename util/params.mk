@@ -84,9 +84,9 @@ export JAVA_HOME?=/etc/alternatives/java_sdk
 #export EGG_PYOS?=$(shell python $(TOP)/source/installer/whatos/whatos.py)
 export EGG_PYV=$(shell python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)")
 ifeq ($(shell uname -s),SunOS)
-  export EGG_ARCH=$(shell python -c "import platform; print platform.platform(aliased=True, terse=True).lower() + '-' + platform.machine()")
+  export EGG_ARCH=$(shell python -c "import platform; print(platform.platform(aliased=True, terse=True).lower() + '-' + platform.machine())")
 else
-  export EGG_ARCH=$(shell python -c "import platform; print platform.system().lower() + '-' + platform.machine()")
+  export EGG_ARCH=$(shell python -c "import platform; print(platform.system().lower() + '-' + platform.machine())")
 endif
 
 export GCCVERSION:=$(shell gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/')
