@@ -344,9 +344,9 @@ if __name__ == '__main__':
         # Print full map or just list of OS strings
         if options.dofull:
             for k, v in arch_map.items():
-                print k + ':', ' '.join(v)
+                print(k + ':', ' '.join(v))
         else:
-            print '\n'.join(arch_map.keys())
+            print('\n'.join(arch_map.keys()))
 
         # Ignore all errors and timeouts. Errors in determining OS strings
         # will show up as "not supported". Hosts with timeout will get
@@ -357,7 +357,7 @@ if __name__ == '__main__':
         # on remote host)
         os = WhatOS()
         ret = os.any()
-        print os.ostype + '_' + os.version
+        print(os.ostype + '_' + os.version)
 
         # Provide exit status in case of errors but suppress if called inside
         # of a Grid Engine job to avoid clobbering of faulty_jobs directory
