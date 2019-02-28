@@ -3183,6 +3183,7 @@ class MesosHandler(MessageHandler):
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
         job_submit_options = framework_config.get('job_submit_options', '')
+        job_submit_clear = framework_config.get('job_submit_clear', False)
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
         custom_resources = framework_config.get('custom_resources', {})
@@ -3191,6 +3192,7 @@ class MesosHandler(MessageHandler):
         try:
             kwargs = {'job_class': job_class,
                       'job_submit_options': job_submit_options,
+                      'job_submit_clear': job_submit_clear,
                       'resource_mapping': resource_mapping,
                       'custom_resources': custom_resources,
                       'executor_runner': executor_runner,
@@ -3341,6 +3343,7 @@ class MesosHandler(MessageHandler):
                     'scale_count' : 'num',
                     'concurrent_tasks' : 'num',
                     'job_submit_options' : 'str',
+                    'job_submit_clear' : 'bool',
                     'initial_tasks' : 'num',
                     'job_class' : 'str',
                     'resource_mapping' : 'str,bool',
