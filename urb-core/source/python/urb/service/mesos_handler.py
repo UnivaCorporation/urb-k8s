@@ -3183,7 +3183,7 @@ class MesosHandler(MessageHandler):
 
         job_class = framework_config.get('job_class', scrubbed_framework_name)
         job_submit_options = framework_config.get('job_submit_options', '')
-        job_submit_clear = framework_config.get('job_submit_clear', True)
+        job_submit_clear = ValueUtility.to_boolean(framework_config.get('job_submit_clear', 'True'))
         max_tasks = int(framework_config.get('max_tasks', MesosHandler.DEFAULT_FRAMEWORK_MAX_TASKS))
         resource_mapping = framework_config.get('resource_mapping', '')
         custom_resources = framework_config.get('custom_resources', {})
