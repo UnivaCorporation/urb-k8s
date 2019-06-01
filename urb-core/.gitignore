@@ -11,3 +11,4 @@ vagrant/.vagrant
 source/cpp/3rdparty/boost/boost-*.*.*
 source/cpp/3rdparty/picojson/picojson-*.*.*
 source/cpp/3rdparty/googletest/googletest-release-*.*.*
+mesos

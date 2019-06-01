@@ -12,6 +12,8 @@ engine for your datacenter.
 Presently URB supports an Native and HTTP Apache Mesos API compatible resource requesting plugin as well as a Univa Grid
 Engine, Kubernetes and localhost backend.
 
+It allows one to run [Apache Mesos](http://mesos.apache.org) frameworks ([Marathon](https://mesosphere.github.io/marathon), [Chronos](https://mesos.github.io/chronos), [Spark](https://spark.apache.org), Hadoop MapReduce, etc.) with different cluster scheduler backends such as Univa Grid Engine or Kubernetes.
+
 This project includes Universal Resource Broker core components only. For the Universal Resource Broker to be
 fully functioning the scheduler back end adapter has to be implemented in Python, based on interface located in
 `source/python/urb/adapters/adapter_interface.py`.
