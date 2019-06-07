@@ -75,7 +75,7 @@ class MessageHandler:
             channel.write(response.to_json())
             self.logger.debug('Wrote response to %s: %s' % (channel_name, 
                 response.to_json()))
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(
                 'Could not send response %s to channel %s (error: %s)' % \
                 (response, channel_name, ex))
@@ -101,9 +101,9 @@ class MessageHandler:
                 if target_preprocessor is not None:
                     self.logger.debug('Preprocessing target %s using preprocessor %s' % (target, target_preprocessor)) 
                     target_preprocessor(request)
-            except URBException, ex:
+            except URBException as ex:
                 self.logger.error(ex)
-            except Exception, ex:
+            except Exception as ex:
                 errMsg = 'Cannot preprocess target %s: %s' % (target,ex)
                 self.logger.error(errMsg)
                 self.logger.exception(ex)
@@ -120,10 +120,10 @@ class MessageHandler:
                     _, response = target_executor(request)
 #                    target_executor(request)
                     self.logger.trace('Response message: %s' % response) 
-                except URBException, ex:
+                except URBException as ex:
                     response = Message(payload=ex.to_dict())
                     self.logger.error(ex)
-                except Exception, ex:
+                except Exception as ex:
                     response = Message(payload={'error' : '%s' % ex})
                     errMsg = 'Cannot handle message: %s' % ex
                     self.logger.error(errMsg)
@@ -136,14 +136,14 @@ class MessageHandler:
                 if target_postprocessor is not None:
                     self.logger.debug('Postprocessing target %s using postprocessor %s' % (target, target_postprocessor)) 
                     target_postprocessor(request)
-            except URBException, ex:
+            except URBException as ex:
                 self.logger.error(ex)
-            except Exception, ex:
+            except Exception as ex:
                 errMsg = 'Cannot postprocess target %s: %s' % (target,ex)
                 self.logger.error(errMsg)
                 self.logger.exception(ex)
             
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Wrong json format for message: %s' % message[1])
             self.logger.error("Whole wrong message: %s" % message)
             self.logger.exception(ex)

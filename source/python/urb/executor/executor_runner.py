@@ -122,7 +122,7 @@ class ExecutorRunner:
             payload = {'channel_info' : self.heartbeat_channel_info}
             message = HeartbeatMessage(self.channel_name, payload)
             self.service_monitor_channel.write(message.to_json())
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Could not send heartbeat: %s', ex)
 
     def register_executor_runner(self,tasks=None):
@@ -192,7 +192,7 @@ def run():
     try:
         executor = ExecutorRunner()
         executor.run()
-    except KeyboardInterrupt, ex:
+    except KeyboardInterrupt as ex:
         logger.info('KeyboardInterrupt: %s' % ex)
         pass
     logger.info('Executor runner exit')

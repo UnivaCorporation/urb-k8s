@@ -21,7 +21,7 @@ if "nosetests" in sys.argv:
         import gevent.monkey
         gevent.monkey.patch_thread()
         gevent.monkey.patch_socket()
-    except Exception, ex:
+    except Exception as ex:
         print(ex)
 
 # Work around http://bugs.python.org/issue15881#msg170215

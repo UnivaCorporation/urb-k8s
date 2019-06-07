@@ -69,7 +69,7 @@ class JobMonitor(object):
         JobTracker.get_instance().remove(job_id)
         try:
             self.job_delete_callback(job_id, framework_id)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(
                 'Error invoking delete callback for job id %s: %s' % (job_id, ex))
 
@@ -133,10 +133,10 @@ class JobMonitor(object):
                         # We are no longer monitoring this job.
                         #self.__remove_job_from_tracker(job_id, framework_id)
                         self.__retrieve_job_accounting_and_remove_job_from_tracker(job_id, job_info)
-                except PendingJob, ex:
+                except PendingJob as ex:
                     self.logger.debug('Job monitor: job %s is pending: %s' % (job_id, ex))
                 # handles jobs completion (UnknownJob for UGE and CompletedJob for k8s)
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.debug('Jon monitor: job %s likely completed: %s' % (job_id, ex))
                     if job_info is not None:
                         self.__handle_job_status_retrieval_error(job_id, 

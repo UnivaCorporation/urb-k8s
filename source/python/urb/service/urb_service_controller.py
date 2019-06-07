@@ -38,7 +38,7 @@ class URBServiceController:
                 'Sending shutdown message to channel %s' % \
                 self.service_monitor_channel)
             channel.write(message.to_json())
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(
                 'Could not send shutdown message to channel %s (error: %s)' % \
                 (self.service_monitor_channel, ex))
@@ -49,7 +49,7 @@ def run():
         from gevent import monkey; monkey.patch_socket()
         controller = URBServiceController('urb.service.monitor')
         controller.send_shutdown_message()
-    except KeyboardInterrupt, ex:
+    except KeyboardInterrupt as ex:
         pass
             
 # Testing

@@ -170,7 +170,7 @@ class ExecutorHandler(MessageHandler):
                 self.logger.info("Exit with code %s" % ret)
                 sys.exit(ret)
 
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error("Error waiting for child process: %s" % ex)
             if len(self.executor_pids) <= 1:
                 self.logger.warn("No more child processes, exit with success: pids=%s, last pid=%s, ret=%s" % (self.executor_pids, pid, ret))

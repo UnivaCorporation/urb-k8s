@@ -46,7 +46,7 @@ class EventDBInterface(object):
                 {'$set' : event_info}, upsert=True)
             # restore event id
             event_info['id'] = event_id
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot update event %s: %s', (event_info, ex))
             self.db_client.set_active(False)
 

@@ -406,7 +406,7 @@ class MesosHandler(MessageHandler):
         if slave.has_key('placeholder'):
             try:
                 del framework['placeholder_to_slave'][slave['placeholder']]
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.warn("Unable to delete placholder_to_slave item: %s" % slave['placeholder'])
                 self.logger.debug("Placeholder map: %s" % framework.get('placeholder_to_slave'))
                 self.logger.debug(ex)
@@ -668,7 +668,7 @@ class MesosHandler(MessageHandler):
                 self.logger.debug("Waiting in offer loop for framework id %s for %s sec" % (framework_id['value'], time_to_wait))
                 offer_event.wait(time_to_wait)
                 self.logger.debug("event triggered")
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.error("Exception in offer loop for framework id %s" % framework_id['value'])
                 self.logger.exception(ex)
         self.logger.info("Exiting offer loop for framework id %s" % framework_id['value'])
@@ -766,7 +766,7 @@ class MesosHandler(MessageHandler):
 #                framework['offer_event'] = gevent.event.AsyncResult()
 #                self.__release_framework_lock(framework)
 #                self.logger.debug("New scheduler AsyncResult=%s" % repr(framework['offer_event']))
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.error("HTTP: Exception in offer loop for framework id %s" % framework_id['value'])
                 self.logger.exception(ex)
         self.logger.info("HTTP: Exiting offer loop for framework id %s" % framework_id['value'])
@@ -1491,22 +1491,22 @@ class MesosHandler(MessageHandler):
                                 self.adapter.get_job_status(job_id)
                                 job_status = "TASK_RUNNING"
                                 self.logger.info("Reconcile: determined task status: %s" % job_status)
-                            except UnknownJob, ex:
+                            except UnknownJob as ex:
                                 job_status = "TASK_LOST"
                                 self.logger.info("Reconcile: cannot get task status for job id '%s' \
                                                  (slave id: %s), set status to %s" % \
                                                  (job_id, slave_id['value'], job_status))
-                            except CompletedJob, ex:
+                            except CompletedJob as ex:
                                 job_status = "TASK_FINISHED"
                                 self.logger.debug("Reconcile: task status is TASK_FINISHED for job id '%s' \
                                                   (slave id: %s), (ex: %s)" % \
                                                   (job_id, slave_id['value'], ex))
-                            except PendingJob, ex:
+                            except PendingJob as ex:
                                 job_status = "TASK_STAGING"
                                 self.logger.debug("Reconcile: task status is TASK_STAGING for job id '%s' \
                                                   (slave id: %s), (ex: %s)" % \
                                                   (job_id, slave_id['value'], ex))
-                            except Exception, ex:
+                            except Exception as ex:
                                 job_status = "TASK_LOST"
                                 self.logger.warn("Reconcile: cannot get task status for job id '%s' \
                                                   (slave id: %s), unexpected exception: %s" % \
@@ -3200,7 +3200,7 @@ class MesosHandler(MessageHandler):
                       'tasks': tasks}
             return self.adapter.register_framework(max_tasks, concurrent_tasks,
                                                   framework_env, user, **kwargs)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(ex)
             return []
 
@@ -3284,7 +3284,7 @@ class MesosHandler(MessageHandler):
                 try:
                     lst = eval(value)
                     self.logger.trace("lst=%s" % lst)
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.trace("lst exception: %s" % ex)
                     return False
                 for l in lst:
@@ -3388,7 +3388,7 @@ class MesosHandler(MessageHandler):
                     else:
                         try:
                             cust_dict[k] = eval(v)
-                        except Exception, ex:
+                        except Exception as ex:
                             self.logger.error("Incorrect custom resource format for '%s=%s' (only numeric or range values are supported)" % (k , v))
                 framework_config[key] = cust_dict
 
@@ -3641,7 +3641,7 @@ class MesosHandler(MessageHandler):
 #                self.__release_framework_lock(framework)
                 self.logger.debug("New executor AsyncResult=%s" % repr(framework['slave_dict'][agent_id_value]['async_result']))
 
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.error("Exception in executor events loop for framework id %s and executor_id %s" %
                                   (framework_id_value, executor_id_value))
                 self.logger.exception(ex)

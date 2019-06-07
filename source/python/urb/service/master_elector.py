@@ -57,7 +57,7 @@ class MasterElector(object):
 
             try:
                 self.__master_broker = cf.determine_master_message_broker(value=self.__server_id,ttl=MasterElector.ELECTOR_TTL_IN_SECONDS)
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.error("MasterElector: Error determining master broker: %s" % ex)
                 self.__thread_event.wait(MasterElector.ELECTOR_SLEEP_PERIOD_IN_SECONDS)
                 continue
@@ -69,7 +69,7 @@ class MasterElector(object):
                 self.logger.debug("MasterElector: we are master broker")
                 try:
                     cf.refresh_master_message_broker(ttl=MasterElector.ELECTOR_TTL_IN_SECONDS)
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.error("MasterElector: Unable to refresh the master broker: %s" % ex)
 
                 # We are now and if we weren't before trigger the callback
@@ -77,7 +77,7 @@ class MasterElector(object):
                     try:
                         self.elected_callback()
                         self.logger.debug("MasterElector: Elected callback complete.")
-                    except Exception, ex:
+                    except Exception as ex:
                         self.logger.warn("MasterElector: Exception calling demote callback")
                         self.logger.exception(ex)
             else:
@@ -86,7 +86,7 @@ class MasterElector(object):
                 if were_mb and self.demoted_callback:
                     try:
                         self.demoted_callback()
-                    except Exception, ex:
+                    except Exception as ex:
                         self.logger.warn("MasterElector: Exception calling demote callback")
                         self.logger.exception(ex)
 

@@ -133,7 +133,7 @@ class LocalhostAdapter(Adapter):
         for job_id in job_ids:
             try:
                 self.delete_job(job_id)
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.warn("Error deleting job: %s" % ex)
 
     def __delete_job(self, job_id):
