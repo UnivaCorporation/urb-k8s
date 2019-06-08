@@ -43,7 +43,7 @@ class URBMongoClient(object):
             self.expire = expire
             self.active = True
             self.enable_sleep = URBMongoClient.INITIAL_ENABLE_SLEEP
-        except Exception, ex:
+        except Exception as ex:
             self.logger.warn('Cannot connect to Mongo DB: %s' % ex)
             raise DBError(exception=ex)
 

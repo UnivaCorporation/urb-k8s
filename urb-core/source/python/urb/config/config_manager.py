@@ -275,7 +275,7 @@ class ConfigManager(UserDict.UserDict, object):
         if self.has_config_section(config_section):
             try:
                 return config_parser.get(config_section, key, True)
-            except ConfigParser.NoOptionError, ex:
+            except ConfigParser.NoOptionError as ex:
                 # ok, return default
                 pass
         return default_value

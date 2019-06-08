@@ -62,7 +62,7 @@ class ChannelMonitor(object):
         ChannelTracker.get_instance().remove(channel_id)
         try:
             self.channel_delete_callback(channel_id, channel_info)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(
                 'Error invoking delete callback for channel id %s: %s' % (
                         channel_id, ex))
@@ -103,12 +103,12 @@ class ChannelMonitor(object):
                             (channel_id, ttl, now))
                     try:
                         self.channel_validate_callback(channel_id, channel_info)
-                    except Exception, ex:
+                    except Exception as ex:
                         self.logger.error(
                             'Error invoking callback validate for channel id %s: %s' % (
                                     channel_id, ex))
 
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.warn(
                         'Error removing for channel id %s: %s' % (
                         channel_id, ex))

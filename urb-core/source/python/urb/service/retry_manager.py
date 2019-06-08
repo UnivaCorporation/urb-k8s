@@ -62,7 +62,7 @@ class RetryManager(object):
             self.logger.debug('Will retry message in %s seconds, at time %s' % (retry_interval, retry_timestamp))
             self.retry_channel.write_with_timestamp(message.to_json(), 
                 long(retry_timestamp))
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error(
                 'Could not retry message %s: %s' % (message, ex))
 
@@ -86,7 +86,7 @@ class RetryManager(object):
                         continue
 
                     self.channel.write(message.to_json())
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.error(
                         'Error writing message (%s) to channel %s: %s' % (
                         message_string, self.channel.name, ex))

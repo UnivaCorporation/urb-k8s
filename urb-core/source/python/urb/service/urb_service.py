@@ -125,7 +125,7 @@ class URBService:
                     handler.register_shutdown_callback(self.shutdown_callback)
                     self.handler_list.append(handler)
 
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('URBService configuration error: %s' % ex)
             raise ConfigurationError(exception=ex)
 
@@ -137,7 +137,7 @@ class URBService:
         if pid_file and os.path.exists(pid_file):
             try:
                 os.unlink(pid_file)
-            except Exception, ex:
+            except Exception as ex:
                 print >>sys.stderr, \
                     'Cannot remove pid file %s: %s' % (pid_file, ex)
     
@@ -149,7 +149,7 @@ class URBService:
             self.start_daemon_process(pid_file_name)
         try:
             self.serve_forever()
-        except Exception, ex:
+        except Exception as ex:
             print >>sys.stderr, 'Service exiting after unexpected error: %s ' \
                 % (ex) 
             self.remove_pid_file(pid_file_name)
@@ -265,7 +265,7 @@ def run():
         from gevent import monkey; monkey.patch_all()
         server = URBService()
         server.run()
-    except KeyboardInterrupt, ex:
+    except KeyboardInterrupt as ex:
         pass
             
 # Testing

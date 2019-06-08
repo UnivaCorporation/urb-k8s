@@ -80,7 +80,7 @@ class Channel(object):
        try:
            self.read_callback(message)
            self.message_processed(message[1])
-       except Exception, ex:
+       except Exception as ex:
            self.logger.error("Read callback for channel %s threw exception %s" % (self.name, ex))
 
     def read_blocking(self, timeout=0):
@@ -134,7 +134,7 @@ class Channel(object):
             try:
                 msg = self.read_blocking(
                         timeout=Channel.MESSAGE_WAIT_PERIOD_IN_SECONDS)
-            except Exception, ex:
+            except Exception as ex:
                 # Couldn't find a master... lets sleep our normal wait period so we don't
                 # thrash
                 self.logger.error("Unable to read message on %s: %s" % (self.name, ex))

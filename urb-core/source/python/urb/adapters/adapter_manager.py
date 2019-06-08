@@ -86,7 +86,7 @@ class AdapterManager(object):
                 self.logger.trace('Executing: from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class))
                 exec 'from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class)
                 exec 'adapter = %s' % self.adapter_constructor
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('AdapterManager configuration error: %s' % ex)
             raise ConfigurationError(exception=ex)
 

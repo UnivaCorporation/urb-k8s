@@ -39,7 +39,7 @@ class FrameworkDBInterface(object):
                         self.logger.debug('Current Mongo TTL: %s ' % curr_ttl)
             if curr_ttl == -1:
                 self.logger.debug("No 'expireAfterSeconds' in index information for 'events' collection")
-        except Exception, ex:
+        except Exception as ex:
             self.logger.warn('Cannot get index info: %s' % ex)
 
         ttl_sec = self.db_client.expire * 31 * 24 * 60 * 60
@@ -54,7 +54,7 @@ class FrameworkDBInterface(object):
                 self.db_client.drop_ttl_index('offer_summaries')
                 self.db_client.drop_ttl_index('task_summaries')
                 self.logger.info("Done")
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.warn('Cannot drop Mongo TTL indexes: %s' % ex)
         elif self.db_client.expire != 0 and curr_ttl != ttl_sec:
             self.logger.info('Setting Mongo TTL to %s months or %s sec' % (str(self.db_client.expire), str(ttl_sec)))
@@ -66,7 +66,7 @@ class FrameworkDBInterface(object):
                 self.db_client.create_ttl_index('offer_summaries', 'timestamp', ttl_sec)
                 self.db_client.create_ttl_index('task_summaries', 'stopped', ttl_sec)
                 self.logger.info("Done")
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.warn('Cannot set Mongo TTL for %s sec: %s', (ttl_sec, ex))
         else:
             self.logger.debug("Mongo TTL didn't change")
@@ -88,7 +88,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('framework_summaries',
                 {'_id' : framework_id},
                 {'$set' : framework_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot set status to false in framework summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
             self.db_client.set_active(False)
@@ -100,7 +100,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('task_summaries',
                     {'framework_id' : framework_id},
                     {'$set' : task_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot set status to false in task summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
             self.db_client.set_active(False)
@@ -112,7 +112,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('executor_summaries',
                     {'framework_id' : framework_id},
                     {'$set' : executor_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot set status to false in executor summary: %s', ex)
             self.logger.debug('Troubled inactive framework: %s', framework_id)
             self.db_client.set_active(False)
@@ -180,7 +180,7 @@ class FrameworkDBInterface(object):
                             executor_dict[executor_id] = db_executor_summary
                     else:
                         self.logger.trace("Could not find executor summary for %s" % executor_id)
-                except Exception, ex:
+                except Exception as ex:
                     self.logger.error('Cannot find executor summary %s: %s', (executor_id, ex))
                     self.db_client.set_active(False)
                     return
@@ -261,7 +261,7 @@ class FrameworkDBInterface(object):
                 self.db_client.update('task_summaries',
                     {'_id' : id},
                     {'$set' : task_summary}, upsert=True)
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.error('Cannot store task summary: %s', ex)
                 self.logger.debug('Troubled task: %s', task)
                 self.db_client.set_active(False)
@@ -287,7 +287,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('framework_summaries',
                 {'_id' : framework_id},
                 {'$set' : framework_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot store framework summary: %s', ex)
             self.logger.debug('Troubled framework: %s', framework)
             self.db_client.set_active(False)
@@ -307,7 +307,7 @@ class FrameworkDBInterface(object):
             if db_framework is None:
                 db_framework = {}
             self.logger.trace('Existing DB framework id %s: %s' % (framework_id, db_framework))
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot find framework %s: %s', (framework_id, ex))
             self.db_client.set_active(False)
             return
@@ -381,7 +381,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('frameworks',
                 {'_id' : framework_id},
                 {'$set' : db_framework}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot store framework: %s', ex)
             self.logger.debug('Troubled framework: %s',framework)
             self.db_client.set_active(False)
@@ -400,7 +400,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('executor_summaries',
                 {'_id' : id},
                 {'$set' : executor_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot store executor summary: %s', ex)
             self.logger.debug('Troubled executor summary: %s', executor_summary)
             self.db_client.set_active(False)
@@ -424,7 +424,7 @@ class FrameworkDBInterface(object):
             self.db_client.update('offer_summaries',
                 {'_id' : id},
                 {'$set' : offer_summary}, upsert=True)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot store offer summary: %s', ex)
             self.logger.debug('Troubled offer: %s', offer)
             self.db_client.set_active(False)
@@ -510,7 +510,7 @@ class FrameworkDBInterface(object):
                         self.logger.trace("u_value=%s, task_mem_average=%s, mem_average=%s" % (u_value, task_mem_average, mem_average))
             self.logger.trace("cpu_average=%s, mem_average=%s" % (cpu_average, mem_average))
             return {'cpu_average' : cpu_average, 'mem_average' : mem_average}
-        except Exception, ex:
+        except Exception as ex:
             self.logger.warn('Could not analyze job %s on host %s (tasks=%s): %s' % (job_id, host, tasks, ex))
         return {}
 
@@ -528,7 +528,7 @@ class FrameworkDBInterface(object):
                 self.update_executor_summary(db_executor_summary)
             else:
                 self.logger.debug('Could not find executor %s to mark as done in db' % executor_id)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.error('Cannot find executor summary %s: %s', (executor_id, ex))
             self.db_client.set_active(False)
 
