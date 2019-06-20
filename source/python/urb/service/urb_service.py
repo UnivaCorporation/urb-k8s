@@ -15,6 +15,8 @@
 # limitations under the License.
 
 
+from __future__ import print_function
+
 import re
 import os
 import os.path
@@ -27,7 +29,6 @@ import gevent
 from gevent import event
 from exceptions import KeyboardInterrupt
 from optparse import OptionParser
-from __future__ import print_function
 
 from urb.exceptions.configuration_error import ConfigurationError
 from urb.config.config_manager import ConfigManager
