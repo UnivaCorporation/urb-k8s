@@ -187,7 +187,7 @@ if __name__ == '__main__':
     # Should print b
     print(rmb.pop_blocking(p_queue,1))
     # Now restore... Should print 2
-    print(rmb.restore_lost_messages(p_queue)(
+    print(rmb.restore_lost_messages(p_queue))
     # Should print a
     print(rmb.pop_blocking(p_queue,1))
     # Should print b
