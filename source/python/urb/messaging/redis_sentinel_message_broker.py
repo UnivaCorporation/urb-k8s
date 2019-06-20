@@ -55,13 +55,13 @@ if __name__ == '__main__':
     rmb = RedisSentinelMessageBroker(sentinel_servers=[('localhost',6379)],sentinel_master='localhost')
     message = 'XYZ'
     q_name = 'xyz'
-    print 'Delete Q'
+    print('Delete Q')
     rmb.delete_queue(q_name)
-    print 'Q Size: ', rmb.get_queue_size(q_name)
+    print('Q Size: ', rmb.get_queue_size(q_name))
     rmb.push(q_name, message)
-    print 'Pushed: ', message
-    print 'Q Size: ', rmb.get_queue_size(q_name)
+    print('Pushed: ', message)
+    print('Q Size: ', rmb.get_queue_size(q_name))
     message = rmb.pop_blocking(q_name)
-    print 'Popped: ', message
-    print 'Q Size: ', rmb.get_queue_size(q_name)
-    print 'Channel list: ', rmb.get_channel_names('*.notify')
+    print('Popped: ', message)
+    print('Q Size: ', rmb.get_queue_size(q_name))
+    print('Channel list: ', rmb.get_channel_names('*.notify'))

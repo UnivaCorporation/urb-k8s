@@ -76,14 +76,14 @@ def print_io(func):
     def wrapper(*args, **kwargs):
         global INDENT_WIDTH
         indent = " " * INDENT_WIDTH * 4
-        print indent, func.__name__
-        print indent, "Args = ", args
+        print(indent, func.__name__)
+        print(indent, "Args = ", args)
         INDENT_WIDTH += 1
         try:
             val = func(*args, **kwargs)
-            print indent, "Args after = ", args
-            print indent, "Return value: ", val
-            print ""
+            print(indent, "Args after = ", args)
+            print(indent, "Return value: ", val)
+            print("")
             return val
         except:
             raise
@@ -107,7 +107,7 @@ def profile_func(func):
         sortby = ['cumulative', 'time']
         ps = pstats.Stats(pr, stream=s).sort_stats(*sortby)
         ps.print_stats(200)
-        print s.getvalue()
+        print(s.getvalue())
         return ret
 
     return wrapper

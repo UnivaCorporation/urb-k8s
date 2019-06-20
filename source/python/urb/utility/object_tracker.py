@@ -73,6 +73,6 @@ if __name__ == '__main__':
     ot = ObjectTracker.get_instance()
     ot.add(1, 'a')
     ot.add(2, 'b')
-    print ot 
-    print ot.keys()
+    print(ot)
+    print(ot.keys())
 

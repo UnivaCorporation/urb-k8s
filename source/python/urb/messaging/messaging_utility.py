@@ -44,6 +44,6 @@ class MessagingUtility:
 if __name__ == '__main__':
     reply_to = None
     some_complex_variable = 53
-    print MessagingUtility.get_notify_channel_name(reply_to, some_complex_variable)
-    print MessagingUtility.get_endpoint_id('urb.endpoint.27.notify')
-    print MessagingUtility.get_endpoint_id('invalid.notify')
+    print(MessagingUtility.get_notify_channel_name(reply_to, some_complex_variable))
+    print(MessagingUtility.get_endpoint_id('urb.endpoint.27.notify'))
+    print(MessagingUtility.get_endpoint_id('invalid.notify'))

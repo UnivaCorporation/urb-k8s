@@ -26,8 +26,8 @@ import gevent
 #import gc
 from gevent import event
 from exceptions import KeyboardInterrupt
-
 from optparse import OptionParser
+from __future__ import print_function
 
 from urb.exceptions.configuration_error import ConfigurationError
 from urb.config.config_manager import ConfigManager
@@ -138,8 +138,7 @@ class URBService:
             try:
                 os.unlink(pid_file)
             except Exception as ex:
-                print >>sys.stderr, \
-                    'Cannot remove pid file %s: %s' % (pid_file, ex)
+                print('Cannot remove pid file %s: %s' % (pid_file, ex), file=sys.stderr)
     
     def run(self):
         """ Run server. """
@@ -150,8 +149,7 @@ class URBService:
         try:
             self.serve_forever()
         except Exception as ex:
-            print >>sys.stderr, 'Service exiting after unexpected error: %s ' \
-                % (ex) 
+            print('Service exiting after unexpected error: %s ' % (ex), file=sys.stderr) 
             self.remove_pid_file(pid_file_name)
         self.logger.info("URB service exited\n\n\n")
 
@@ -165,8 +163,7 @@ class URBService:
             if pid > 0:
                 sys.exit(0) 
         except OSError, e: 
-            print >>sys.stderr, 'First fork failed with error %d (%s)' \
-                % (e.errno, e.strerror) 
+            print('First fork failed with error %d (%s)' % (e.errno, e.strerror), file=sys.stderr)
             sys.exit(1)
 
         # Change directory to root, close original streams.
@@ -186,14 +183,13 @@ class URBService:
                 if pid_file_name is not None:
                     # Print pid before exit from second parent 
                     pid_file = open(pid_file_name, 'w')
-                    print >>pid_file, pid
+                    print(pid, file= pid_file)
                     pid_file.close()
                     os.chmod(pid_file_name, 
                         stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
                 sys.exit(0) 
         except OSError, e: 
-            print >>sys.stderr, 'Second fork failed with error %d (%s)' \
-                % (e.errno, e.strerror) 
+            print('Second fork failed with error %d (%s)' % (e.errno, e.strerror), file=sys.stderr)
             self.remove_pid_file(pid_file_name)
             sys.exit(1) 
 

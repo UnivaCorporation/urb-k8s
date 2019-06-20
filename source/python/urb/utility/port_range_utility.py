@@ -88,12 +88,12 @@ class PortRangeUtility:
 if __name__ == '__main__':
      prl1 = [{'begin' : 10, 'end' : 20}, {'begin' : 30, 'end' : 40}] 
      prl2 = [{'begin' : 15, 'end' : 18}, {'begin' : 33, 'end' : 36}] 
-     print 'PRL1: ', PortRangeUtility.to_choppy_range(prl1)
-     print 'PRL2: ', PortRangeUtility.to_choppy_range(prl2)
+     print('PRL1: ', PortRangeUtility.to_choppy_range(prl1))
+     print('PRL2: ', PortRangeUtility.to_choppy_range(prl2))
      prl1m2 = PortRangeUtility.subtract(prl1,prl2)
-     print 'PRL1-PRL2: ', prl1m2
+     print('PRL1-PRL2: ', prl1m2)
      tprl1m2 = PortRangeUtility.port_range_to_tuple_list(prl1m2)
-     print 'PRL1-PRL2 as tuple list: ', tprl1m2
-     print 'PRL1-PRL2 as port tuple list: ', PortRangeUtility.tuple_to_port_range_list(tprl1m2)
-     print 'PRL1+PRL2: ', PortRangeUtility.add(prl1,prl2)
+     print('PRL1-PRL2 as tuple list: ', tprl1m2)
+     print('PRL1-PRL2 as port tuple list: ', PortRangeUtility.tuple_to_port_range_list(tprl1m2))
+     print('PRL1+PRL2: ', PortRangeUtility.add(prl1,prl2))
 

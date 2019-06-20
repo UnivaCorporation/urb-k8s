@@ -23,5 +23,5 @@ class TaskTracker(ObjectTracker):
 # Testing
 if __name__ == '__main__':
     tt = TaskTracker.get_instance()
-    print tt
+    print(tt)
 

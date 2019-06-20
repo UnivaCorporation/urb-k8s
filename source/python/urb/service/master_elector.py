@@ -122,5 +122,5 @@ if __name__ == '__main__':
     gevent.sleep(20)
     me.stop()
     t2 = time.time()
-    print "This test should have taken exactly 20 seconds.  It took: %d" % (t2-t1)
+    print("This test should have taken exactly 20 seconds.  It took: %d" % (t2-t1))
 

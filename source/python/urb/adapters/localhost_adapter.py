@@ -173,6 +173,6 @@ class LocalhostAdapter(Adapter):
 # Testing
 if __name__ == '__main__':
     adapter = LocalhostAdapter()
-    print 'Done'
+    print('Done')
 
 

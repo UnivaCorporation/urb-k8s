@@ -77,15 +77,15 @@ class AdapterManager(object):
                 self.logger.trace('adapter_path=%s' % adapter_path)
                 sys.path.append(adapter_path)
                 self.logger.trace('Executing: from %s import %s' % (self.adapter_module, self.adapter_class))
-                exec 'from %s import %s' % (self.adapter_module, self.adapter_class)
-                exec 'adapter = %s' % self.adapter_constructor
+                exec('from %s import %s' % (self.adapter_module, self.adapter_class))
+                exec('adapter = %s' % self.adapter_constructor)
             else:
                 adapter_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..", self.adapter_module)
                 self.logger.trace('adapter_path=%s' % adapter_path)
                 sys.path.append(adapter_path)
                 self.logger.trace('Executing: from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class))
-                exec 'from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class)
-                exec 'adapter = %s' % self.adapter_constructor
+                exec('from %s.%s import %s' % (self.adapter_module, self.adapter_module, self.adapter_class))
+                exec('adapter = %s' % self.adapter_constructor)
         except Exception as ex:
             self.logger.error('AdapterManager configuration error: %s' % ex)
             raise ConfigurationError(exception=ex)

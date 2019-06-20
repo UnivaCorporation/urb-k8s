@@ -55,5 +55,5 @@ class Message(UserDict.UserDict):
 # Testing
 if __name__ == '__main__':
     m = Message('a.b.c', 'HelloMessage', payload={'x' : 'X'})
-    print m
-    print json.dumps(m.to_dict())
+    print(m)
+    print(json.dumps(m.to_dict()))

@@ -23,5 +23,5 @@ class ChannelTracker(ObjectTracker):
 # Testing
 if __name__ == '__main__':
     ct = ChannelTracker.get_instance()
-    print ct 
+    print(ct) 
 
