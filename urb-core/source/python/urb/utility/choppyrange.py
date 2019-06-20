@@ -318,7 +318,7 @@ class IntervalSet(SortedSet):
         
 
 class ChoppyRange():
-    """ Providing low memory footprint and high performance access to "choppy
+    """ Providing low memory footprint(and high performance access to "choppy
     ranges", i.e. integer ranges which can have gaps in them (example: 3:7:2,
     15:17:2 ==> a range of 3:17:2 with a gap of 9:13:2). NOTE, that our ranges
     have inclusive stop boundaries, so 1:3:1 means 1, 2, 3.
@@ -412,7 +412,7 @@ class ChoppyRange():
             cr.insert("1:3:1,7:8:1")
 
             for e in cr.chopup(2)
-                print e
+                print(e
 
             will yield
 
@@ -828,149 +828,149 @@ if __name__ == '__main__':
     cr.insert(slice(28,35,3))
     cr.insert([41,44,47,50])
     # Print what we've got
-    print """Filling ChoppyRange with
+    print("""Filling ChoppyRange with
         cr = ChoppyRange("2:4:1", force_same_step=False)
         cr.insert((7,15,2))
         cr.insert(19)
         cr.insert(slice(28,35,3))
         cr.insert([41,44,47,50])
-    """
-    print "choppyRange struct:", cr.choppyRange
-    print "Elements:", cr.items()
-    print ""
+    """)
+    print("choppyRange struct:", cr.choppyRange)
+    print("Elements:", cr.items())
+    print("")
 
-    print ""
-    print "Testing insert of list of range strings"
+    print("")
+    print("Testing insert of list of range strings")
     cr.clear()
-    print 'Inserting ["1:5:2","9:11:2","14:20:2"]'
+    print('Inserting ["1:5:2","9:11:2","14:20:2"]')
     cr.insert(["1:5:2","9:11:2","14:20:2"])
-    print "Yields", cr
+    print("Yields", cr)
 
     # Create empty and load with output of form items() would create
     cr = ChoppyRange(force_same_step=False)
     cr.insert([(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)])
     # Print what we've got to test items(), __str__ and __expr__
-    print "cr.insert([(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)]) yields"
-    print "__str__() / str(): ", cr
-    print "__expr__():", cr.__expr__()
-    print "Elements:", cr.values()
+    print("cr.insert([(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)]) yields")
+    print("__str__() / str(): ", cr)
+    print("__expr__():", cr.__expr__())
+    print("Elements:", cr.values())
     # Test chunking it up
-    print "\nChunk in 3s"
-    print "\n".join([str(ck) for ck in get_chunk(cr, 3)])
-    print ""
+    print("\nChunk in 3s")
+    print("\n".join([str(ck) for ck in get_chunk(cr, 3)]))
+    print("")
 
     # Testing variations of list inserting into ChoppyRange
     cr.clear()
     cr.insert(range(10))
-    print "Inserting range(10) yields", cr
+    print("Inserting range(10) yields", cr)
     cr.clear()
     cr.insert([(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)])
-    print "Inserting [(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)] yields", cr
-    print ""
+    print("Inserting [(2,5,1),(12,18,2),(31,31,3),(42,43,2),(55,59,3)] yields", cr)
+    print("")
 
     # Save in string then do a bulk insert of that string
     s = str(cr)
     cr.clear()      # empty data structure in between
     cr.insert(s)
-    print "Reloaing from", s, "yields:", cr.choppyRange
-    print ""
+    print("Reloaing from", s, "yields:", cr.choppyRange)
+    print("")
 
     # Check invariance agains json conversions
     import json
     js = json.dumps(cr.items())         # dump it into string
-    print "json.dumps(cr.items())", js
+    print("json.dumps(cr.items())", js)
     cr.clear()
     cr.insert(json.loads(js))             # read it from it
-    print "choppyRange struct after json.loads:", cr.choppyRange
-    print "Elements:", cr.values()
-    print ""
+    print("choppyRange struct after json.loads:", cr.choppyRange)
+    print("Elements:", cr.values())
+    print("")
 
     # Check functions available for chunking up ChoppyRange without expansion
-    print "Chop up ChoppyRange without expanding it"
-    print "Use chunksize of 3"
+    print("Chop up ChoppyRange without expanding it")
+    print("Use chunksize of 3")
     for e in cr.chopup(3):
-        print e, "with element count", RangeTuple(e).count()
-    print "Count elems of (2,2,3)", RangeTuple((2,2,3)).count()
-    print "Count elems of (2,8,2)", RangeTuple((2,8,2)).count()
-    print "Count elems of (2,7,2)", RangeTuple((2,7,2)).count()
-    print "Count elems of (2,9,2)", RangeTuple((2,9,2)).count()
-    print ""
+        print(e, "with element count", RangeTuple(e).count())
+    print("Count elems of (2,2,3)", RangeTuple((2,2,3)).count())
+    print("Count elems of (2,8,2)", RangeTuple((2,8,2)).count())
+    print("Count elems of (2,7,2)", RangeTuple((2,7,2)).count())
+    print("Count elems of (2,9,2)", RangeTuple((2,9,2)).count())
+    print("")
     cr.clear()
     cr.insert([(2,5,2),(6,6,2),(12,18,2),(31,31,2),(42,43,2),(56,59,2)])
-    print "Chop up ChoppyRange", cr, " without expansion but glue elements within chunksize"
-    print "Use chunksize of 3"
+    print("Chop up ChoppyRange", cr, " without expansion but glue elements within chunksize")
+    print("Use chunksize of 3")
     for e in cr.chopFillUp(3):
-        print e, ChoppyRange(e)
-    print ""
-    print "Indices contained in ChoppyRange:", cr.indexCount()
+        print(e, ChoppyRange(e))
+    print("")
+    print("Indices contained in ChoppyRange:", cr.indexCount())
 
     # Just clear the data and fill it with one descriptor of a larger range
     cr.clear()
     cr.insert((4,57,3))
     # Test chunking with that again
-    print "Chunk in 4s of cr.insert((4,57,3))"
-    print "\n".join([str(ck) for ck in get_chunk(cr, 4)])
-    print ""
+    print("Chunk in 4s of cr.insert((4,57,3))")
+    print("\n".join([str(ck) for ck in get_chunk(cr, 4)]))
+    print("")
 
     # Test automatic grouping, i.e. taking scattered indices and form them
     # into range slice groups based on a given step width
     cr.clear()
     cr.insert([2,4,10,12,14,24,28,32,34,36,38], 2)
-    print "Set with: cr.insert([2,4,10,12,14,24,28,32,34,36,38], 2)"
-    print "choppyRange struct:", cr.choppyRange
-    print ""
+    print("Set with: cr.insert([2,4,10,12,14,24,28,32,34,36,38], 2)")
+    print("choppyRange struct:", cr.choppyRange)
+    print("")
 
     # Test the iter*() functions
-    print "Iterating through iteritems:"
+    print("Iterating through iteritems:")
     for e in cr.iteritems():
-        print e
-    print "Iterating through itervalues:"
+        print(e)
+    print("Iterating through itervalues:")
     for e in cr.itervalues():
-        print e
+        print(e)
 
     # Test whether range overlaps get detected
-    print ""
+    print("")
     cr.clear()
     cr.insert((2,4,1))
-    print "Overlap tests with choppy range:", cr
+    print("Overlap tests with choppy range:", cr)
     tstrgs = [(1,3,1), (3,5,1), (1,5,1), (3,3,1), (3,4,1), (2,3,1), (2,4,1)]
     for rg in tstrgs:
         try:
             cr.insert(rg)
-            print rg, "got added wrongly ==>", str(cr)
+            print(rg, "got added wrongly ==>", str(cr))
         except:
-            print rg, "overlaps with ==>", str(cr)
+            print(rg, "overlaps with ==>", str(cr))
     # Finally check whether exception gets created correctly
-    print "Trying to add range '(2,5,2)' to choppy range", cr
+    print("Trying to add range '(2,5,2)' to choppy range", cr)
     try:
         cr.insert((2,5,2))
     except URBException as e:
         ##################
         # Replace original exception with URBException
         #except ShortJobException as e:
-        print e
+        print(e)
 
     # And whether overlap exceptions can be ignored
-    print "\nNow with ingoreOverlaps set to True:"
+    print("\nNow with ingoreOverlaps set to True:")
     cr.ignoreOverlaps = True
     for rg in tstrgs:
         cr.insert(rg)
-        print rg, "tried to add and ignored ==>", str(cr)
+        print(rg, "tried to add and ignored ==>", str(cr))
 
     # Test error detection for range inputs into IntervalSet class
-    print "\nTesting error detecting in IntervalSet class"
+    print("\nTesting error detecting in IntervalSet class")
     cr.ignoreOverlaps = False
     for rg in [(1,1), (1,2,'a'), "test"]:
-        print "Trying to add", rg, "to choppy range"
+        print("Trying to add", rg, "to choppy range")
         try:
             cr.insert(rg)
-            print rg, "got added wrongly ==>", str(cr)
+            print(rg, "got added wrongly ==>", str(cr))
         except URBException as e:
             ##################
             # Replace original exception with URBException
             #except ShortJobException as e:
-            print e
-    print "Trying to add element 'test' to IntervalSet"
+            print(e)
+    print("Trying to add element 'test' to IntervalSet")
     try:
         s = IntervalSet()
         s.add("test")
@@ -978,181 +978,181 @@ if __name__ == '__main__':
         ##################
         # Replace original exception with URBException
         #except ShortJobException as e:
-        print e
+        print(e)
 
-    print ""
-    print "Testing subtract() function"
+    print("")
+    print("Testing subtract() function")
     cr.clear()
     cr.insert([(2,7,2),(12,18,2),(31,31,2),(42,52,2),(55,59,2)])
     cr2 = ChoppyRange((4,5,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr2 = ChoppyRange((12,16,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr2 = ChoppyRange((57,57,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr2 = ChoppyRange((40,42,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr2 = ChoppyRange((40,46,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr2 = ChoppyRange((52,52,2))
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
     cr.clear()
     cr.insert([(2,7,2),(12,18,2),(31,31,2),(42,52,2),(55,59,2)])
     cr2 = ChoppyRange([(4,5,2),(40,42,2)])
-    print "Removing", cr2, "from", cr
+    print("Removing", cr2, "from", cr)
     cr.subtract(cr2)
-    print "Yields", cr
+    print("Yields", cr)
 
-    print ""
-    print "Testing the remove() function"
+    print("")
+    print("Testing the remove() function")
     cr.clear()
     cr.insert([(2,7,2),(12,18,2),(31,31,2),(42,52,2),(55,59,2)])
     cr.remove((4,5,2))
-    print "Removing (4,5,2) from", cr
-    print "Yields", cr
+    print("Removing (4,5,2) from", cr)
+    print("Yields", cr)
 
-    print ""
-    print "Testing __contains__() in IntervalSet"
+    print("")
+    print("Testing __contains__() in IntervalSet")
     cr.clear()
     cr.insert([(2,7,2),(12,18,2),(31,31,2),(42,52,2),(55,59,2)])
-    print "ChoppyRange is", cr
+    print("ChoppyRange is", cr)
     try:
         cr.insert((5,9,2))
     except URBException:
         ##################
         # Replace original exception with URBException
         #except ShortJobException as e:
-        print "Attempted to insert 5:9:2 = overlap ==> got exception"
+        print("Attempted to insert 5:9:2 = overlap ==> got exception")
     cr.insert((9,11,2))
-    print "Attempted to insert 9:11:2 = no overlap ==>", cr
+    print("Attempted to insert 9:11:2 = no overlap ==>", cr)
 
-    print ""
+    print("")
     cr.clear()
     cr.insert([(2,7,2),(12,18,2),(31,31,2),(42,52,2),(55,59,2)])
-    print "Output of values()", cr.values(), " for ChoppyRang", cr
+    print("Output of values()", cr.values(), " for ChoppyRang", cr)
 
-    print ""
+    print("")
     cr = ChoppyRange("1:1:1")
-    print "Is >>", cr, "<< empty?", cr.isempty()
-    print "Subtracting 1 from ChoppyRange", cr, " yields:", cr.subtract(ChoppyRange(1))
-    print "Is >>", cr, "<< empty?", cr.isempty()
+    print("Is >>", cr, "<< empty?", cr.isempty())
+    print("Subtracting 1 from ChoppyRange", cr, " yields:", cr.subtract(ChoppyRange(1)))
+    print("Is >>", cr, "<< empty?", cr.isempty())
 
-    print ""
+    print("")
     cr = ChoppyRange("1:1:1")
     try:
         cr.insert("2:2:2")
-        print "Error: should have received step mismatch because of trying to insert 2:2:2 to ChoppyRange of 1:1:1"
+        print("Error: should have received step mismatch because of trying to insert 2:2:2 to ChoppyRange of 1:1:1")
     except:
-        print "Trying to insert 2:2:2 to ChoppyRange of", cr, " and correctly got exception because of step mismatch"
-    print "Step size in cr", cr, " is", cr.step
+        print("Trying to insert 2:2:2 to ChoppyRange of", cr, " and correctly got exception because of step mismatch")
+    print("Step size in cr", cr, " is", cr.step)
 
-    print ""
-    print "RangeTuple((1,4,1)).union(RangeTuple((7,9,1))):", RangeTuple((1,4,1)).union(RangeTuple((7,9,1)))
-    print "RangeTuple((7,9,1)).union(RangeTuple((1,4,1))):", RangeTuple((7,9,1)).union(RangeTuple((1,4,1)))
-    print "RangeTuple((1,4,1)).union(RangeTuple((3,9,1))):", RangeTuple((1,4,1)).union(RangeTuple((3,9,1)))
-    print "RangeTuple((3,9,1)).union(RangeTuple((1,4,1))):", RangeTuple((3,9,1)).union(RangeTuple((1,4,1)))
-    print "RangeTuple((1,9,1)).union(RangeTuple((2,4,1))):", RangeTuple((1,9,1)).union(RangeTuple((2,4,1)))
-    print "RangeTuple((2,4,1)).union(RangeTuple((1,9,1))):", RangeTuple((2,4,1)).union(RangeTuple((1,9,1)))
-    print "RangeTuple((2,4,1)).union(RangeTuple((1,9,1))):", RangeTuple((2,4,1)).union(RangeTuple((1,9,1)))
-    print "RangeTuple((1,4,2)).union(RangeTuple((3,9,2))):", RangeTuple((1,4,2)).union(RangeTuple((3,9,2)))
-    print "RangeTuple((1,4,2)).union(RangeTuple((5,9,2))):", RangeTuple((1,4,2)).union(RangeTuple((5,9,2)))
+    print("")
+    print("RangeTuple((1,4,1)).union(RangeTuple((7,9,1))):", RangeTuple((1,4,1)).union(RangeTuple((7,9,1))))
+    print("RangeTuple((7,9,1)).union(RangeTuple((1,4,1))):", RangeTuple((7,9,1)).union(RangeTuple((1,4,1))))
+    print("RangeTuple((1,4,1)).union(RangeTuple((3,9,1))):", RangeTuple((1,4,1)).union(RangeTuple((3,9,1))))
+    print("RangeTuple((3,9,1)).union(RangeTuple((1,4,1))):", RangeTuple((3,9,1)).union(RangeTuple((1,4,1))))
+    print("RangeTuple((1,9,1)).union(RangeTuple((2,4,1))):", RangeTuple((1,9,1)).union(RangeTuple((2,4,1))))
+    print("RangeTuple((2,4,1)).union(RangeTuple((1,9,1))):", RangeTuple((2,4,1)).union(RangeTuple((1,9,1))))
+    print("RangeTuple((2,4,1)).union(RangeTuple((1,9,1))):", RangeTuple((2,4,1)).union(RangeTuple((1,9,1))))
+    print("RangeTuple((1,4,2)).union(RangeTuple((3,9,2))):", RangeTuple((1,4,2)).union(RangeTuple((3,9,2))))
+    print("RangeTuple((1,4,2)).union(RangeTuple((5,9,2))):", RangeTuple((1,4,2)).union(RangeTuple((5,9,2))))
     try:
-        print "RangeTuple((1,4,2)).union(RangeTuple((3,9,1))):", RangeTuple((1,4,2)).union(RangeTuple((3,9,1)))
-        print "Tuple union was done incorrectly despite inequal step"
+        print("RangeTuple((1,4,2)).union(RangeTuple((3,9,1))):", RangeTuple((1,4,2)).union(RangeTuple((3,9,1))))
+        print("Tuple union was done incorrectly despite inequal step")
     except:
-        print "RangeTuple((1,4,2)).union(RangeTuple((3,9,1))) correctly resulted in exception because inequal steps."
-    print ""
-    print "RangeTuple((1,4,1)).difference(RangeTuple((7,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((7,9,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((3,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((3,9,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((4,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((4,9,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((5,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((5,9,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((1,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((1,9,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((2,3,1))):", RangeTuple((1,4,1)).difference(RangeTuple((2,3,1)))
-    print "RangeTuple((1,4,1)).difference(RangeTuple((1,3,1))):", RangeTuple((1,4,1)).difference(RangeTuple((1,3,1)))
-    print ""
-    print "RangeTuple((1,4,1)).join(RangeTuple(5,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((5,7,1)))
-    print "RangeTuple((1,4,1)).join(RangeTuple(4,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((4,7,1)))
-    print "RangeTuple((1,4,1)).join(RangeTuple(6,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((6,7,1)))
+        print("RangeTuple((1,4,2)).union(RangeTuple((3,9,1))) correctly resulted in exception because inequal steps.")
+    print("")
+    print("RangeTuple((1,4,1)).difference(RangeTuple((7,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((7,9,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((3,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((3,9,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((4,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((4,9,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((5,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((5,9,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((1,9,1))):", RangeTuple((1,4,1)).difference(RangeTuple((1,9,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((2,3,1))):", RangeTuple((1,4,1)).difference(RangeTuple((2,3,1))))
+    print("RangeTuple((1,4,1)).difference(RangeTuple((1,3,1))):", RangeTuple((1,4,1)).difference(RangeTuple((1,3,1))))
+    print("")
+    print("RangeTuple((1,4,1)).join(RangeTuple(5,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((5,7,1))))
+    print("RangeTuple((1,4,1)).join(RangeTuple(4,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((4,7,1))))
+    print("RangeTuple((1,4,1)).join(RangeTuple(6,7,1)):", RangeTuple((1,4,1)).join(RangeTuple((6,7,1))))
 
-    print ""
+    print("")
     cr = ChoppyRange("1:4:1,7:9:1")
     cr2 = ChoppyRange("3:5:1,11:13:1")
     cr3 = ChoppyRange("6:6:1,17:18:1")
-    print "Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)) 
+    print("Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)))
     cr = ChoppyRange("1:4:1,9:10:1")
     cr2 = ChoppyRange("3:5:1,11:13:1")
     cr3 = ChoppyRange("6:8:1,17:18:1")
-    print "Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)) 
+    print("Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)))
     cr = ChoppyRange("1:4:2,9:9:2")
     cr2 = ChoppyRange("3:5:2,11:13:2")
     cr3 = ChoppyRange("6:8:2,17:18:2")
-    print "Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)) 
-    print ""
-    print "Testing in_place union:"
+    print("Union of %s  &  %s  &  %s ==> %s" % (cr, cr2, cr3, cr.union(cr2, cr3)))
+    print("")
+    print("Testing in_place union:")
     cr = ChoppyRange("1:4:2,9:9:2")
     cr2 = ChoppyRange("3:5:2,11:13:2")
     cr3 = ChoppyRange("6:8:2,17:18:2")
-    print "In-place union of %s  &  %s  &  %s" % (cr, cr2, cr3)
+    print("In-place union of %s  &  %s  &  %s" % (cr, cr2, cr3))
     cr.union(cr2, cr3, in_place=True)
-    print "cr instance itself:", cr
+    print("cr instance itself:", cr) 
 
-    print ""
+    print("")
     cr = ChoppyRange("1:4:1,7:9:1,11:15:1,22:25:1")
     cr2 = ChoppyRange("3:8:1,10:10:1,13:14:1,24:29:1")
-    print "Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2))
+    print("Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2)))
     cr = ChoppyRange("1:4:1,7:9:1,11:15:1,22:25:1")
     cr2 = ChoppyRange("0:1:1,4:7:1,11:22:1,25:29:1")
-    print "Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2))
+    print("Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2)))
     cr = ChoppyRange("1:8:3,10:21:3,28:28:3")
     cr2 = ChoppyRange("4:9:3,13:21:3,25:25:3,28:35:3")
-    print "Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2))
+    print("Intersection of %s and %s ==> %s" % (cr, cr2, cr.intersection(cr2)))
 
-    print ""
-    print 'ChoppyRange("(2,4, 1) , (5, 7, 1) ,( 9,11,1),(21,22,1)") ==>', ChoppyRange("(2,4, 1) , (5, 7, 1) ,( 9,11,1),(21,22,1)")
+    print("")
+    print('ChoppyRange("(2,4, 1) , (5, 7, 1) ,( 9,11,1),(21,22,1)") ==>', ChoppyRange("(2,4, 1) , (5, 7, 1) ,( 9,11,1),(21,22,1)"))
 
-    print ""
+    print("")
     cr = ChoppyRange("1:4:1")
     cr2 = ChoppyRange()
     cr3 = ChoppyRange()
     un = cr2.union(cr3)
     cr.subtract(un)
-    print "subtr", cr
+    print("subtr", cr)
 
     import sys
     if len(sys.argv) == 1:
         sys.exit(0)
-    print ""
-    print "Benchmarking various options to implement storing and removing to/from Redis."
-    print "Usage:", sys.argv[0], " <ChoppyRangeDescrStr> <ChunkSize> ['print']"
-    print ""
+    print("")
+    print("Benchmarking various options to implement storing and removing to/from Redis.")
+    print("Usage:", sys.argv[0], " <ChoppyRangeDescrStr> <ChunkSize> ['print']")
+    print("")
     crstr = sys.argv[1]
     cksz = int(sys.argv[2])
     doprint = False
     if len(sys.argv) == 4:
         doprint = True
-    print ""
+    print("")
     mq = MsgQ()
     mq.clearMsgQs()
     import time
 
-    print "Benchmarking how to do unions of failed or done tasks"
+    print("Benchmarking how to do unions of failed or done tasks")
     cr = ChoppyRange(crstr)
     start = time.time()
     for e in cr.chopup(cksz):
         mq.zAdd("TTT", e.start, e)
-    print "Chopping of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start
+    print("Chopping of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start)
     start = time.time()
     cr2 = ChoppyRange()
     crlst = []
@@ -1162,12 +1162,12 @@ if __name__ == '__main__':
             break
         crlst.append(ChoppyRange(e))
     cr2 = ChoppyRange().union(*crlst)
-    print "Popping and union of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start
-    print ""
+    print("Popping and union of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start)
+    print("")
     start = time.time()
     for e in cr.chopup(cksz):
         mq.zAdd("TTT", e.start, str(ChoppyRange(e)))
-    print "Chopping of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start
+    print("Chopping of ChoppyRange", cr, " in chunks of size", cksz, " took", time.time()-start)
     start = time.time()
     i = 0
     while True:
@@ -1178,14 +1178,14 @@ if __name__ == '__main__':
         i += 1
     sts = [str(e) for e in range(i)]
     un = mq.sUnion(*sts)
-    print "Union of sets from", cr, " split in chunks of size", cksz, " took", time.time()-start
+    print("Union of sets from", cr, " split in chunks of size", cksz, " took", time.time()-start)
 
-    print ""
+    print("")
     start = time.time()
     cr = ChoppyRange(crstr, backup='XXX', force_same_step=False)
     for e in cr.chopFillUp(cksz):
         mq.sAdd('TTT', e)
-    print "Fill chopped took:", time.time() - start
+    print("Fill chopped took:", time.time() - start)
     l = []
     start = time.time()
     while True:
@@ -1196,17 +1196,17 @@ if __name__ == '__main__':
         else:
             break
     if doprint:
-        print l
-    print "Popping with sPop took:", time.time() - start
+        print(l)
+    print("Popping with sPop took:", time.time() - start)
 
     mq.clearMsgQs()
-    print ""
+    print("")
     import time
     start = time.time()
     cr = ChoppyRange(crstr, backup='XXX', force_same_step=False)
     for e in cr.chopFillUp(cksz):
         mq.sAdd('TTT', e)
-    print "Fill chopped took:", time.time() - start
+    print("Fill chopped took:", time.time() - start)
     l = []
     start = time.time()
     while True:
@@ -1217,18 +1217,18 @@ if __name__ == '__main__':
         else:
             break
     if doprint:
-        print l
-    print "Popping with sPopMove took:", time.time() - start
+        print(l)
+    print("Popping with sPopMove took:", time.time() - start)
 
     mq.clearMsgQs()
-    print ""
+    print("")
     import time
     start = time.time()
     cr = ChoppyRange(crstr, backup='XXX', force_same_step=False)
     for e in cr.chopFillUp(cksz):
         mq.zAdd('XYZ', get_score(e[0][0], e[-1][1]), e)
-    print "Fill chopped with zAdd took:", time.time() - start
-    # print cr2.mq.zGet(cr2.backup)
+    print("Fill chopped with zAdd took:", time.time() - start)
+    # print(cr2.mq.zGet(cr2.backup)
     l = []
     start = time.time()
     while True:
@@ -1240,18 +1240,18 @@ if __name__ == '__main__':
         else:
             break
     if doprint:
-        print l
-    print "Popping with zLPopMove took:", time.time() - start
+        print(l)
+    print("Popping with zLPopMove took:", time.time() - start)
 
     mq.clearMsgQs()
-    print ""
+    print("")
     import time
     start = time.time()
     cr = ChoppyRange(crstr, backup='XXX', force_same_step=False)
     for e in cr.chopFillUp(cksz):
         mq.zAdd('TTT', get_score(e[0][0], e[-1][1]), e)
-    print "Fill chopped with zAdd took:", time.time() - start
-    # print cr2.mq.zGet(cr2.backup)
+    print("Fill chopped with zAdd took:", time.time() - start)
+    # print(cr2.mq.zGet(cr2.backup)
     l = []
     start = time.time()
     while True:
@@ -1262,16 +1262,16 @@ if __name__ == '__main__':
         else:
             break
     if doprint:
-        print l
-    print "Popping with zLPopAndRem took:", time.time() - start
+        print(l)
+    print("Popping with zLPopAndRem took:", time.time() - start)
 
-    print ""
+    print("")
     mq.clearMsgQs()
     start = time.time()
     cr = ChoppyRange(crstr, backup='ZZZ', force_same_step=False)
     for e in cr.chopFillUp(cksz):
         mq.pushToQ('YYY', e)
-    print "Fill chopped with pushToQ took:", time.time() - start
+    print("Fill chopped with pushToQ took:", time.time() - start)
     start = time.time()
     l = []
     while True:
@@ -1282,17 +1282,17 @@ if __name__ == '__main__':
             if doprint:
                 l.append(msg)
     if doprint:
-        print l
-    print "Popping with popFromQ took:", time.time() - start
+        print(l)
+    print("Popping with popFromQ took:", time.time() - start)
 
-    print ""
+    print("")
     mq.clearMsgQs()
     start = time.time()
     cr = ChoppyRange(crstr, force_same_step=False)
     mq.sAdd('XXX', *[e for e in cr.itervalues()])
     for e in get_chunk(cr, cksz):
         mq.pushToQ('AAA', e)
-    print "Fill chopped with pushToQ and sAdd of itervalues took:", time.time() - start
+    print("Fill chopped with pushToQ and sAdd of itervalues took:", time.time() - start)
     start = time.time()
     l = []
     while True:
@@ -1303,5 +1303,5 @@ if __name__ == '__main__':
             if doprint:
                 l.append(msg)
     if doprint:
-        print l
-    print "Popping with popFromQ took:", time.time() - start
+        print(l)
+    print("Popping with popFromQ took:", time.time() - start)

@@ -23,5 +23,5 @@ class ExecutorTracker(ObjectTracker):
 # Testing
 if __name__ == '__main__':
     et = ExecutorTracker.get_instance()
-    print et 
+    print(et) 
 

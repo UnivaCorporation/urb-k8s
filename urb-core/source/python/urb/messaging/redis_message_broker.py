@@ -166,16 +166,16 @@ if __name__ == '__main__':
     rmb = RedisMessageBroker()
     message = 'XYZ'
     q_name = 'xyz'
-    print 'Delete Q'
+    print('Delete Q')
     rmb.delete_queue(q_name)
-    print 'Q Size: ', rmb.get_queue_size(q_name)
+    print('Q Size: ', rmb.get_queue_size(q_name))
     rmb.push(q_name, message)
-    print 'Pushed: ', message
-    print 'Q Size: ', rmb.get_queue_size(q_name)
+    print('Pushed: ', message)
+    print('Q Size: ', rmb.get_queue_size(q_name))
     message = rmb.pop_blocking(q_name)
-    print 'Popped: ', message
-    print 'Q Size: ', rmb.get_queue_size(q_name)
-    print 'Channel list: ', rmb.get_channel_names('*.notify')
+    print('Popped: ', message)
+    print('Q Size: ', rmb.get_queue_size(q_name))
+    print('Channel list: ', rmb.get_channel_names('*.notify'))
     # Processing test
     p_queue = 'ptest'
     rmb.delete_queue(p_queue)
@@ -183,14 +183,14 @@ if __name__ == '__main__':
     rmb.push(p_queue, 'b')
     rmb.push(p_queue, 'c')
     # Should print a
-    print rmb.pop_blocking(p_queue,1) 
+    print(rmb.pop_blocking(p_queue,1))
     # Should print b
-    print rmb.pop_blocking(p_queue,1) 
+    print(rmb.pop_blocking(p_queue,1))
     # Now restore... Should print 2
-    print rmb.restore_lost_messages(p_queue)
+    print(rmb.restore_lost_messages(p_queue)(
     # Should print a
-    print rmb.pop_blocking(p_queue,1) 
+    print(rmb.pop_blocking(p_queue,1))
     # Should print b
-    print rmb.pop_blocking(p_queue,1) 
+    print(rmb.pop_blocking(p_queue,1))
     # Should print c
-    print rmb.pop_blocking(p_queue,1) 
+    print(rmb.pop_blocking(p_queue,1))

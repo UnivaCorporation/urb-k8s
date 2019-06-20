@@ -224,8 +224,8 @@ class LogManager(object):
             handler_name = re.sub(r'\(.*', '', handler_option)
             module_name = handler_name.split('.')[0]
             try:
-                exec 'from urb.log import %s' % (module_name)
-                exec '_handler = %s' % (handler_option)
+                exec('from urb.log import %s' % (module_name))
+                exec('_handler = %s' % (handler_option))
             except IOError as ex:
                 _errno = ex.errno
                 import errno

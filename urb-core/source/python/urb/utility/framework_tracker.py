@@ -91,21 +91,21 @@ if __name__ == '__main__':
     for i in range(0,30):
         f = {'id' : i}
         ft.add(i,f)
-    print ft.object_dict
-    print 'Removing items'
+    print(ft.object_dict)
+    print('Removing items')
 
     for i in range(0,30):
-        print 'Removing id: ', i
+        print('Removing id: ', i)
         f = ft.remove(i)
-        print 'Removed: ', f
+        print('Removed: ', f)
         f2 = ft.get(i)
-        print 'Active: ', f2
+        print('Active: ', f2)
         f3 = ft.get_active_or_finished_framework(i)
-        print 'Active/Finished: ', f3
-    print 'Active: ', ft.object_dict
-    print 'Finished: ', ft.finished_framework_dict
+        print('Active/Finished: ', f3)
+    print('Active: ', ft.object_dict)
+    print('Finished: ', ft.finished_framework_dict)
     for i in range(0,30):
-        print i, ' is finished? ', ft.is_framework_finished(i)
+        print(i, ' is finished? ', ft.is_framework_finished(i))
         
 
 

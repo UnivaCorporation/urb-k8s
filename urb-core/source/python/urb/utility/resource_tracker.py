@@ -29,5 +29,5 @@ class ResourceTracker(ObjectTracker):
 # Testing
 if __name__ == '__main__':
     rt = ResourceTracker.get_instance()
-    print rt 
+    print(rt)
 

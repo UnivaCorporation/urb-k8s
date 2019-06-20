@@ -172,46 +172,46 @@ if __name__ == '__main__':
     channel.clear()
     message = 'XYZ'
     channel.write(message)
-    print 'Pushed: ', message
-    print 'Q Size: ', channel.get_size()
+    print('Pushed: ', message)
+    print('Q Size: ', channel.get_size())
     message = channel.read_blocking()
-    print 'Popped: ', message
-    print 'Q Size: ', channel.get_size()
+    print('Popped: ', message)
+    print('Q Size: ', channel.get_size())
 
     def read_callback(msg):
-        print 'BEGIN READ CALLBACK', time.time()
-        print 'READ: ', msg, time.time()
-        print 'END READ CALLBACK', time.time()
+        print('BEGIN READ CALLBACK', time.time())
+        print('READ: ', msg, time.time())
+        print('END READ CALLBACK', time.time())
     channel.register_read_callback(read_callback)
 
     def write_callback(msg):
-        print 'BEGIN WRITE CALLBACK', time.time()
-        print 'WRITE: ', msg
-        print 'END WRITE CALLBACK', time.time()
+        print('BEGIN WRITE CALLBACK', time.time())
+        print('WRITE: ', msg)
+        print('END WRITE CALLBACK', time.time())
     channel.register_write_callback(write_callback)
 
     message = 'XYZ'
     channel.write(message)
-    print 'Pushed: ', message
-    print 'Q Size: ', channel.get_size()
+    print('Pushed: ', message)
+    print('Q Size: ', channel.get_size())
     message = channel.read_blocking()
-    print 'Popped: ', message
-    print 'Q Size: ', channel.get_size()
+    print('Popped: ', message)
+    print('Q Size: ', channel.get_size())
 
-    print 'ENTER listener loop'
+    print('ENTER listener loop')
     listener = channel.start_listener()
-    print 'Listener: ', listener
+    print('Listener: ', listener)
     for i in range (0, 10):
         message = 'This is message #%s' % i
-        print 'Writing message: ', message
+        print('Writing message: ', message)
         channel.write(message)
         gevent.sleep(0.001)
-    print 'SLEEPING...'
+    print('SLEEPING...')
     time.sleep(10)
-    print 'Stopping listener'
+    print('Stopping listener')
     channel.stop_listener()
     gevent.joinall([listener])
     
-    print 'Done'
+    print('Done')
 
      

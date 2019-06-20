@@ -23,5 +23,5 @@ class JobTracker(ObjectTracker):
 # Testing
 if __name__ == '__main__':
     jt = JobTracker.get_instance()
-    print jt 
+    print(jt)
 

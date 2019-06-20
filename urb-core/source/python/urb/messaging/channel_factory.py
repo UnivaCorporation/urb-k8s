@@ -112,15 +112,15 @@ class ChannelFactory(object):
 if __name__ == '__main__':
     cf = ChannelFactory.get_instance()
     channel = cf.create_channel('test_channel')
-    print 'Port: ', cf.get_message_broker_connection_port()
-    print 'Host: ', cf.get_message_broker_connection_host()
-    print channel
+    print('Port: ', cf.get_message_broker_connection_port())
+    print('Host: ', cf.get_message_broker_connection_host())
+    print(channel)
     msg = 'Test'
     channel.write(msg)
     msg2 = channel.read()
 
-    print 'Write: ', msg
-    print 'Read: ', msg2
+    print('Write: ', msg)
+    print('Read: ', msg2)
 
-    print cf.get_unique_channel_name()
+    print(cf.get_unique_channel_name())
 

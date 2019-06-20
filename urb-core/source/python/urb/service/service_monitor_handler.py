@@ -100,5 +100,5 @@ class ServiceMonitorHandler(MessageHandler):
 # Testing
 if __name__ == '__main__':
     handler = ServiceMonitorHandler('x.y.z')
-    print handler.ping()
+    print(handler.ping())
 

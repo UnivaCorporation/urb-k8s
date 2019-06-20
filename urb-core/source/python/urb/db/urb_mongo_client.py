@@ -101,20 +101,20 @@ if __name__ == '__main__':
 
     mongo.drop('students')
     id = mongo.insert('students', { '_id' : 1, 'semester' : 1, 'grades' : [ 70, 87, 90 ]   })
-    print 'Student #1 id: ', id
+    print('Student #1 id: ', id)
     id = mongo.insert('students', { '_id' : 2, 'semester' : 1, 'grades' : [ 90, 88, 92 ] } )
-    print 'Student #2 id: ', id
-    print mongo.find_as_list('students', criteria={ 'semester' : 1, 'grades': { '$gte' : 85 } }, projections={ 'grades.$' : 1 } )
+    print('Student #2 id: ', id)
+    print(mongo.find_as_list('students', criteria={ 'semester' : 1, 'grades': { '$gte' : 85 } }, projections={ 'grades.$' : 1 } ))
 
     result = mongo.update('frameworks', {'_id' : 2}, {'$set' : {'task_id' : 2}}, upsert=True)
-    print result
+    print(result)
 
     doc = mongo.find_one('frameworks', {'task_id' : 1})
-    print doc
+    print(doc)
     docs = mongo.find('frameworks', projections={'task_id' : 1})
-    print docs.count()
+    print(docs.count())
     docs = mongo.find_as_list('frameworks', projections={'task_id' : 1})
-    print docs
-    print 'Collection names: ', mongo.collection_names()
+    print(docs)
+    print('Collection names: ', mongo.collection_names()
     mongo.drop('students')
-    print 'Collection names (after drop): ', mongo.collection_names()
+    print('Collection names (after drop): ', mongo.collection_names())
