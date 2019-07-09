@@ -120,9 +120,9 @@ class URBService:
                     handler_class = handler_constructor.split('(')[0]
                     self.logger.info('Instantiating handler: %s, handler_module=%s ,handler_class=%s'
                                      % (handler_constructor, handler_module ,handler_class))
-                    exec 'from %s import %s' % (handler_module,
-                        handler_class)
-                    exec 'handler = %s' % (handler_constructor)
+                    exec('from %s import %s' % (handler_module,
+                        handler_class))
+                    exec('handler = %s' % (handler_constructor))
                     handler.register_shutdown_callback(self.shutdown_callback)
                     self.handler_list.append(handler)
 
