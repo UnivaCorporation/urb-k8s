@@ -115,6 +115,6 @@ if __name__ == '__main__':
     print(docs.count())
     docs = mongo.find_as_list('frameworks', projections={'task_id' : 1})
     print(docs)
-    print('Collection names: ', mongo.collection_names()
+    print('Collection names: ', mongo.collection_names())
     mongo.drop('students')
     print('Collection names (after drop): ', mongo.collection_names())

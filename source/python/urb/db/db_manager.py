@@ -68,7 +68,7 @@ class DBManager(object):
                 self.db_client_class))
             cmd = 'db_client = %s' % self.db_client_constructor
             self.logger.debug('Using %s' % cmd)
-            exec cmd
+            exec(cmd)
             return db_client
         except Exception as ex:
             self.logger.warn('Could not create db client: %s' % ex)
