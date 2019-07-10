@@ -65,9 +65,9 @@ class ChannelFactory(object):
             
     def __get_message_broker(self):
         """ Create instance of message broker class. """
-        exec 'from %s import %s' % (self.message_broker_module,
-            self.message_broker_class)
-        exec 'mb = %s' % self.message_broker_constructor
+        exec('from %s import %s' % (self.message_broker_module,
+            self.message_broker_class))
+        exec('mb = %s' % self.message_broker_constructor)
         return mb
 
     def create_channel(self, name):

@@ -64,11 +64,11 @@ class DBManager(object):
             self.db_client_constructor = db_client_config[dot_pos+1:]
             self.db_client_class = \
                 self.db_client_constructor.split('(')[0]
-            exec 'from %s import %s' % (self.db_client_module,
-                self.db_client_class)
+            exec('from %s import %s' % (self.db_client_module,
+                self.db_client_class))
             cmd = 'db_client = %s' % self.db_client_constructor
             self.logger.debug('Using %s' % cmd)
-            exec cmd
+            exec(cmd)
             return db_client
         except Exception as ex:
             self.logger.warn('Could not create db client: %s' % ex)
