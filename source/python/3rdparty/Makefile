@@ -43,7 +43,7 @@ XMLTODICT_EGG=$(XMLTODICT_NAME)-py$(EGG_PYV).egg
 PYMONGO_ARCHIVE=$(shell ls pymongo-*.tar.gz)
 PYMONGO_NAME=$(subst .tar.gz,,$(PYMONGO_ARCHIVE))
 PYMONGO_EGG=$(PYMONGO_NAME)-py$(EGG_PYV)-$(EGG_ARCH).egg
-ifeq ($(shell $(PYTHON) -c "import sys; print sys.version_info[0],sys.version_info[1]"),2 6)
+ifeq ($(shell $(PYTHON) -c "import sys; print(sys.version_info[0],sys.version_info[1]")),2 6)
   PROTOBUF_ARCHIVE=protobuf-3.0.0.tar.gz
 else
   PROTOBUF_ARCHIVE=protobuf-3.5.0.tar.gz
